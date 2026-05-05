@@ -1,0 +1,6 @@
+@CrmDemo.Services.Invoice.API_HostAddress = http://localhost:5249
+
+GET {{CrmDemo.Services.Invoice.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

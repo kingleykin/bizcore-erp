@@ -1,0 +1,48 @@
+using Invoice.API.Application.Services;
+using Invoice.API.Domain.Entities;
+using Microsoft.AspNetCore.Mvc;
+
+namespace Invoice.API.Controllers
+{
+    [ApiController]
+    [Route("invoice")]
+    public class InvoicesController : ControllerBase
+    {
+        private readonly IInvoiceService _invoiceService;
+
+        public InvoicesController(IInvoiceService invoiceService)
+        {
+            _invoiceService = invoiceService;
+        }
+
+        [HttpGet]
+        public async Task<ActionResult<IEnumerable<Invoice.API.Domain.Entities.Invoice>>> GetInvoices()
+        {
+            var invoices = await _invoiceService.GetAllAsync();
+            return Ok(invoices);
+        }
+
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Invoice.API.Domain.Entities.Invoice>> GetInvoice(Guid id)
+        {
+            var invoice = await _invoiceService.GetByIdAsync(id);
+            if (invoice == null) return NotFound();
+            return Ok(invoice);
+        }
+
+        [HttpPost]
+        public async Task<ActionResult<Invoice.API.Domain.Entities.Invoice>> CreateInvoice(Invoice.API.Domain.Entities.Invoice invoice)
+        {
+            var created = await _invoiceService.CreateAsync(invoice);
+            return CreatedAtAction(nameof(GetInvoice), new { id = created.Id }, created);
+        }
+
+        [HttpPut("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] InvoiceStatus status)
+        {
+            var success = await _invoiceService.UpdateStatusAsync(id, status);
+            if (!success) return NotFound();
+            return NoContent();
+        }
+    }
+}
