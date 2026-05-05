@@ -30,6 +30,10 @@ bizcore-erp/
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Shared Database cho giai đoạn demo).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
+* **Logging**: Hệ thống ghi log tập trung sử dụng **Serilog**, hỗ trợ truy vết lỗi và giám sát hiệu năng thời gian thực.
+* **Validation**:
+  * **FluentValidation**: Kiểm tra tính đúng đắn của dữ liệu đầu vào (format, độ dài, khoảng giá trị) ngay tại tầng API.
+  * **Domain Validation**: Kiểm tra các quy tắc nghiệp vụ chuyên sâu (Business Rules) ngay tại tầng Domain, đảm bảo tính toàn vẹn của dữ liệu trong mọi tình huống.
 
 ## 🔗 Luồng nghiệp vụ (Flow)
 

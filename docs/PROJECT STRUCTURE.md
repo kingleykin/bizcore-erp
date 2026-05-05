@@ -78,10 +78,22 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao dùng Shared DB?** | Việc duy trì 3 DB riêng biệt cho demo 2 ngày sẽ gây khó khăn cho việc migrate và chạy local (tốn tài nguyên). Shared DB với naming convention tốt là sự cân bằng hoàn hảo giữa tốc độ và chuẩn hóa. |
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |
+| **Tại sao tách Validation?** | Tách biệt giữa **Input Validation** (FluentValidation) và **Domain Validation** (Business Rules) giúp mã nguồn sạch hơn, dễ bảo trì và thể hiện tư duy kiến trúc phân lớp chuyên nghiệp. |
 
 ---
 
-## 🚀 5. Lộ trình Mở rộng (Scaling Roadmap)
+## 🛡️ 5. Chiến lược Validation (Validation Strategy)
+
+Hệ thống phân tách rõ ràng hai loại validation để đảm bảo tính scale và bảo trì:
+
+1. **Input Validation (FluentValidation)**:
+    * *Vị trí*: Nằm ở tầng API/Application thông qua các `Validator`.
+    * *Mục tiêu*: Kiểm tra định dạng dữ liệu, các trường bắt buộc, độ dài chuỗi... trước khi dữ liệu đi vào logic nghiệp vụ. Trả về `400 Bad Request` với danh sách lỗi chi tiết.
+2. **Domain Validation (Business Rules)**:
+    * *Vị trí*: Nằm trong các **Entities** (ví dụ: `Invoice.Create()`).
+    * *Mục tiêu*: Kiểm tra các quy tắc nghiệp vụ logic (ví dụ: "Hạn mức hóa đơn không được vượt quá 1 triệu"). Ném ra `DomainException` và được bắt bởi `HttpExceptionFilter` để trả về lỗi thân thiện cho client.
+
+## 🚀 6. Lộ trình Mở rộng (Scaling Roadmap)
 
 Nếu dự án cần scale lên 100k+ người dùng:
 

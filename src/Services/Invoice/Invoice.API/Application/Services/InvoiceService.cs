@@ -33,10 +33,6 @@ namespace Invoice.API.Application.Services
 
         public async Task<Invoice.API.Domain.Entities.Invoice> CreateAsync(Invoice.API.Domain.Entities.Invoice invoice)
         {
-            invoice.Id = Guid.NewGuid();
-            invoice.CreatedAt = DateTime.UtcNow;
-            invoice.Status = InvoiceStatus.Pending;
-
             _context.Invoices.Add(invoice);
             await _context.SaveChangesAsync();
             return invoice;

@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Invoice.API.Application.Consumers;
 using Serilog;
+using FluentValidation.AspNetCore;
+using FluentValidation;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -39,8 +41,13 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Invoice.Update", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Update));
 });
 
+
 // Add services to the container.
-builder.Services.AddControllers();
+builder.Services.AddControllers(options =>
+{
+    options.Filters.Add<Invoice.API.Filters.HttpExceptionFilter>();
+})
+    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<Invoice.API.DTOs.CreateInvoiceRequestValidator>());
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 

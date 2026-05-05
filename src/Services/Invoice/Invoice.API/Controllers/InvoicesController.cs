@@ -33,8 +33,10 @@ namespace Invoice.API.Controllers
 
         [HttpPost]
         [Authorize(Policy = "Invoice.Create")]
-        public async Task<ActionResult<Invoice.API.Domain.Entities.Invoice>> CreateInvoice(Invoice.API.Domain.Entities.Invoice invoice)
+        public async Task<ActionResult<Invoice.API.Domain.Entities.Invoice>> CreateInvoice(Invoice.API.DTOs.CreateInvoiceRequest request)
         {
+            // FluentValidation handled by middleware
+            var invoice = Invoice.API.Domain.Entities.Invoice.Create(request.CustomerName, request.Amount);
             var created = await _invoiceService.CreateAsync(invoice);
             return CreatedAtAction(nameof(GetInvoice), new { id = created.Id }, created);
         }
