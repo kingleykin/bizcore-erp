@@ -2,7 +2,7 @@
 
 ## 🎯 Mục tiêu
 
-Xây dựng hệ thống CRM demo kiến trúc Microservices chuyên nghiệp, tập trung vào luồng nghiệp vụ cốt lõi: **Hóa đơn -> Thanh toán -> Báo cáo**.
+Xây dựng hệ thống ERP demo kiến trúc Microservices chuyên nghiệp, tập trung vào luồng nghiệp vụ cốt lõi: **Hóa đơn -> Thanh toán -> Báo cáo**.
 
 ## 🏗️ Cấu trúc thư mục
 
@@ -70,22 +70,23 @@ bizcore-erp/
 
 # 📘 3. API CONTRACT
 
-| Service | Method | Endpoint | Mô tả |
-| :--- | :--- | :--- | :--- |
-| **Invoice** | GET | `/invoice` | Lấy danh sách hóa đơn |
-| **Invoice** | POST | `/invoice` | Tạo mới hóa đơn |
-| **Payment** | POST | `/payment/pay` | Xử lý thanh toán |
-| **Report** | GET | `/report/summary` | Lấy số liệu dashboard |
+| Service | Method | Endpoint | Quyền yêu cầu (Policy) | Mô tả |
+| :--- | :--- | :--- | :--- | :--- |
+| **Auth** | POST | `/auth/login` | Không yêu cầu | Đăng nhập |
+| **Invoice** | GET | `/invoice` | `Invoice.View` | Lấy danh sách hóa đơn |
+| **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn |
+| **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán hóa đơn |
+| **Report** | GET | `/report/summary` | `Report.View` | Báo cáo tổng hợp |
 
 ---
 
 # 📘 4. GATEWAY ROUTING (YARP)
 
-| Path | Destination |
-| :--- | :--- |
-| `/invoice/{**catch-all}` | `http://localhost:5001` |
-| `/payment/{**catch-all}` | `http://localhost:5002` |
-| `/report/{**catch-all}` | `http://localhost:5003` |
+| Path | Destination | Policy áp dụng |
+| :--- | :--- | :--- |
+| `/invoice/{**catch-all}` | `http://invoice-api:8080` | RateLimit, Auth |
+| `/payment/{**catch-all}` | `http://payment-api:8080` | RateLimit, Auth |
+| `/report/{**catch-all}` | `http://report-api:8080` | RateLimit, Auth |
 
 ---
 
@@ -94,24 +95,36 @@ bizcore-erp/
 ## 🟢 Phase 1 & 2: Backend & Infrastructure (Hoàn thành)
 
 * [x] Khởi tạo Solution và Cấu trúc thư mục chuẩn.
-
 * [x] Triển khai 3 Microservices với 4 lớp (Domain, Application, Infra, API).
 * [x] Thiết lập Database Schema & Shared Context.
 
 ## 🟡 Phase 3: Integration & UI (Hoàn thành)
 
 * [x] Cấu hình YARP Gateway & CORS.
-
 * [x] Xây dựng WebUI (React/Vite) giao diện Premium.
 * [x] Test luồng End-to-End thành công.
+* [x] Cấu hình Dockerization (Multi-stage builds) cho toàn bộ hệ thống.
+* [x] Triển khai Permission-based Authorization.
+* [x] Tích hợp Serilog tập trung.
+* [x] Thiết lập Rate Limiting & Security Hardening.
 
 ---
 
 # 🚀 6. HƯỚNG DẪN CHẠY DỰ ÁN
 
-1. **Database**: `docker-compose up -d`
-2. **Backend**: Mở `src/Bizcore.slnx`, chạy Multi-startup cho cả 4 project (Port 5000-5003).
-3. **Frontend**: `cd src/WebUI`, `npm install`, `npm run dev`.
+Hệ thống đã được tối ưu hóa để chạy bằng Docker:
+
+1. **Docker Compose**: Chạy lệnh duy nhất tại thư mục gốc:
+
+   ```powershell
+   docker-compose up --build -d
+   ```
+
+2. **Frontend**: `cd src/WebUI` sau đó `npm install`, `npm run dev`.
+3. **Truy cập**:
+   * **API Gateway**: `http://localhost:5000`
+   * **RabbitMQ UI**: `http://localhost:15672` (guest/guest)
+   * **SQL Server**: `localhost,1433` (sa/Password123!)
 
 ---
-*Cập nhật lần cuối: 05/05/2026 - Dự án đã hoàn thành cấu trúc chuẩn.*
+*Cập nhật lần cuối: 05/05/2026 - Nâng cấp hệ thống bảo mật Enterprise.*

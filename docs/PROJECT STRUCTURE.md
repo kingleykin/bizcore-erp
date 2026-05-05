@@ -1,6 +1,6 @@
 # 📘 Tài liệu Cấu trúc Dự án (Project Structure)
 
-Tài liệu này giải thích chi tiết về cách tổ chức mã nguồn, kiến trúc hệ thống và lý do đằng sau các quyết định thiết kế cho dự án BizCore CRM.
+Tài liệu này giải thích chi tiết về cách tổ chức mã nguồn, kiến trúc hệ thống và lý do đằng sau các quyết định thiết kế cho dự án BizCore ERP.
 
 ---
 
@@ -22,8 +22,21 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
 * **Microservices**: Mỗi service (Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context).
-* **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices. Đây là nơi định nghĩa các **Contracts** (Event interfaces) để đảm bảo tính nhất quán khi giao tiếp qua Message Broker.
+* **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices.
+  * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA.
+  * **Permissions**: Định nghĩa tập trung toàn bộ các hành động (Fine-grained actions) của hệ thống phục vụ Permission-based Authorization.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
+
+### 🔹 Security Architecture (Kiến trúc Bảo mật)
+
+Hệ thống áp dụng mô hình bảo mật nhiều lớp:
+
+1. **Edge Security (Gateway)**:
+    * **Rate Limiting**: Ngăn chặn spam request ở tầng Gateway.
+    * **Mock Identity Provider**: Tích hợp sẵn endpoint `/auth/login` để cấp mã JWT Token cho mục đích demo và kiểm thử.
+2. **Zero Trust (Services)**:
+    * Mọi Microservice đều tự thực hiện việc kiểm tra chữ ký của JWT Token (không chỉ tin tưởng Gateway).
+    * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Policy cụ thể (ví dụ: `Invoice.Create`). User phải có đúng claim `permission` mới có thể thực hiện.
 
 ### 🔹 Micro-level (Cấu trúc nội bộ Service)
 
@@ -49,6 +62,8 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 * **Gateway Routing**: Điều phối thông minh các request dựa trên Prefix URL.
 * **Shared DB Strategy**: Sử dụng chung một SQL Server Instance nhưng phân tách bảng theo Domain. Điều này giúp tối ưu chi phí và tốc độ trong giai đoạn đầu nhưng vẫn sẵn sàng để tách DB bất cứ lúc nào.
 * **DI (Dependency Injection)**: Toàn bộ Services được đăng ký trong DI Container để đảm bảo tính Loose Coupling (kết nối lỏng lẻo).
+* **Observability**: Tích hợp **Serilog** đồng nhất cho toàn bộ hệ thống, hỗ trợ ghi log có cấu trúc (Structured Logging) ra Console và có thể mở rộng ra ELK Stack.
+* **Hardening**: Cấu hình Security Headers và giới hạn kích thước Payload để bảo vệ các service.
 
 ---
 
@@ -58,7 +73,8 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | :--- | :--- |
 | **Tại sao dùng 1 Project/Service?** | Để giảm thiểu overhead của việc quản lý quá nhiều project trong Solution cho một dự án demo 2 ngày, trong khi vẫn đảm bảo phân lớp folder bên trong. |
 | **Tại sao tách lớp Application?** | Để khi bạn cần chuyển sang Unit Test, bạn chỉ cần test lớp Application Service mà không cần quan tâm đến HTTP Request/Response của Controller. |
-| **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth) bằng code C# quen thuộc. |
+| **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth, RateLimit) bằng code C# quen thuộc. |
+| **Tại sao dùng Permission-based?** | Để tránh tình trạng **Role Explosion**. Permission-based cho phép phân quyền chi tiết (Granular) và dễ dàng scale khi số lượng chức năng của hệ thống tăng lên. |
 | **Tại sao dùng Shared DB?** | Việc duy trì 3 DB riêng biệt cho demo 2 ngày sẽ gây khó khăn cho việc migrate và chạy local (tốn tài nguyên). Shared DB với naming convention tốt là sự cân bằng hoàn hảo giữa tốc độ và chuẩn hóa. |
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |

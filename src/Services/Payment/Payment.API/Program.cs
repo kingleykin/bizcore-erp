@@ -2,8 +2,17 @@ using Payment.API.Application.Services;
 using Payment.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Serilog Configuration
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .Enrich.FromLogContext()
+    .CreateLogger();
+
+builder.Host.UseSerilog();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -28,6 +37,8 @@ builder.Services.AddMassTransit(x =>
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
 var app = builder.Build();
+
+app.UseSerilogRequestLogging();
 
 if (app.Environment.IsDevelopment())
 {

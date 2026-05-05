@@ -1,11 +1,12 @@
 using Report.API.Application.Services;
 using Report.API.DTOs;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Report.API.Controllers
 {
     [ApiController]
     [Route("report")]
+    [Authorize(Policy = "Report.View")] // Require specific permission
     public class ReportsController : ControllerBase
     {
         private readonly IReportService _reportService;

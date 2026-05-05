@@ -1,11 +1,12 @@
 using Invoice.API.Application.Services;
 using Invoice.API.Domain.Entities;
-using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 
 namespace Invoice.API.Controllers
 {
     [ApiController]
     [Route("invoice")]
+    [Authorize(Policy = "Invoice.View")] // Default policy for the whole controller
     public class InvoicesController : ControllerBase
     {
         private readonly IInvoiceService _invoiceService;
@@ -31,6 +32,7 @@ namespace Invoice.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Policy = "Invoice.Create")]
         public async Task<ActionResult<Invoice.API.Domain.Entities.Invoice>> CreateInvoice(Invoice.API.Domain.Entities.Invoice invoice)
         {
             var created = await _invoiceService.CreateAsync(invoice);
@@ -38,6 +40,7 @@ namespace Invoice.API.Controllers
         }
 
         [HttpPut("{id}/status")]
+        [Authorize(Policy = "Invoice.Update")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] InvoiceStatus status)
         {
             var success = await _invoiceService.UpdateStatusAsync(id, status);
