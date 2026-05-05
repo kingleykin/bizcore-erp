@@ -6,6 +6,7 @@ using Invoice.API.Application.Consumers;
 using Serilog;
 using FluentValidation.AspNetCore;
 using FluentValidation;
+using Bizcore.BuildingBlocks.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,6 +43,22 @@ builder.Services.AddAuthorization(options =>
 });
 
 
+using Asp.Versioning;
+
+builder.Services.AddHealthChecks();
+
+builder.Services.AddApiVersioning(options =>
+{
+    options.DefaultApiVersion = new ApiVersion(1, 0);
+    options.AssumeDefaultVersionWhenUnspecified = true;
+    options.ReportApiVersions = true;
+    options.ApiVersionReader = new UrlSegmentApiVersionReader();
+}).AddApiExplorer(options =>
+{
+    options.GroupNameFormat = "'v'VVV";
+    options.SubstituteApiVersionInUrl = true;
+});
+
 // Add services to the container.
 builder.Services.AddControllers(options =>
 {
@@ -59,6 +76,12 @@ builder.Services.AddMassTransit(x =>
 {
     // Register Consumer
     x.AddConsumer<PaymentCompletedConsumer>();
+
+    x.AddEntityFrameworkOutbox<AppDbContext>(o =>
+    {
+        o.UseSqlServer();
+        o.UseBusOutbox();
+    });
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -81,7 +104,12 @@ builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
 var app = builder.Build();
 
+app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<CorrelationIdMiddleware>();
+
 app.UseSerilogRequestLogging();
+
+app.MapHealthChecks("/health");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

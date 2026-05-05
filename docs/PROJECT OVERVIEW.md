@@ -30,10 +30,22 @@ bizcore-erp/
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Shared Database cho giai đoạn demo).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
-* **Logging**: Hệ thống ghi log tập trung sử dụng **Serilog**, hỗ trợ truy vết lỗi và giám sát hiệu năng thời gian thực.
+* **Logging & Observability**:
+  * **Serilog**: Ghi log tập trung.
+  * **Correlation ID**: Tự động gán và truyền ID (`X-Correlation-ID`) qua toàn bộ các service để truy vết (Distributed Tracing).
 * **Validation**:
   * **FluentValidation**: Kiểm tra tính đúng đắn của dữ liệu đầu vào (format, độ dài, khoảng giá trị) ngay tại tầng API.
   * **Domain Validation**: Kiểm tra các quy tắc nghiệp vụ chuyên sâu (Business Rules) ngay tại tầng Domain, đảm bảo tính toàn vẹn của dữ liệu trong mọi tình huống.
+* **Resilience & Operability**:
+  * **Global Exception Handling**: Chuẩn hóa phản hồi lỗi toàn hệ thống kèm theo TraceId.
+  * **Health Checks**: Cung cấp endpoint `/health` cho từng service phục vụ giám sát trạng thái (Readiness/Liveness).
+* **Performance**:
+  * **Memory Caching**: Tối ưu hóa tốc độ phản hồi cho các báo cáo Dashboard tại Report Service.
+* **API Versioning**: Hỗ trợ nhiều phiên bản API song song (ví dụ: `/api/v1/invoice`).
+* **Resilience & Reliability**:
+  * **Polly**: Triển khai Retry và Circuit Breaker tại Gateway để bảo vệ hệ thống khỏi các lỗi tạm thời hoặc quá tải.
+  * **Idempotency**: Đảm bảo các giao dịch (như Thanh toán) không bị thực hiện lặp lại khi Client gửi trùng request thông qua `X-Idempotency-Key`.
+  * **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính nhất quán dữ liệu (Eventual Consistency) giữa Database và Message Broker, ngăn chặn việc mất Event khi DB lưu thành công nhưng RabbitMQ lỗi.
 
 ## 🔗 Luồng nghiệp vụ (Flow)
 

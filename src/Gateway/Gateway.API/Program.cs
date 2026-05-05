@@ -5,6 +5,9 @@ using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
+using Bizcore.BuildingBlocks.Middlewares;
+using Yarp.ReverseProxy.Transforms;
+using Microsoft.Extensions.Http.Resilience
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -78,12 +81,51 @@ builder.Services.AddRateLimiter(options =>
             }));
 });
 
+// 5. Health Checks
+builder.Services.AddHealthChecks();
+
+// 5. Resilience
+builder.Services.AddResiliencePipeline("default", pipeline =>
+{
+    pipeline.AddRetry(new Polly.Retry.RetryStrategyOptions
+    {
+        MaxRetryAttempts = 3,
+        Delay = TimeSpan.FromSeconds(2),
+        BackoffType = Polly.DelayBackoffType.Exponential
+    });
+    pipeline.AddCircuitBreaker(new Polly.CircuitBreaker.CircuitBreakerStrategyOptions
+    {
+        FailureRatio = 0.5,
+        SamplingDuration = TimeSpan.FromSeconds(30),
+        MinimumThroughput = 5,
+        BreakDuration = TimeSpan.FromSeconds(15)
+    });
+});
+
 // 6. YARP
 builder.Services
     .AddReverseProxy()
-    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"));
+    .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
+    .AddTransforms(transformBuilder =>
+    {
+        transformBuilder.AddRequestTransform(context =>
+        {
+            var correlationId = context.HttpContext.Items["X-Correlation-ID"]?.ToString();
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                context.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
+            }
+            return ValueTask.CompletedTask;
+        });
+    });
 
 var app = builder.Build();
+
+// Order is important: Exception handler first, then Correlation ID
+app.UseMiddleware<GlobalExceptionMiddleware>();
+app.UseMiddleware<CorrelationIdMiddleware>();
+
+app.MapHealthChecks("/health");
 
 using Bizcore.BuildingBlocks;
 

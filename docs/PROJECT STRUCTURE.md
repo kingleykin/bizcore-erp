@@ -62,7 +62,9 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 * **Gateway Routing**: Điều phối thông minh các request dựa trên Prefix URL.
 * **Shared DB Strategy**: Sử dụng chung một SQL Server Instance nhưng phân tách bảng theo Domain. Điều này giúp tối ưu chi phí và tốc độ trong giai đoạn đầu nhưng vẫn sẵn sàng để tách DB bất cứ lúc nào.
 * **DI (Dependency Injection)**: Toàn bộ Services được đăng ký trong DI Container để đảm bảo tính Loose Coupling (kết nối lỏng lẻo).
-* **Observability**: Tích hợp **Serilog** đồng nhất cho toàn bộ hệ thống, hỗ trợ ghi log có cấu trúc (Structured Logging) ra Console và có thể mở rộng ra ELK Stack.
+* **Observability**: Tích hợp **Serilog** và cơ chế **Correlation ID** đồng nhất. Cho phép theo dõi hành trình của một request đi qua nhiều microservices chỉ bằng 1 ID duy nhất.
+* **Operability**: Hệ thống cung cấp các endpoint `/health` theo chuẩn Cloud-native, giúp các công cụ điều phối (Docker, K8s) nhận biết tình trạng sức khỏe của service.
+* **Resilience**: Áp dụng **Global Exception Middleware** để đảm bảo hệ thống không bao giờ bị "sập" và luôn trả về phản hồi có cấu trúc cho người dùng.
 * **Hardening**: Cấu hình Security Headers và giới hạn kích thước Payload để bảo vệ các service.
 
 ---
@@ -71,7 +73,10 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 
 | Quyết định | Lý do (Rationale) |
 | :--- | :--- |
-| **Tại sao dùng 1 Project/Service?** | Để giảm thiểu overhead của việc quản lý quá nhiều project trong Solution cho một dự án demo 2 ngày, trong khi vẫn đảm bảo phân lớp folder bên trong. |
+| **Tại sao dùng 1 Project/Service?** | Để giảm thiểu overhead của việc quản lý dự án demo, trong khi vẫn đảm bảo phân lớp folder bên trong. |
+| **Tại sao dùng Correlation ID?** | Trong Microservices, việc debug một lỗi đi qua 3-4 service là cực kỳ khó khăn. Correlation ID giúp kết nối các dòng log rời rạc thành một câu chuyện hoàn chỉnh. |
+| **Tại sao dùng Global Middleware?** | Để đảm bảo tính nhất quán (Consistency). Dù lỗi xảy ra ở đâu, client luôn nhận được một format JSON đồng nhất kèm theo `TraceId` để phản hồi cho hỗ trợ kỹ thuật. |
+| **Tại sao dùng Memory Caching?** | Đối với các dữ liệu nặng về tính toán như báo cáo Dashboard, việc cache kết quả giúp giảm tải cho Database và mang lại trải nghiệm người dùng tức thì. |
 | **Tại sao tách lớp Application?** | Để khi bạn cần chuyển sang Unit Test, bạn chỉ cần test lớp Application Service mà không cần quan tâm đến HTTP Request/Response của Controller. |
 | **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth, RateLimit) bằng code C# quen thuộc. |
 | **Tại sao dùng Permission-based?** | Để tránh tình trạng **Role Explosion**. Permission-based cho phép phân quyền chi tiết (Granular) và dễ dàng scale khi số lượng chức năng của hệ thống tăng lên. |
@@ -79,6 +84,10 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |
 | **Tại sao tách Validation?** | Tách biệt giữa **Input Validation** (FluentValidation) và **Domain Validation** (Business Rules) giúp mã nguồn sạch hơn, dễ bảo trì và thể hiện tư duy kiến trúc phân lớp chuyên nghiệp. |
+| **Tại sao dùng Outbox Pattern?** | Để giải quyết bài toán "Lưu DB xong nhưng mất điện không kịp bắn Message". Outbox đảm bảo message chỉ được gửi đi khi và chỉ khi DB đã commit thành công. |
+| **Tại sao dùng Polly?** | Để hệ thống có khả năng tự phục hồi (Self-healing). Nếu service đích bận, Gateway sẽ tự động thử lại (Retry) thay vì trả lỗi ngay lập tức cho người dùng. |
+| **Tại sao dùng Idempotency?** | Đặc biệt quan trọng với thanh toán. Nếu mạng lag và user bấm "Thanh toán" 2 lần, hệ thống sẽ chỉ xử lý 1 lần dựa trên Idempotency Key, tránh trừ tiền 2 lần. |
+| **Tại sao dùng API Versioning?** | Để hỗ trợ tiến hóa hệ thống. Khi có thay đổi lớn (Breaking Change), chúng ta có thể triển khai V2 trong khi các Client cũ vẫn dùng V1 bình thường. |
 
 ---
 

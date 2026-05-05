@@ -5,7 +5,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace Payment.API.Controllers
 {
     [ApiController]
-    [Route("payment")]
+    [Route("api/v{version:apiVersion}/payment")]
+    [ApiVersion("1.0")]
     public class PaymentsController : ControllerBase
     {
         private readonly IPaymentService _paymentService;
@@ -16,12 +17,11 @@ namespace Payment.API.Controllers
         }
 
         [HttpPost("pay")]
-        public async Task<IActionResult> ProcessPayment([FromBody] Payment.API.Domain.Entities.Payment payment)
+        public async Task<IActionResult> ProcessPayment([FromBody] Payment.API.Domain.Entities.Payment payment, [FromHeader(Name = "X-Idempotency-Key")] string idempotencyKey)
         {
-            var success = await _paymentService.ProcessPaymentAsync(payment);
-            if (!success) return NotFound("Invoice not found");
-
-            return Ok(new { Message = "Payment processed successfully", PaymentId = payment.Id });
+            var result = await _paymentService.ProcessPaymentAsync(payment, idempotencyKey);
+            if (!result) return BadRequest("Payment processing failed or Idempotency Key missing");
+            return Ok(new { Message = "Payment processed and event published" });
         }
 
         [HttpGet]

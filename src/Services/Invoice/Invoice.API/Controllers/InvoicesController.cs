@@ -5,8 +5,9 @@ using Microsoft.AspNetCore.Authorization;
 namespace Invoice.API.Controllers
 {
     [ApiController]
-    [Route("invoice")]
-    [Authorize(Policy = "Invoice.View")] // Default policy for the whole controller
+    [Route("api/v{version:apiVersion}/invoice")]
+    [ApiVersion("1.0")]
+    [Authorize(Policy = "Invoice.View")]
     public class InvoicesController : ControllerBase
     {
         private readonly IInvoiceService _invoiceService;
