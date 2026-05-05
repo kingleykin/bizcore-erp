@@ -1,8 +1,7 @@
-version: "3.4"
-
 services:
   sql-server:
     image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: bizcore-sql
     environment:
       - ACCEPT_EULA=Y
       - MSSQL_SA_PASSWORD=Password123!
@@ -11,12 +10,25 @@ services:
 
   rabbitmq:
     image: rabbitmq:3-management
+    container_name: bizcore-rabbitmq
     ports:
       - "5672:5672"
       - "15672:15672"
 
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: bizcore-portainer
+    restart: always
+    ports:
+      - "9000:9000"
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
   gateway-api:
     image: bizcore-gateway-api
+    container_name: bizcore-gateway
     build:
       context: .
       dockerfile: src/Gateway/Gateway.API/Dockerfile
@@ -24,6 +36,7 @@ services:
       - "5000:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - ReverseProxy__Clusters__invoice-cluster__Destinations__d1__Address=http://invoice-api:8080
       - ReverseProxy__Clusters__payment-cluster__Destinations__d1__Address=http://payment-api:8080
       - ReverseProxy__Clusters__report-cluster__Destinations__d1__Address=http://report-api:8080
@@ -60,6 +73,7 @@ services:
 
   report-api:
     image: bizcore-report-api
+    container_name: bizcore-report
     build:
       context: .
       dockerfile: src/Services/Report/Report.API/Dockerfile
@@ -70,3 +84,17 @@ services:
     depends_on:
       - sql-server
       - rabbitmq
+
+  web-ui:
+    image: bizcore-web-ui
+    container_name: bizcore-web
+    build:
+      context: ./src/WebUI
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway-api
+
+volumes:
+  portainer_data:

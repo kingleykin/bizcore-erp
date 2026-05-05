@@ -47,6 +47,12 @@ CodeCoverage/
 # MSBuild Binary and Structured Log
 *.binlog
 
+# WebUI
+node_modules/
+dist/
+src/WebUI/node_modules/
+src/WebUI/dist/
+
 # MSTest test Results
 [Tt]est[Rr]esult*/
 [Bb]uild[Ll]og.*

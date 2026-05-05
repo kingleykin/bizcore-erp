@@ -17,6 +17,7 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 builder.Services.AddHealthChecks();
+builder.Services.AddMemoryCache();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -77,5 +78,12 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseAuthorization();
 app.MapControllers();
+
+// Database Initialization
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.EnsureCreated();
+}
 
 app.Run();

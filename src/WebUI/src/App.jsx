@@ -33,10 +33,10 @@ function App() {
 
   const fetchData = async () => {
     try {
-      const invRes = await axios.get(`${GATEWAY_URL}/invoice`);
+      const invRes = await axios.get(`${GATEWAY_URL}/api/v1/invoice`);
       setInvoices(invRes.data);
 
-      const statsRes = await axios.get(`${GATEWAY_URL}/report/summary`);
+      const statsRes = await axios.get(`${GATEWAY_URL}/api/v1/report/summary`);
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -46,7 +46,7 @@ function App() {
   const handleCreateInvoice = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${GATEWAY_URL}/invoice`, newInvoice);
+      await axios.post(`${GATEWAY_URL}/api/v1/invoice`, newInvoice);
       setShowModal(false);
       setNewInvoice({ customerName: '', amount: 0 });
       fetchData();
@@ -57,7 +57,7 @@ function App() {
 
   const handlePay = async (invoiceId, amount) => {
     try {
-      await axios.post(`${GATEWAY_URL}/payment/pay`, {
+      await axios.post(`${GATEWAY_URL}/api/v1/payment/pay`, {
         invoiceId,
         amount
       });

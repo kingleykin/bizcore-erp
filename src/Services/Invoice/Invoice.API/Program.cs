@@ -124,4 +124,21 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+// 10. Database Initialization & Seeding
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.EnsureCreated();
+
+    if (!context.Invoices.Any())
+    {
+        context.Invoices.AddRange(
+            Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500),
+            Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn Kingley", 3200),
+            Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450)
+        );
+        context.SaveChanges();
+    }
+}
+
 app.Run();
