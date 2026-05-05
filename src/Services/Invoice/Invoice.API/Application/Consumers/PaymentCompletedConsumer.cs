@@ -2,6 +2,7 @@ using Bizcore.BuildingBlocks.Contracts;
 using Invoice.API.Domain.Entities;
 using Invoice.API.Infrastructure.Data;
 using MassTransit;
+using Bizcore.BuildingBlocks;
 
 namespace Invoice.API.Application.Consumers
 {

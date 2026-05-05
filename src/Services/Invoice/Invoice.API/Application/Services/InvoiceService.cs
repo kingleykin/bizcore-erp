@@ -1,6 +1,7 @@
 using Invoice.API.Domain.Entities;
 using Invoice.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks;
 
 namespace Invoice.API.Application.Services
 {

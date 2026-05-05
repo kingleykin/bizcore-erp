@@ -7,7 +7,9 @@ using System.Security.Claims;
 using System.IdentityModel.Tokens.Jwt;
 using Bizcore.BuildingBlocks.Middlewares;
 using Yarp.ReverseProxy.Transforms;
-using Microsoft.Extensions.Http.Resilience
+using Microsoft.Extensions.Http.Resilience;
+using Bizcore.BuildingBlocks;
+using Polly;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -127,7 +129,6 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.MapHealthChecks("/health");
 
-using Bizcore.BuildingBlocks;
 
 // 7. Mock Login Endpoint (Demonstration)
 app.MapPost("/auth/login", (LoginRequest request) =>

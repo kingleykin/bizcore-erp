@@ -2,6 +2,9 @@ using Report.API.Application.Services;
 using Report.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using Asp.Versioning;
+using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -44,7 +47,8 @@ builder.Services.AddApiVersioning(options =>
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
-}).AddApiExplorer(options =>
+}).AddMvc()
+.AddApiExplorer(options =>
 {
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;

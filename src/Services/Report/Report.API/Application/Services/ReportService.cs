@@ -1,4 +1,5 @@
 using Report.API.DTOs;
+using Bizcore.BuildingBlocks;
 using Report.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;

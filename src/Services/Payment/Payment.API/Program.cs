@@ -3,6 +3,8 @@ using Payment.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Serilog;
+using Asp.Versioning;
+using Bizcore.BuildingBlocks.Middlewares;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,7 +14,7 @@ Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
     .CreateLogger();
 
-using Asp.Versioning;
+builder.Host.UseSerilog();
 
 builder.Services.AddHealthChecks();
 
@@ -22,7 +24,8 @@ builder.Services.AddApiVersioning(options =>
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
-}).AddApiExplorer(options =>
+}).AddMvc()
+.AddApiExplorer(options =>
 {
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;
@@ -48,8 +51,8 @@ builder.Services.AddMassTransit(x =>
     {
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
-            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username"));
-            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password"));
+            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
+            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
     });
 });

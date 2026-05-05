@@ -7,6 +7,7 @@ using Serilog;
 using FluentValidation.AspNetCore;
 using FluentValidation;
 using Bizcore.BuildingBlocks.Middlewares;
+using Asp.Versioning;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -42,9 +43,6 @@ builder.Services.AddAuthorization(options =>
     options.AddPolicy("Invoice.Update", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Update));
 });
 
-
-using Asp.Versioning;
-
 builder.Services.AddHealthChecks();
 
 builder.Services.AddApiVersioning(options =>
@@ -53,7 +51,8 @@ builder.Services.AddApiVersioning(options =>
     options.AssumeDefaultVersionWhenUnspecified = true;
     options.ReportApiVersions = true;
     options.ApiVersionReader = new UrlSegmentApiVersionReader();
-}).AddApiExplorer(options =>
+}).AddMvc()
+.AddApiExplorer(options =>
 {
     options.GroupNameFormat = "'v'VVV";
     options.SubstituteApiVersionInUrl = true;
@@ -63,8 +62,10 @@ builder.Services.AddApiVersioning(options =>
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<Invoice.API.Filters.HttpExceptionFilter>();
-})
-    .AddFluentValidation(fv => fv.RegisterValidatorsFromAssemblyContaining<Invoice.API.DTOs.CreateInvoiceRequestValidator>());
+});
+
+builder.Services.AddFluentValidationAutoValidation();
+builder.Services.AddValidatorsFromAssemblyContaining<Invoice.API.DTOs.CreateInvoiceRequestValidator>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -87,8 +88,8 @@ builder.Services.AddMassTransit(x =>
     {
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
-            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username"));
-            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password"));
+            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
+            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
         // Setup receive endpoint

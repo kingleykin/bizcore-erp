@@ -10,6 +10,10 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
     <PackageReference Include="Serilog.AspNetCore" Version="9.0.0" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.2.0" />
   </ItemGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\..\BuildingBlocks\Bizcore.BuildingBlocks\Bizcore.BuildingBlocks.csproj" />
+  </ItemGroup>
 </Project>

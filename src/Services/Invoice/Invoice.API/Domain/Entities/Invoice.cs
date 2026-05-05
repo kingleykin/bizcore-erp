@@ -1,13 +1,8 @@
+using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Exceptions;
 
 namespace Invoice.API.Domain.Entities
 {
-    public enum InvoiceStatus
-    {
-        Pending = 0,
-        Paid = 1,
-        Cancelled = 2
-    }
 
     public class Invoice
     {

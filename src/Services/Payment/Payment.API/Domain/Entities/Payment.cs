@@ -1,3 +1,5 @@
+using Bizcore.BuildingBlocks;
+
 namespace Payment.API.Domain.Entities
 {
     public class Payment
@@ -8,8 +10,6 @@ namespace Payment.API.Domain.Entities
         public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
     }
 
-    public enum InvoiceStatus { Pending = 0, Paid = 1 }
-    
     public class Invoice
     {
         public Guid Id { get; set; }
