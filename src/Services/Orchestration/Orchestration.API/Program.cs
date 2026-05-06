@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Orchestration.API.Application.Consumers;
+using Orchestration.API.Application.Sagas;
 using Orchestration.API.Application.Services;
+using Orchestration.API.Domain.Entities;
 using Orchestration.API.Infrastructure.Data;
 using Prometheus;
 using Serilog;
@@ -84,13 +86,33 @@ builder.Services.AddScoped<IProcessOrchestrationService, ProcessOrchestrationSer
 
 builder.Services.AddMassTransit(x =>
 {
+    // Legacy event observers (giữ lại cho backward compatibility)
     x.AddConsumer<InvoiceCreatedOrchestrationConsumer>();
     x.AddConsumer<PaymentCompletedOrchestrationConsumer>();
     x.AddConsumer<PaymentCompensationRequestedOrchestrationConsumer>();
 
+    // Saga orchestrator
+    x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>()
+        .EntityFrameworkRepository(r =>
+        {
+            r.ConcurrencyMode = ConcurrencyMode.Pessimistic;
+            r.AddDbContext<DbContext, AppDbContext>((provider, builder) =>
+            {
+                builder.UseSqlServer(provider.GetRequiredService<IConfiguration>()
+                    .GetConnectionString("DefaultConnection"));
+            });
+        });
+
     x.UsingRabbitMq((context, cfg) =>
     {
         cfg.UseCorrelationId(context);
+
+        // Message retry policy
+        cfg.UseMessageRetry(r => r.Intervals(
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(30)
+        ));
 
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
@@ -98,18 +120,33 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
         });
 
+        // Saga endpoint
+        cfg.ReceiveEndpoint("orchestration-payment-saga", e =>
+        {
+            e.Durable = true;
+            e.AutoDelete = false;
+            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
+            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            
+            e.ConfigureSaga<PaymentSagaState>(context);
+        });
+
+        // Legacy event observer endpoints
         cfg.ReceiveEndpoint("orchestration-invoice-created", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<InvoiceCreatedOrchestrationConsumer>(context);
         });
 
         cfg.ReceiveEndpoint("orchestration-payment-completed", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<PaymentCompletedOrchestrationConsumer>(context);
         });
 
         cfg.ReceiveEndpoint("orchestration-payment-compensation-requested", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<PaymentCompensationRequestedOrchestrationConsumer>(context);
         });
     });

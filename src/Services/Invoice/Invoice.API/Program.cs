@@ -90,6 +90,10 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
+    // Saga orchestrator command consumer
+    x.AddConsumer<ValidateInvoiceCommandConsumer>();
+
+    // Legacy Request-Reply consumer (giữ lại tạm để không break existing tests)
     x.AddConsumer<ApplyPaymentToInvoiceConsumer>();
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
@@ -102,15 +106,34 @@ builder.Services.AddMassTransit(x =>
     {
         cfg.UseCorrelationId(context);
 
+        // Message retry policy
+        cfg.UseMessageRetry(r => r.Intervals(
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(30)
+        ));
+
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
             h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
-        // Request-Reply endpoint: nhận request từ Payment service
+        // Saga orchestrator command endpoint
+        cfg.ReceiveEndpoint("invoice-validate", e =>
+        {
+            e.Durable = true;
+            e.AutoDelete = false;
+            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
+            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            
+            e.ConfigureConsumer<ValidateInvoiceCommandConsumer>(context);
+        });
+
+        // Legacy Request-Reply endpoint (giữ lại tạm)
         cfg.ReceiveEndpoint("invoice-apply-payment", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<ApplyPaymentToInvoiceConsumer>(context);
         });
     });

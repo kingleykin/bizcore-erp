@@ -11,6 +11,7 @@ public class AppDbContext : DbContext
 
     public DbSet<ProcessFlow> ProcessFlows => Set<ProcessFlow>();
     public DbSet<FlowStep> FlowSteps => Set<FlowStep>();
+    public DbSet<PaymentSagaState> PaymentSagaStates => Set<PaymentSagaState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -31,6 +32,18 @@ public class AppDbContext : DbContext
             e.HasKey(x => x.Id);
             e.Property(x => x.StepType).HasMaxLength(128);
             e.Property(x => x.PayloadJson).HasMaxLength(8192);
+        });
+
+        // Saga state mapping
+        modelBuilder.Entity<PaymentSagaState>(e =>
+        {
+            e.HasKey(x => x.CorrelationId);
+            e.Property(x => x.CurrentState).HasMaxLength(64);
+            e.Property(x => x.IdempotencyKey).HasMaxLength(256);
+            e.Property(x => x.FailureReason).HasMaxLength(512);
+            e.Property(x => x.Amount).HasPrecision(18, 2);
+            e.HasIndex(x => x.PaymentId);
+            e.HasIndex(x => x.InvoiceId);
         });
     }
 }

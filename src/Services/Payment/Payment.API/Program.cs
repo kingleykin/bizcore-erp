@@ -59,12 +59,13 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
+    // Consumers cho Saga orchestrator commands
+    x.AddConsumer<ConfirmPaymentConsumer>();
+    x.AddConsumer<RejectPaymentConsumer>();
+
+    // Legacy consumers (giữ lại cho backward compatibility)
     x.AddConsumer<PaymentCompensationRequestedConsumer>();
     x.AddConsumer<InvoiceCreatedConsumer>();
-
-    // Đăng ký Request Client cho Request-Reply pattern
-    x.AddRequestClient<Bizcore.BuildingBlocks.Contracts.IApplyPaymentToInvoiceRequest>(
-        new Uri("queue:invoice-apply-payment"));
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
@@ -76,25 +77,62 @@ builder.Services.AddMassTransit(x =>
     {
         cfg.UseCorrelationId(context);
 
+        // Message retry policy: 3 lần, mỗi lần cách 5 giây
+        cfg.UseMessageRetry(r => r.Intervals(
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(30)
+        ));
+
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
             h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
+        // Saga orchestrator commands
+        cfg.ReceiveEndpoint("payment-confirm", e =>
+        {
+            // Queue durability + dead letter
+            e.Durable = true;
+            e.AutoDelete = false;
+            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
+            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            
+            e.ConfigureConsumer<ConfirmPaymentConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("payment-reject", e =>
+        {
+            e.Durable = true;
+            e.AutoDelete = false;
+            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
+            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            
+            e.ConfigureConsumer<RejectPaymentConsumer>(context);
+        });
+
+        // Legacy endpoints
         cfg.ReceiveEndpoint("payment-compensation-requested", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<PaymentCompensationRequestedConsumer>(context);
         });
 
         cfg.ReceiveEndpoint("payment-invoice-created", e =>
         {
+            e.Durable = true;
             e.ConfigureConsumer<InvoiceCreatedConsumer>(context);
         });
     });
 });
 
 builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IIdempotencyService, IdempotencyService>();
+
+// Background services
+builder.Services.AddHostedService<Payment.API.Application.BackgroundServices.PaymentReconciliationService>();
+builder.Services.AddHostedService<Payment.API.Application.BackgroundServices.IdempotencyCleanupService>();
 
 // Prometheus
 builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);
