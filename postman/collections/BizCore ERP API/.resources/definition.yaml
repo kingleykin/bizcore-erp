@@ -1,0 +1,8 @@
+$kind: collection
+name: 'BizCore ERP API'
+description: 'Postman collection generated from implemented BizCore ERP API endpoints discovered in the codebase.'
+variables:
+  - key: baseUrl
+    value: 'http://localhost:5000'
+  - key: token
+    value: ''

@@ -18,10 +18,14 @@ namespace Payment.API.Controllers
         }
 
         [HttpPost("pay")]
-        public async Task<IActionResult> ProcessPayment([FromBody] Payment.API.Domain.Entities.Payment payment, [FromHeader(Name = "X-Idempotency-Key")] string idempotencyKey)
+        public async Task<IActionResult> ProcessPayment([FromBody] Payment.API.Domain.Entities.Payment payment, [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
         {
+            if (string.IsNullOrEmpty(idempotencyKey)) 
+                return BadRequest("Missing X-Idempotency-Key header");
+
             var result = await _paymentService.ProcessPaymentAsync(payment, idempotencyKey);
-            if (!result) return BadRequest("Payment processing failed or Idempotency Key missing");
+            if (!result) return BadRequest("Payment processing failed");
+            
             return Ok(new { Message = "Payment processed and event published" });
         }
 

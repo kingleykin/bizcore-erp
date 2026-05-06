@@ -1,0 +1,20 @@
+$kind: http-request
+name: Process Payment
+method: POST
+url: "{{baseUrl}}/api/v1/payment/pay"
+order: 1000
+headers:
+  Content-Type: application/json
+  X-Idempotency-Key: "{{$guid}}"
+body:
+  type: json
+  content: |-
+    {
+      "invoiceId": "786D8548-D7BF-48B4-8085-9C5BA50CFDD3",
+      "amount": 99999.99,
+      "paymentDate": "2026-05-05T00:00:00Z"
+    }
+auth:
+  type: bearer
+  credentials:
+    token: "{{token}}"

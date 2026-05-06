@@ -8,12 +8,18 @@ import {
   Plus, 
   DollarSign, 
   CheckCircle2, 
-  Clock 
+  Clock,
+  LogOut
 } from 'lucide-react';
+import { Toaster, toast } from 'react-hot-toast';
 
 const GATEWAY_URL = 'http://localhost:5000';
 
 function App() {
+  const [token, setToken] = useState(localStorage.getItem('token'));
+  const [authError, setAuthError] = useState('');
+  const [loginData, setLoginData] = useState({ username: 'admin', password: 'password' });
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [invoices, setInvoices] = useState([]);
   const [stats, setStats] = useState({
@@ -23,59 +29,171 @@ function App() {
     pendingInvoices: 0
   });
   const [showModal, setShowModal] = useState(false);
-  const [newInvoice, setNewInvoice] = useState({ customerName: '', amount: 0 });
+  const [newInvoice, setNewInvoice] = useState({ customerName: '', amount: '' });
+
+  // Axios configuration with token
+  const api = axios.create({
+    baseURL: GATEWAY_URL,
+    headers: {
+      Authorization: `Bearer ${token}`
+    }
+  });
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchData, 5000); // Auto refresh
-    return () => clearInterval(interval);
-  }, []);
+    if (token) {
+      fetchData();
+      const interval = setInterval(fetchData, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [token]);
 
   const fetchData = async () => {
     try {
-      const invRes = await axios.get(`${GATEWAY_URL}/api/v1/invoice`);
+      const invRes = await api.get('/api/v1/invoice');
       setInvoices(invRes.data);
 
-      const statsRes = await axios.get(`${GATEWAY_URL}/api/v1/report/summary`);
+      const statsRes = await api.get('/api/v1/report/summary');
       setStats(statsRes.data);
     } catch (error) {
       console.error('Error fetching data:', error);
+      if (error.response?.status === 401) handleLogout();
     }
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    try {
+      const res = await axios.post(`${GATEWAY_URL}/auth/login`, loginData);
+      const newToken = res.data.token;
+      setToken(newToken);
+      localStorage.setItem('token', newToken);
+      toast.success('Chào mừng quay trở lại, ' + loginData.username + '!');
+    } catch (error) {
+      setAuthError('Tên đăng nhập hoặc mật khẩu không đúng');
+      toast.error('Đăng nhập thất bại');
+    }
+  };
+
+  const handleLogout = () => {
+    setToken(null);
+    localStorage.removeItem('token');
+    toast.success('Đã đăng xuất an toàn');
   };
 
   const handleCreateInvoice = async (e) => {
     e.preventDefault();
     try {
-      await axios.post(`${GATEWAY_URL}/api/v1/invoice`, newInvoice);
+      const amount = Number(newInvoice.amount);
+      if (!newInvoice.customerName.trim()) {
+        toast.error('Tên khách hàng không được để trống');
+        return;
+      }
+      if (!Number.isFinite(amount) || amount <= 0) {
+        toast.error('Số tiền phải lớn hơn 0');
+        return;
+      }
+
+      await api.post('/api/v1/invoice', {
+        customerName: newInvoice.customerName.trim(),
+        amount
+      });
       setShowModal(false);
-      setNewInvoice({ customerName: '', amount: 0 });
+      setNewInvoice({ customerName: '', amount: '' });
       fetchData();
+      toast.success('Hóa đơn đã được tạo thành công');
     } catch (error) {
       console.error('Error creating invoice:', error);
+      const serverMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.response?.data?.Message ||
+        (Array.isArray(error.response?.data?.errors)
+          ? error.response.data.errors.join(', ')
+          : null);
+      toast.error(serverMessage || 'Lỗi khi tạo hóa đơn');
     }
   };
 
   const handlePay = async (invoiceId, amount) => {
+    const toastId = toast.loading('Đang xử lý thanh toán...');
     try {
-      await axios.post(`${GATEWAY_URL}/api/v1/payment/pay`, {
+      // Generate a simple idempotency key for the demo
+      const idempotencyKey = `pay_${invoiceId}_${new Date().getTime()}`;
+      
+      await api.post('/api/v1/payment/pay', {
         invoiceId,
         amount
+      }, {
+        headers: {
+          'X-Idempotency-Key': idempotencyKey
+        }
       });
       fetchData();
+      toast.success('Thanh toán hoàn tất!', { id: toastId });
     } catch (error) {
       console.error('Error processing payment:', error);
+      toast.error('Thanh toán thất bại', { id: toastId });
     }
   };
 
+  if (!token) {
+    return (
+      <div className="login-container" style={{ display: 'flex', height: '100vh', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+        <div className="login-card" style={{ background: 'white', padding: '2.5rem', borderRadius: '1rem', boxShadow: '0 10px 25px rgba(0,0,0,0.05)', width: '100%', maxWidth: '400px' }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <LayoutDashboard size={48} color="#2563eb" style={{ marginBottom: '1rem' }} />
+            <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>BizCore ERP</h1>
+            <p style={{ color: '#64748b', marginTop: '0.5rem' }}>Đăng nhập để quản trị hệ thống</p>
+          </div>
+          
+          <form onSubmit={handleLogin}>
+            <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+              <label className="form-label">Tên đăng nhập</label>
+              <input 
+                type="text" 
+                className="form-input" 
+                value={loginData.username}
+                onChange={e => setLoginData({...loginData, username: e.target.value})}
+                required 
+              />
+            </div>
+            <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+              <label className="form-label">Mật khẩu</label>
+              <input 
+                type="password" 
+                className="form-input" 
+                value={loginData.password}
+                onChange={e => setLoginData({...loginData, password: e.target.value})}
+                required 
+              />
+            </div>
+            
+            {authError && <div style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1rem', textAlign: 'center' }}>{authError}</div>}
+            
+            <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}>
+              Đăng nhập ngay
+            </button>
+            
+            <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#94a3b8' }}>
+              Demo: admin / password
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
+      <Toaster position="top-right" reverseOrder={false} />
       {/* Sidebar */}
       <aside className="sidebar">
         <div className="logo">
           <LayoutDashboard size={28} />
-          <span>BizCore CRM</span>
+          <span>BizCore ERP</span>
         </div>
-        <nav>
+        <nav style={{ flex: 1 }}>
           <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
             <BarChart3 size={20} /> Dashboard
           </div>
@@ -83,6 +201,9 @@ function App() {
             <FileText size={20} /> Hóa đơn
           </div>
         </nav>
+        <div className="nav-item logout" onClick={handleLogout} style={{ borderTop: '1px solid #334155', paddingTop: '1.5rem', marginTop: 'auto', color: '#94a3b8' }}>
+          <CheckCircle2 size={20} /> Đăng xuất
+        </div>
       </aside>
 
       {/* Main Content */}
@@ -210,7 +331,9 @@ function App() {
                   type="number" 
                   className="form-input" 
                   value={newInvoice.amount}
-                  onChange={e => setNewInvoice({...newInvoice, amount: parseFloat(e.target.value)})}
+                  min="0.01"
+                  step="0.01"
+                  onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
                   required 
                 />
               </div>

@@ -1,0 +1,53 @@
+$kind: http-request
+name: Login
+method: POST
+url: "{{baseUrl}}/auth/login"
+scripts:
+  - type: afterResponse
+    code: "// parse response JSON\r
+
+      const jsonData = pm.response.json();\r
+
+      \r
+
+      // giả sử response dạng:\r
+
+      // { \"token\": \"abc123\" }\r
+
+      \r
+
+      if (jsonData.token) {\r
+
+      \    pm.environment.set(\"token\", jsonData.token);\r
+
+      \    console.log(\"Token saved:\", jsonData.token);\r
+
+      } else {\r
+
+      \    console.log(\"Token not found in response\");\r
+
+      }"
+    language: text/javascript
+order: 1000
+headers:
+  Content-Type: application/json
+body:
+  type: json
+  content: |-
+    {
+      "username": "admin",
+      "password": "password"
+    }
+event:
+  - listen: test
+    script:
+      type: text/javascript
+      exec:
+        - "pm.test('Login successful', function () {"
+        - "  pm.response.to.have.status(200);"
+        - "});"
+        - 'const jsonData = pm.response.json();'
+        - "pm.test('Response contains token', function () {"
+        - "  pm.expect(jsonData.Token).to.be.a('string').and.not.empty;"
+        - "});"
+        - "pm.collectionVariables.set('token', jsonData.Token);"

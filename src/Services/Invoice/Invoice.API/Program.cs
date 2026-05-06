@@ -4,17 +4,23 @@ using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Invoice.API.Application.Consumers;
 using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 using FluentValidation.AspNetCore;
 using FluentValidation;
 using Bizcore.BuildingBlocks.Middlewares;
 using Asp.Versioning;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog Configuration
+// Serilog Configuration + Loki
+var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
+    .WriteTo.GrafanaLoki(lokiUrl)
     .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Invoice.API")
+    .Enrich.WithProperty("Environment", "Development")
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -32,7 +38,7 @@ builder.Services.AddAuthentication("Bearer")
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
             ValidateIssuer = false,
             ValidateAudience = false,
-            ClockSkew = TimeSpan.Zero
+            ClockSkew = TimeSpan.FromMinutes(5)
         };
     });
 
@@ -103,6 +109,9 @@ builder.Services.AddMassTransit(x =>
 // Dependency Injection
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
+// Prometheus
+builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);
+
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -110,7 +119,11 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 
 app.UseSerilogRequestLogging();
 
+// Prometheus Metrics Middleware
+app.UseHttpMetrics();
+
 app.MapHealthChecks("/health");
+app.MapMetrics();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -119,7 +132,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseHttpsRedirection();
+// app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
@@ -132,11 +145,16 @@ using (var scope = app.Services.CreateScope())
 
     if (!context.Invoices.Any())
     {
-        context.Invoices.AddRange(
-            Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500),
-            Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn Kingley", 3200),
-            Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450)
-        );
+        var invoice1 = Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500);
+        invoice1.Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a");
+        
+        var invoice2 = Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn Kingley", 3200);
+        invoice2.Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d");
+        
+        var invoice3 = Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450);
+        invoice3.Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f");
+
+        context.Invoices.AddRange(invoice1, invoice2, invoice3);
         context.SaveChanges();
     }
 }

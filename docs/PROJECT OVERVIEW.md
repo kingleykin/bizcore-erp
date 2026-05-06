@@ -31,8 +31,11 @@ bizcore-erp/
 * **Database**: SQL Server (Shared Database cho giai đoạn demo).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
 * **Logging & Observability**:
-  * **Serilog**: Ghi log tập trung.
+  * **Serilog + Loki**: Ghi log tập trung và lưu trữ logs có cấu trúc trong Loki.
+  * **Prometheus**: Thu thập metrics từ tất cả các microservices (HTTP request latency, count, size).
+  * **Grafana**: Trực quan hóa logs và metrics từ Loki và Prometheus trên các dashboard chuyên nghiệp.
   * **Correlation ID**: Tự động gán và truyền ID (`X-Correlation-ID`) qua toàn bộ các service để truy vết (Distributed Tracing).
+  * **Promtail**: Đơn vị log shipping để đẩy logs từ containers lên Loki.
 * **Validation**:
   * **FluentValidation**: Kiểm tra tính đúng đắn của dữ liệu đầu vào (format, độ dài, khoảng giá trị) ngay tại tầng API.
   * **Domain Validation**: Kiểm tra các quy tắc nghiệp vụ chuyên sâu (Business Rules) ngay tại tầng Domain, đảm bảo tính toàn vẹn của dữ liệu trong mọi tình huống.
@@ -49,9 +52,22 @@ bizcore-erp/
 
 ## 🔗 Luồng nghiệp vụ (Flow)
 
-1. **Payment**: Thực hiện thanh toán -> Publish `PaymentCompletedEvent` lên RabbitMQ.
-2. **Invoice Service**: Consume Event -> Cập nhật trạng thái Hóa đơn sang `Paid`.
-3. **Report**: Xem Dashboard doanh thu cập nhật thời gian thực.
+1. **Payment**: Thực hiện thanh toán -> Lưu `Payment` với trạng thái `Completed` -> Publish `PaymentCompletedEvent` lên RabbitMQ.
+2. **Invoice Service**: Consume event -> Nếu tìm thấy hóa đơn thì cập nhật trạng thái sang `Paid`.
+3. **Compensation (Rollback nghiệp vụ)**: Nếu Invoice không áp dụng được event (ví dụ không tìm thấy hóa đơn), Invoice publish `PaymentCompensationRequestedEvent`.
+4. **Payment Service**: Consume `PaymentCompensationRequestedEvent` -> Cập nhật giao dịch thanh toán sang `Reversed`.
+5. **Report**: Dashboard phản ánh dữ liệu cuối cùng sau khi xử lý bất đồng bộ.
+
+### 🔄 Cơ chế `Reversed` (Business Rollback)
+
+Hệ thống đang dùng **Eventual Consistency**, nên không có rollback transaction xuyên service. Thay vào đó:
+
+* `PaymentCompletedEvent` chứa `PaymentId` để định danh chính xác giao dịch cần bù trừ.
+* Invoice chỉ là nơi "áp trạng thái hóa đơn", không can thiệp trực tiếp DB của Payment.
+* Khi Invoice xử lý thất bại theo nghiệp vụ, hệ thống dùng Compensation Event để yêu cầu Payment tự đảo trạng thái.
+* Trạng thái cuối của Payment:
+  * `Completed`: thanh toán thành công và chưa cần bù trừ.
+  * `Reversed`: thanh toán đã bị đảo do bước đồng bộ hóa đơn thất bại.
 
 ---
 
@@ -78,7 +94,8 @@ bizcore-erp/
   "Id": "guid",
   "InvoiceId": "guid",
   "Amount": "decimal",
-  "PaymentDate": "datetime"
+  "PaymentDate": "datetime",
+  "Status": "Completed (1) | Reversed (2)"
 }
 ```
 
@@ -139,8 +156,25 @@ Hệ thống đã được tối ưu hóa để chạy bằng Docker:
 2. **Frontend**: `cd src/WebUI` sau đó `npm install`, `npm run dev`.
 3. **Truy cập**:
    * **API Gateway**: `http://localhost:5000`
+   * **Web UI**: `http://localhost:3000`
+   * **Grafana Dashboard**: `http://localhost:3001` (admin/admin)
+   * **Prometheus**: `http://localhost:9090`
    * **RabbitMQ UI**: `http://localhost:15672` (guest/guest)
+   * **Portainer**: `http://localhost:9000`
    * **SQL Server**: `localhost,1433` (sa/Password123!)
+
+## 📊 Monitoring Stack
+
+Hệ thống tích hợp đầy đủ monitoring stack:
+
+| Component | Port | Chức năng |
+| :--- | :--- | :--- |
+| **Loki** | 3100 | Log aggregation |
+| **Prometheus** | 9090 | Metrics collection |
+| **Grafana** | 3001 | Visualization & Dashboards |
+| **Promtail** | N/A | Log shipping agent |
+
+**Xem chi tiết**: Tham khảo [MONITORING_GUIDE.md](MONITORING_GUIDE.md)
 
 ---
 *Cập nhật lần cuối: 05/05/2026 - Nâng cấp hệ thống bảo mật Enterprise.*

@@ -1,0 +1,51 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: docker-services
+    docker_sd_configs:
+      - host: unix:///var/run/docker.sock
+        refresh_interval: 5s
+    relabel_configs:
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/bizcore-gateway'
+        target_label: 'service'
+        replacement: 'gateway-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/.*invoice.*'
+        target_label: 'service'
+        replacement: 'invoice-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/.*payment.*'
+        target_label: 'service'
+        replacement: 'payment-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/bizcore-report'
+        target_label: 'service'
+        replacement: 'report-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/bizcore-gateway'
+        target_label: 'job'
+        replacement: 'gateway-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/.*invoice.*'
+        target_label: 'job'
+        replacement: 'invoice-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/.*payment.*'
+        target_label: 'job'
+        replacement: 'payment-api'
+      - source_labels: ['__meta_docker_container_name']
+        regex: '/bizcore-report'
+        target_label: 'job'
+        replacement: 'report-api'
+      - action: keep
+        source_labels: ['__meta_docker_container_name']
+        regex: '/(bizcore-gateway|.*invoice.*|.*payment.*|bizcore-report)'

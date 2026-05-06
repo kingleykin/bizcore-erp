@@ -25,6 +25,38 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  promtail:
+    image: grafana/promtail:2.9.0
+    container_name: promtail
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/lib/docker/containers:/var/lib/docker/containers
+      - ./promtail-config.yml:/etc/promtail/config.yml
+    command: -config.file=/etc/promtail/config.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    depends_on:
+      - loki
 
   gateway-api:
     image: bizcore-gateway-api
@@ -40,10 +72,12 @@ services:
       - ReverseProxy__Clusters__invoice-cluster__Destinations__d1__Address=http://invoice-api:8080
       - ReverseProxy__Clusters__payment-cluster__Destinations__d1__Address=http://payment-api:8080
       - ReverseProxy__Clusters__report-cluster__Destinations__d1__Address=http://report-api:8080
+      - Loki__Url=http://loki:3100
     depends_on:
       - invoice-api
       - payment-api
       - report-api
+      - loki
 
   invoice-api:
     image: bizcore-invoice-api
@@ -54,9 +88,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=InvoiceDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
     depends_on:
       - sql-server
       - rabbitmq
+      - loki
 
   payment-api:
     image: bizcore-payment-api
@@ -67,9 +103,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=PaymentDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
     depends_on:
       - sql-server
       - rabbitmq
+      - loki
 
   report-api:
     image: bizcore-report-api
@@ -81,9 +119,11 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
     depends_on:
       - sql-server
       - rabbitmq
+      - loki
 
   web-ui:
     image: bizcore-web-ui

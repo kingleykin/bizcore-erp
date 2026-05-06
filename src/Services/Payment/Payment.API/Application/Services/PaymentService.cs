@@ -39,20 +39,25 @@ namespace Payment.API.Application.Services
             // But for this demo, we check if invoice exists in shared DB
             var invoiceExists = await _context.Invoices.AnyAsync(i => i.Id == payment.InvoiceId);
             if (!invoiceExists) return false;
-
+            
             payment.Id = Guid.NewGuid();
             payment.PaymentDate = DateTime.UtcNow;
+            payment.Status = PaymentStatus.Completed;
             _context.Payments.Add(payment);
 
-            await _context.SaveChangesAsync();
+            // Set idempotency key in cache
+            _cache.Set(idempotencyKey, true, TimeSpan.FromMinutes(30));
 
-            // Publish Event to RabbitMQ
+            // Publish Event to RabbitMQ (Will be saved to Outbox because it's before SaveChanges)
             await _publishEndpoint.Publish<IPaymentCompletedEvent>(new
             {
+                PaymentId = payment.Id,
                 InvoiceId = payment.InvoiceId,
                 Amount = payment.Amount,
                 PaymentDate = payment.PaymentDate
             });
+
+            await _context.SaveChangesAsync();
 
             return true;
         }

@@ -156,22 +156,110 @@ Giải thích cách hệ thống đảm bảo Event không bao giờ bị mất:
 1. **Mô tả**: "Khi một hóa đơn được tạo, chúng tôi lưu hóa đơn VÀ message vào cùng một Database Transaction. Nếu DB lưu thành công, MassTransit Outbox sẽ đảm bảo message sớm muộn gì cũng được gửi đến RabbitMQ, ngay cả khi RabbitMQ bị sập tạm thời."
 2. **Resilience**: "Tại Gateway, Polly được cấu hình để tự động Retry khi các microservices phía sau bị quá tải hoặc phản hồi chậm."
 
+## 📊 10. Trình diễn Observability & Monitoring (Loki, Prometheus, Grafana)
+
+Đây là điểm nhấn thứ hai về tính chuyên nghiệp của hệ thống enterprise-grade.
+
+### Bước 1: Truy cập Grafana Dashboard
+
+1. **Mở URL**: `http://localhost:3001`
+2. **Đăng nhập**: admin/admin
+3. **Giải thích**: "Grafana là hub trung tâm để visualize logs và metrics của toàn bộ hệ thống."
+
+### Bước 2: Xem Logs từ Loki
+
+1. **Trong Grafana**, click **Explore** (ngoài cùng bên trái).
+2. **Chọn datasource**: "Loki" (nếu chưa có, add datasource mới với URL `http://loki:3100`).
+3. **Viết query**: 
+   ```
+   {service="invoice-api"}
+5. **Mô tả**: "Mỗi dòng log chứa structured data, bao gồm timestamp, service, level, và message. Chúng ta có thể filter theo service, environment, hay error level."
+
+### Bước 3: Kiểm tra Metrics từ Prometheus
+
+1. **Trong Grafana**, click **Explore**.
+2. **Chọn datasource**: "Prometheus" (nếu chưa có, add datasource mới với URL `http://prometheus:9090`).
+3. **Viết query Prometheus**:
+   ```
+   rate(http_requests_received_total{job="invoice-api"}[5m])
+   ```
+4. **Kết quả**: Thấy tỷ lệ request đến Invoice API trong 5 phút qua.
+5. **Mô tả**: "Prometheus thu thập metrics HTTP từ mỗi service. Chúng ta có thể query request rate, latency, error rate, và nhiều metrics khác."
+
+### Bước 4: Xem Correlation ID trong Logs
+
+1. **Thực hiện một API request** (ví dụ: POST hóa đơn).
+2. **Copy Correlation ID** từ response header: `X-Correlation-ID`.
+3. **Trong Loki query**, thêm filter:
+   ```
+   {service=~".*-api"} | json | trace_id="<CORRELATION_ID>"
+   ```
+4. **Kết quả**: Xem tất cả logs từ tất cả services liên quan đến request này.
+5. **Mô tả**: "Correlation ID cho phép chúng ta theo dõi một request xuyên suốt chuỗi microservices. Nó trở nên cực kỳ mạnh mẽ khi hệ thống có 10+ services."
+
+### Bước 5: Tạo Dashboard Simple
+
+1. **Trong Grafana**, click **+** -> **Dashboard**.
+2. **Add Panel** -> **Loki** -> Query:
+   ```
+   {service="payment-api"} |= "error"
+   ```
+3. **Đặt tên**: "Payment API Errors".
+4. **Thêm Panel thứ 2** -> **Prometheus** -> Query:
+   ```
+   rate(http_requests_received_total[5m])
+   ```
+5. **Đặt tên**: "HTTP Request Rate".
+6. **Lưu Dashboard**: `Ctrl+S`.
+7. **Mô tả**: "Dashboard này giúp chúng ta nhanh chóng phát hiện các sự cố hoặc anomaly. Các KPI chính được trực quan hóa trong một màn hình duy nhất."
+
+### Bước 6: Verify Prometheus Scraping
+
+1. **Truy cập**: `http://localhost:9090`
+2. **Click**: Targets (thanh menu phía trên).
+3. **Kết quả**: Xem danh sách tất cả các services mà Prometheus đang scrape metrics từ. Chúng sẽ ở trạng thái "UP" nếu khỏe mạnh.
+4. **Mô tả**: "Prometheus chủ động kéo metrics từ mỗi service qua endpoint `/metrics`. Nếu một service bị down, status sẽ chuyển sang 'DOWN' và chúng ta sẽ được cảnh báo ngay."
+
 ---
 
-## 🏆 9. Điểm nhấn kiến trúc (Dành cho người xem)
+## 🔝 11. Điểm nhấn tổng kết
+
+## 🔝 11. Điểm nhấn tổng kết
 
 Khi giới thiệu, hãy nhấn mạnh các điểm sau:
 
-1. **Distributed Tracing**: "Hệ thống hỗ trợ tracing toàn diện qua Correlation ID, giúp giảm thời gian debug trong môi trường microservices từ vài giờ xuống vài giây."
-2. **Double Validation & Consistency**: "Chúng tôi kết hợp FluentValidation và Domain Validation, đảm bảo dữ liệu luôn sạch và đúng nghiệp vụ."
-3. **Resilience & Standardization**: "Mọi lỗi đều được chuẩn hóa format. Hệ thống có khả năng tự phục hồi và giám sát sức khỏe qua Health Checks."
-4. **Performance Optimization**: "Áp dụng Memory Caching cho các báo cáo Dashboard, đảm bảo tốc độ phản hồi tối ưu cho người dùng cuối."
-5. **Permission-based Auth**: "Hệ thống sử dụng claim-based để tránh nổ Role và hỗ trợ mở rộng linh hoạt."
-6. **Double Validation Strategy**: "Chúng tôi áp dụng mô hình validation 2 lớp: FluentValidation ở cửa ngõ API để lọc rác, và Domain Validation ở trái tim của hệ thống để bảo vệ các quy tắc kinh doanh."
-7. **Zero Trust**: "Mọi service đều tự validate Token, đảm bảo an toàn tối đa."
-8. **Clean Code**: "Controller và Service cực kỳ sạch sẽ vì logic validation đã được đẩy ra đúng lớp (Middleware/Filter và Domain Entity)."
-9. **Rate Limiting & Hardening**: "Gateway được cấu hình sẵn các lớp bảo vệ như một hệ thống Production thực thụ."
-10. **Structured Logging**: "Log được ghi dưới dạng cấu trúc, sẵn sàng để đẩy vào ELK Stack để giám sát."
-11. **Advanced EDA**: "Sử dụng Outbox Pattern để đạt được tính nhất quán cuối cùng (Eventual Consistency) một cách tin cậy."
-12. **Industrial Standards**: "Hệ thống áp dụng đầy đủ API Versioning, Idempotency và Resilience (Polly) - những tiêu chuẩn bắt buộc của các hệ thống Microservices thực tế."
-13. **Fault Tolerance**: "Thiết kế của chúng tôi chấp nhận lỗi xảy ra và có cơ chế tự phục hồi tự động."
+1. **Distributed Tracing**: "Hệ thống hỗ trợ tracing toàn diện qua Correlation ID, giúp giảm thời gian debug trong môi trường microservices từ vài giờ xuống vài phút."
+2. **Centralized Logging with Loki**: "Loki cung cấp khả năng tìm kiếm và filter logs có cấu trúc từ tất cả containers. Không cần SSH vào từng server để xem logs."
+3. **Metrics & Visualization**: "Prometheus thu thập metrics performance từ tất cả services, Grafana visualize chúng thành dashboard thực thi. Chúng ta có thể phát hiện bottleneck trong 5 giây."
+4. **Full Stack Observability**: "Combination của Logs + Metrics + Traces tạo thành một hệ thống observability hoàn chỉnh, cho phép chúng ta hiểu rõ hành vi của toàn bộ hệ thống."
+5. **Production-Ready**: "Stack monitoring này được sử dụng bởi hàng ngàn công ty để monitor production systems hàng ngày."
+6. **Double Validation & Consistency**: "Chúng tôi kết hợp FluentValidation và Domain Validation, đảm bảo dữ liệu luôn sạch và đúng nghiệp vụ."
+7. **Resilience & Standardization**: "Mọi lỗi đều được chuẩn hóa format. Hệ thống có khả năng tự phục hồi và giám sát sức khỏe qua Health Checks."
+8. **Performance Optimization**: "Áp dụng Memory Caching cho các báo cáo Dashboard, đảm bảo tốc độ phản hồi tối ưu cho người dùng cuối."
+9. **Permission-based Auth**: "Hệ thống sử dụng claim-based để tránh nổ Role và hỗ trợ mở rộng linh hoạt."
+10. **Double Validation Strategy**: "Chúng tôi áp dụng mô hình validation 2 lớp: FluentValidation ở cửa ngõ API để lọc rác, và Domain Validation ở trái tim của hệ thống để bảo vệ các quy tắc kinh doanh."
+11. **Zero Trust**: "Mọi service đều tự validate Token, đảm bảo an toàn tối đa."
+12. **Clean Code**: "Controller và Service cực kỳ sạch sẽ vì logic validation đã được đẩy ra đúng lớp (Middleware/Filter và Domain Entity)."
+13. **Rate Limiting & Hardening**: "Gateway được cấu hình sẵn các lớp bảo vệ như một hệ thống Production thực thụ."
+14. **Structured Logging**: "Log được ghi dưới dạng cấu trúc, sẵn sàng để đẩy vào ELK Stack hoặc Loki để giám sát."
+15. **Advanced EDA**: "Sử dụng Outbox Pattern để đạt được tính nhất quán cuối cùng (Eventual Consistency) một cách tin cậy."
+16. **Industrial Standards**: "Hệ thống áp dụng đầy đủ API Versioning, Idempotency, Resilience (Polly), và Observability - những tiêu chuẩn bắt buộc của các hệ thống Microservices thực tế."
+17. **Fault Tolerance**: "Thiết kế của chúng tôi chấp nhận lỗi xảy ra và có cơ chế tự phục hồi tự động."
+18. **Modern DevOps Stack**: "Tích hợp đầy đủ containerization (Docker), orchestration (docker-compose), monitoring (Loki, Prometheus, Grafana), message broker (RabbitMQ), và databases (SQL Server)."
+
+---
+
+## 🎯 Kết luận
+
+Hệ thống BizCore ERP đã được cấu hình đầy đủ monitoring stack production-ready với:
+
+✅ **Loki**: Centralized logging với service discovery tự động
+✅ **Prometheus**: Metrics collection từ tất cả microservices  
+✅ **Grafana**: Visualization dashboard cho logs và metrics
+✅ **Promtail**: Log shipping với Docker service discovery
+
+**Query mạnh mẽ**:
+```
+{service="payment-api"} |= "error"
+{service=~".*-api"} | json | trace_id="<CORRELATION_ID>"
+```

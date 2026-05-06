@@ -237,3 +237,19 @@ body {
 .form-input:focus {
   border-color: #38bdf8;
 }
+
+/* Login specific overrides */
+.login-container .form-input {
+  background: #f1f5f9;
+  color: #1e293b;
+  border-color: #e2e8f0;
+}
+
+.login-container .form-input:focus {
+  border-color: #2563eb;
+}
+
+.nav-item.logout:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}

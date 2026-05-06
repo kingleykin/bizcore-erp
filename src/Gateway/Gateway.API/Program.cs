@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.RateLimiting;
 using Serilog;
+using Serilog.Sinks.Grafana.Loki;
 using System.Threading.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -10,13 +11,18 @@ using Yarp.ReverseProxy.Transforms;
 using Microsoft.Extensions.Http.Resilience;
 using Bizcore.BuildingBlocks;
 using Polly;
+using Prometheus;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Logging with Serilog
+// 1. Logging with Serilog + Loki
+var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
     .WriteTo.Console()
+    .WriteTo.GrafanaLoki(lokiUrl)
     .Enrich.FromLogContext()
+    .Enrich.WithProperty("Service", "Gateway.API")
+    .Enrich.WithProperty("Environment", "Development")
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -178,6 +184,10 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+
+// Prometheus Metrics Middleware
+app.UseHttpMetrics();
+
 app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -185,6 +195,9 @@ app.UseAuthorization();
 
 // 9. Map Reverse Proxy
 app.MapReverseProxy().RequireRateLimiting("fixed").RequireAuthorization();
+
+// Prometheus metrics endpoint
+app.MapMetrics();
 
 app.Run();
 

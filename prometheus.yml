@@ -1,0 +1,30 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'bizcore-erp'
+
+scrape_configs:
+  - job_name: 'gateway-api'
+    static_configs:
+      - targets: ['gateway-api:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'invoice-api'
+    static_configs:
+      - targets: ['invoice-api:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'payment-api'
+    static_configs:
+      - targets: ['payment-api:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'report-api'
+    static_configs:
+      - targets: ['report-api:8080']
+    metrics_path: '/metrics'
+
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

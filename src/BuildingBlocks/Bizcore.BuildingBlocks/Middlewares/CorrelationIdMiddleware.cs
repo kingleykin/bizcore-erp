@@ -16,7 +16,7 @@ namespace Bizcore.BuildingBlocks.Middlewares
 
         public async Task InvokeAsync(HttpContext context)
         {
-            string correlationId = context.Request.Headers[CorrelationIdHeader];
+            var correlationId = context.Request.Headers[CorrelationIdHeader].ToString();
 
             if (string.IsNullOrEmpty(correlationId))
             {
