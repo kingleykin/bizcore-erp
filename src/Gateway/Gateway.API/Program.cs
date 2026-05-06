@@ -18,11 +18,18 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. Logging with Serilog + Loki
 var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.GrafanaLoki(lokiUrl)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "Gateway.API")
     .Enrich.WithProperty("Environment", "Development")
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.GrafanaLoki(lokiUrl,
+        labels: new[]
+        {
+            new LokiLabel { Key = "service", Value = "gateway-api" },
+            new LokiLabel { Key = "environment", Value = "Development" }
+        },
+        propertiesAsLabels: new[] { "CorrelationId" })
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -116,13 +123,28 @@ builder.Services
     .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
     .AddTransforms(transformBuilder =>
     {
+        // Đảm bảo downstream nhận đúng 1 X-Correlation-ID.
+        // YARP mặc định copy toàn bộ headers từ incoming request vào ProxyRequest,
+        // nên header đã có sẵn. Middleware cũng đã lưu giá trị đúng vào Items.
+        // Chỉ cần set lại từ Items để đảm bảo nhất quán (tránh trường hợp
+        // client gửi nhiều giá trị hoặc header bị biến đổi trong pipeline).
         transformBuilder.AddRequestTransform(context =>
         {
             var correlationId = context.HttpContext.Items["X-Correlation-ID"]?.ToString();
             if (!string.IsNullOrEmpty(correlationId))
             {
+                context.ProxyRequest.Headers.Remove("X-Correlation-ID");
                 context.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
             }
+            return ValueTask.CompletedTask;
+        });
+
+        // Xóa X-Correlation-ID khỏi downstream response trước khi YARP merge về client.
+        // Gateway là nơi duy nhất set header này ra ngoài (qua CorrelationIdMiddleware),
+        // nếu để downstream response header đi qua sẽ bị duplicate.
+        transformBuilder.AddResponseTransform(context =>
+        {
+            context.ProxyResponse?.Headers.Remove("X-Correlation-ID");
             return ValueTask.CompletedTask;
         });
     });
@@ -148,6 +170,7 @@ app.MapPost("/auth/login", (LoginRequest request) =>
         claims.Add(new Claim("permission", Permissions.Invoice.Create));
         claims.Add(new Claim("permission", Permissions.Invoice.Update));
         claims.Add(new Claim("permission", Permissions.Report.View));
+        claims.Add(new Claim("permission", Permissions.Orchestration.View));
     }
     else if (request.Username == "user")
     {

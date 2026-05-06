@@ -14,7 +14,8 @@ bizcore-erp/
 │   ├── Services/
 │   │   ├── Invoice/ (Quản lý hóa đơn)
 │   │   ├── Payment/ (Xử lý thanh toán)
-│   │   └── Report/  (Tổng hợp báo cáo)
+│   │   ├── Report/  (Tổng hợp báo cáo)
+│   │   └── Orchestration/ (Theo dõi luồng giao dịch qua event)
 │   ├── BuildingBlocks/
 │   │   └── Bizcore.BuildingBlocks/ (Shared Library: Contracts, Events)
 │   └── WebUI/ (React App)
@@ -25,7 +26,7 @@ bizcore-erp/
 
 ## 🧱 Kiến trúc Kỹ thuật
 
-* **Microservices**: 3 services tách biệt theo Domain.
+* **Microservices**: Các service domain (Invoice, Payment, Report) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md).
 * **API Gateway**: YARP (Yet Another Reverse Proxy) port 5000.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Shared Database cho giai đoạn demo).
@@ -56,7 +57,8 @@ bizcore-erp/
 2. **Invoice Service**: Consume event -> Nếu tìm thấy hóa đơn thì cập nhật trạng thái sang `Paid`.
 3. **Compensation (Rollback nghiệp vụ)**: Nếu Invoice không áp dụng được event (ví dụ không tìm thấy hóa đơn), Invoice publish `PaymentCompensationRequestedEvent`.
 4. **Payment Service**: Consume `PaymentCompensationRequestedEvent` -> Cập nhật giao dịch thanh toán sang `Reversed`.
-5. **Report**: Dashboard phản ánh dữ liệu cuối cùng sau khi xử lý bất đồng bộ.
+5. **Orchestration** (tuỳ chọn quan sát): Ghi nhận timeline `ProcessFlow` / `FlowStep` theo cùng các event phía trên (queue riêng), API chỉ đọc qua Gateway.
+6. **Report**: Dashboard phản ánh dữ liệu cuối cùng sau khi xử lý bất đồng bộ.
 
 ### 🔄 Cơ chế `Reversed` (Business Rollback)
 
@@ -110,6 +112,8 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn |
 | **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán hóa đơn |
 | **Report** | GET | `/report/summary` | `Report.View` | Báo cáo tổng hợp |
+| **Orchestration** | GET | `/orchestration/flows` | `Orchestration.View` | Danh sách luồng giao dịch gần đây |
+| **Orchestration** | GET | `/orchestration/flows/{id}` | `Orchestration.View` | Chi tiết luồng theo `InvoiceId` |
 
 ---
 
@@ -120,6 +124,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | `/invoice/{**catch-all}` | `http://invoice-api:8080` | RateLimit, Auth |
 | `/payment/{**catch-all}` | `http://payment-api:8080` | RateLimit, Auth |
 | `/report/{**catch-all}` | `http://report-api:8080` | RateLimit, Auth |
+| `/orchestration/{**catch-all}` | `http://orchestration-api:8080` | RateLimit, Auth |
 
 ---
 

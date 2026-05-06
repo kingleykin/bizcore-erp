@@ -21,7 +21,7 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 ### 🔹 Macro-level (Kiến trúc tổng thể)
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
-* **Microservices**: Mỗi service (Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context).
+* **Microservices**: Mỗi service (Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch (không thay đổi nghiệp vụ tại chỗ các bounded context khác — xem [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md)).
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices.
   * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA.
   * **Permissions**: Định nghĩa tập trung toàn bộ các hành động (Fine-grained actions) của hệ thống phục vụ Permission-based Authorization.

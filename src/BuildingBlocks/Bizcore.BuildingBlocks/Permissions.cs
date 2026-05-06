@@ -22,5 +22,10 @@ namespace Bizcore.BuildingBlocks
             public const string View = "report:view";
             public const string Export = "report:export";
         }
+
+        public static class Orchestration
+        {
+            public const string View = "orchestration:view";
+        }
     }
 }

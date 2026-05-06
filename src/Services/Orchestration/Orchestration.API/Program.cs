@@ -1,29 +1,32 @@
-using Report.API.Application.Services;
-using Report.API.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
-using Serilog.Sinks.Grafana.Loki;
-using Asp.Versioning;
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
 using MassTransit;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Orchestration.API.Application.Consumers;
+using Orchestration.API.Application.Services;
+using Orchestration.API.Infrastructure.Data;
 using Prometheus;
+using Serilog;
+using Serilog.Sinks.Grafana.Loki;
+using Asp.Versioning;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Serilog Configuration + Loki
 var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
     .Enrich.FromLogContext()
-    .Enrich.WithProperty("Service", "Report.API")
+    .Enrich.WithProperty("Service", "Orchestration.API")
     .Enrich.WithProperty("Environment", "Development")
     .WriteTo.Console(
         outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}")
     .WriteTo.GrafanaLoki(lokiUrl,
         labels: new[]
         {
-            new LokiLabel { Key = "service", Value = "report-api" },
+            new LokiLabel { Key = "service", Value = "orchestration-api" },
             new LokiLabel { Key = "environment", Value = "Development" }
         },
         propertiesAsLabels: new[] { "CorrelationId" })
@@ -31,31 +34,31 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// JWT Authentication Configuration
 var secretKey = "BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!";
-var key = System.Text.Encoding.ASCII.GetBytes(secretKey);
+var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication("Bearer")
     .AddJwtBearer("Bearer", options =>
     {
-        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        options.TokenValidationParameters = new TokenValidationParameters
         {
             ValidateIssuerSigningKey = true,
-            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+            IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = false,
             ValidateAudience = false,
-            ClockSkew = TimeSpan.FromMinutes(5) // Allow small time differences between containers
+            ClockSkew = TimeSpan.FromMinutes(5)
         };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Report.View", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Report.View));
+    options.AddPolicy(
+        "Orchestration.View",
+        policy => policy.RequireClaim("permission", Permissions.Orchestration.View));
 });
 
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
-builder.Services.AddMemoryCache();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -77,17 +80,13 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// MassTransit Configuration
+builder.Services.AddScoped<IProcessOrchestrationService, ProcessOrchestrationService>();
+
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<Report.API.Application.Consumers.InvoiceCreatedConsumer>();
-    x.AddConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>();
-
-    x.AddEntityFrameworkOutbox<AppDbContext>(o =>
-    {
-        o.UseSqlServer();
-        o.UseBusOutbox();
-    });
+    x.AddConsumer<InvoiceCreatedOrchestrationConsumer>();
+    x.AddConsumer<PaymentCompletedOrchestrationConsumer>();
+    x.AddConsumer<PaymentCompensationRequestedOrchestrationConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -99,21 +98,23 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
         });
 
-        cfg.ReceiveEndpoint("report-invoice-created", e =>
+        cfg.ReceiveEndpoint("orchestration-invoice-created", e =>
         {
-            e.ConfigureConsumer<Report.API.Application.Consumers.InvoiceCreatedConsumer>(context);
+            e.ConfigureConsumer<InvoiceCreatedOrchestrationConsumer>(context);
         });
 
-        cfg.ReceiveEndpoint("report-payment-completed", e =>
+        cfg.ReceiveEndpoint("orchestration-payment-completed", e =>
         {
-            e.ConfigureConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>(context);
+            e.ConfigureConsumer<PaymentCompletedOrchestrationConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("orchestration-payment-compensation-requested", e =>
+        {
+            e.ConfigureConsumer<PaymentCompensationRequestedOrchestrationConsumer>(context);
         });
     });
 });
 
-builder.Services.AddScoped<IReportService, ReportService>();
-
-// Prometheus
 builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);
 
 var app = builder.Build();
@@ -124,8 +125,6 @@ app.UseMiddleware<CorrelationIdPropagationMiddleware>();
 app.MapHealthChecks("/health");
 
 app.UseSerilogRequestLogging();
-
-// Prometheus Metrics Middleware
 app.UseHttpMetrics();
 app.MapMetrics();
 
@@ -135,27 +134,14 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-// app.UseHttpsRedirection(); // Removed for Docker internal HTTP traffic
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Database Initialization
 using (var scope = app.Services.CreateScope())
 {
-    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
-
-    // Seed Invoices for Dashboard
-    if (!context.Invoices.Any())
-    {
-        context.Invoices.AddRange(
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a"), CustomerName = "Công ty Công nghệ ABC", Amount = 1500, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-5) },
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"), CustomerName = "Tập đoàn Kingley", Amount = 3200, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-2) },
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f"), CustomerName = "Cửa hàng Bán lẻ XYZ", Amount = 450, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-1) }
-        );
-        context.SaveChanges();
-    }
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.EnsureCreated();
 }
 
 app.Run();

@@ -27,5 +27,13 @@ internal static class TestDbContextFactory
             .Options;
         return new Report.API.Infrastructure.Data.AppDbContext(options);
     }
+
+    public static Orchestration.API.Infrastructure.Data.AppDbContext CreateOrchestrationDbContext(string databaseName)
+    {
+        var options = new DbContextOptionsBuilder<Orchestration.API.Infrastructure.Data.AppDbContext>()
+            .UseInMemoryDatabase(databaseName)
+            .Options;
+        return new Orchestration.API.Infrastructure.Data.AppDbContext(options);
+    }
 }
 

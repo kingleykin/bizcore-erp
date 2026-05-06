@@ -2,6 +2,9 @@
   <Folder Name="/BuildingBlocks/">
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks/Bizcore.BuildingBlocks.csproj" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="Tests/Bizcore.UnitTests/Bizcore.UnitTests.csproj" />
+  </Folder>
   <Folder Name="/Gateway/">
     <Project Path="Gateway/Gateway.API/Gateway.API.csproj" />
   </Folder>
@@ -14,5 +17,8 @@
   </Folder>
   <Folder Name="/Services/Report/">
     <Project Path="Services/Report/Report.API/Report.API.csproj" />
+  </Folder>
+  <Folder Name="/Services/Orchestration/">
+    <Project Path="Services/Orchestration/Orchestration.API/Orchestration.API.csproj" />
   </Folder>
 </Solution>

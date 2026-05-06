@@ -89,7 +89,7 @@ public class ReportConsumersTests
         });
         await context.SaveChangesAsync();
 
-        var consumer = new PaymentCompletedConsumer(context);
+        var consumer = new PaymentCompletedConsumer(context, Microsoft.Extensions.Logging.Abstractions.NullLogger<PaymentCompletedConsumer>.Instance);
 
         var message = new PaymentCompletedEventFake(Guid.NewGuid(), invoiceId, 50m, DateTime.UtcNow);
         var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();

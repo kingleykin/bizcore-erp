@@ -7,6 +7,7 @@ using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using Asp.Versioning;
 using Bizcore.BuildingBlocks.Middlewares;
+using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks;
 using Prometheus;
 
@@ -15,16 +16,24 @@ var builder = WebApplication.CreateBuilder(args);
 // Serilog Configuration + Loki
 var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.GrafanaLoki(lokiUrl)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "Payment.API")
     .Enrich.WithProperty("Environment", "Development")
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.GrafanaLoki(lokiUrl,
+        labels: new[]
+        {
+            new LokiLabel { Key = "service", Value = "payment-api" },
+            new LokiLabel { Key = "environment", Value = "Development" }
+        },
+        propertiesAsLabels: new[] { "CorrelationId" })
     .CreateLogger();
 
 builder.Host.UseSerilog();
 
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 
 builder.Services.AddApiVersioning(options =>
@@ -53,6 +62,10 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<PaymentCompensationRequestedConsumer>();
     x.AddConsumer<InvoiceCreatedConsumer>();
 
+    // Đăng ký Request Client cho Request-Reply pattern
+    x.AddRequestClient<Bizcore.BuildingBlocks.Contracts.IApplyPaymentToInvoiceRequest>(
+        new Uri("queue:invoice-apply-payment"));
+
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
         o.UseSqlServer();
@@ -61,6 +74,8 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
+        cfg.UseCorrelationId(context);
+
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
             h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
@@ -87,7 +102,7 @@ builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<CorrelationIdPropagationMiddleware>();
 
 app.MapHealthChecks("/health");
 

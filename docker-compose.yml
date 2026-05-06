@@ -72,11 +72,13 @@ services:
       - ReverseProxy__Clusters__invoice-cluster__Destinations__d1__Address=http://invoice-api:8080
       - ReverseProxy__Clusters__payment-cluster__Destinations__d1__Address=http://payment-api:8080
       - ReverseProxy__Clusters__report-cluster__Destinations__d1__Address=http://report-api:8080
+      - ReverseProxy__Clusters__orchestration-cluster__Destinations__d1__Address=http://orchestration-api:8080
       - Loki__Url=http://loki:3100
     depends_on:
       - invoice-api
       - payment-api
       - report-api
+      - orchestration-api
       - loki
 
   invoice-api:
@@ -118,6 +120,23 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
+    depends_on:
+      - sql-server
+      - rabbitmq
+      - loki
+
+  orchestration-api:
+    image: bizcore-orchestration-api
+    container_name: bizcore-orchestration
+    build:
+      context: .
+      dockerfile: src/Services/Orchestration/Orchestration.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrchestrationDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
     depends_on:

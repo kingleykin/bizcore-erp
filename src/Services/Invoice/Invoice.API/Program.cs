@@ -8,6 +8,7 @@ using Serilog.Sinks.Grafana.Loki;
 using FluentValidation.AspNetCore;
 using FluentValidation;
 using Bizcore.BuildingBlocks.Middlewares;
+using Bizcore.BuildingBlocks.MassTransit;
 using Asp.Versioning;
 using Prometheus;
 
@@ -16,11 +17,18 @@ var builder = WebApplication.CreateBuilder(args);
 // Serilog Configuration + Loki
 var lokiUrl = builder.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
-    .WriteTo.GrafanaLoki(lokiUrl)
     .Enrich.FromLogContext()
     .Enrich.WithProperty("Service", "Invoice.API")
     .Enrich.WithProperty("Environment", "Development")
+    .WriteTo.Console(
+        outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}")
+    .WriteTo.GrafanaLoki(lokiUrl,
+        labels: new[]
+        {
+            new LokiLabel { Key = "service", Value = "invoice-api" },
+            new LokiLabel { Key = "environment", Value = "Development" }
+        },
+        propertiesAsLabels: new[] { "CorrelationId" })
     .CreateLogger();
 
 builder.Host.UseSerilog();
@@ -50,6 +58,7 @@ builder.Services.AddAuthorization(options =>
 });
 
 builder.Services.AddHealthChecks();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -81,8 +90,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
-    // Register Consumer
-    x.AddConsumer<PaymentCompletedConsumer>();
+    x.AddConsumer<ApplyPaymentToInvoiceConsumer>();
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
@@ -92,16 +100,18 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
+        cfg.UseCorrelationId(context);
+
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
             h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username")?? "guest");
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
-        // Setup receive endpoint
-        cfg.ReceiveEndpoint("invoice-payment-completed", e =>
+        // Request-Reply endpoint: nhận request từ Payment service
+        cfg.ReceiveEndpoint("invoice-apply-payment", e =>
         {
-            e.ConfigureConsumer<PaymentCompletedConsumer>(context);
+            e.ConfigureConsumer<ApplyPaymentToInvoiceConsumer>(context);
         });
     });
 });
@@ -115,7 +125,7 @@ builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
-app.UseMiddleware<CorrelationIdMiddleware>();
+app.UseMiddleware<CorrelationIdPropagationMiddleware>();
 
 app.UseSerilogRequestLogging();
 

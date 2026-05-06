@@ -1,192 +1,193 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Contracts;
 using FluentAssertions;
 using Invoice.API.Application.Consumers;
 using InvoiceEntity = Invoice.API.Domain.Entities.Invoice;
 using MassTransit;
-using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
 namespace Bizcore.UnitTests;
 
-public class InvoicePaymentCompletedConsumerTests
+/// <summary>
+/// Tests cho ApplyPaymentToInvoiceConsumer — thay thế Invoice.PaymentCompletedConsumer
+/// đã bị xóa sau khi chuyển sang Request-Reply pattern.
+///
+/// Logic validate giờ nằm ở đây thay vì trong event consumer cũ.
+/// </summary>
+public class ApplyPaymentToInvoiceConsumerTests
 {
-    private sealed class PaymentCompletedEventFake : IPaymentCompletedEvent
+    private sealed class ApplyPaymentRequestFake : IApplyPaymentToInvoiceRequest
     {
-        public PaymentCompletedEventFake(Guid paymentId, Guid invoiceId, decimal amount, DateTime paymentDate)
-        {
-            PaymentId = paymentId;
-            InvoiceId = invoiceId;
-            Amount = amount;
-            PaymentDate = paymentDate;
-        }
-
-        public Guid PaymentId { get; }
-        public Guid InvoiceId { get; }
-        public decimal Amount { get; }
-        public DateTime PaymentDate { get; }
+        public Guid PaymentId { get; init; }
+        public Guid InvoiceId { get; init; }
+        public decimal Amount { get; init; }
     }
 
-    [Fact]
-    public async Task Consume_WhenInvoiceExists_UpdatesToPaid_AndDoesNotPublishCompensation()
+    private static Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>> BuildConsumeContext(
+        Guid paymentId, Guid invoiceId, decimal amount)
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+        IApplyPaymentToInvoiceResponse? capturedResponse = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = paymentId, InvoiceId = invoiceId, Amount = amount });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r =>
+           {
+               var t = r.GetType();
+               capturedResponse = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+                   m.Success == (bool)t.GetProperty("Success")!.GetValue(r)! &&
+                   m.ErrorReason == (string?)t.GetProperty("ErrorReason")!.GetValue(r));
+           })
+           .Returns(Task.CompletedTask);
+        return ctx;
+    }
 
-        var invoice = InvoiceEntity.Create("Comp", 1_000m);
+    // =========================================================================
+    // 1. Happy path: invoice hợp lệ → cập nhật Paid, respond Success=true
+    // =========================================================================
+
+    [Fact]
+    public async Task Consume_WhenInvoiceValid_UpdatesToPaid_RespondsSuccess()
+    {
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(Guid.NewGuid().ToString());
+        var invoice = InvoiceEntity.Create("Alice", 1_000m);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        var loggerMock = new Mock<ILogger<PaymentCompletedConsumer>>();
-        var consumer = new PaymentCompletedConsumer(context, publishMock.Object, loggerMock.Object);
+        IApplyPaymentToInvoiceResponse? response = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = Guid.NewGuid(), InvoiceId = invoice.Id, Amount = 1_000m });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r => response = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+               m.Success == (bool)r.GetType().GetProperty("Success")!.GetValue(r)! &&
+               m.ErrorReason == (string?)r.GetType().GetProperty("ErrorReason")!.GetValue(r)))
+           .Returns(Task.CompletedTask);
 
-        var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();
-        consumeContext
-            .SetupGet(x => x.Message)
-            .Returns(new PaymentCompletedEventFake(Guid.NewGuid(), invoice.Id, invoice.Amount, DateTime.UtcNow));
-
-        await consumer.Consume(consumeContext.Object);
+        var consumer = new ApplyPaymentToInvoiceConsumer(context, NullLogger<ApplyPaymentToInvoiceConsumer>.Instance);
+        await consumer.Consume(ctx.Object);
 
         context.Invoices.Single(i => i.Id == invoice.Id).Status.Should().Be(InvoiceStatus.Paid);
-        publishMock.Verify(
-            p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Never);
+        response!.Success.Should().BeTrue();
+        response.ErrorReason.Should().BeNull();
     }
 
+    // =========================================================================
+    // 2. Invoice không tồn tại → respond Success=false, không thay đổi DB
+    // =========================================================================
+
     [Fact]
-    public async Task Consume_WhenInvoiceMissing_PublishesCompensationRequest()
+    public async Task Consume_WhenInvoiceMissing_RespondsFailure()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(Guid.NewGuid().ToString());
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        object? publishedPayload = null;
+        IApplyPaymentToInvoiceResponse? response = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = Guid.NewGuid(), InvoiceId = Guid.NewGuid(), Amount = 500m });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r => response = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+               m.Success == (bool)r.GetType().GetProperty("Success")!.GetValue(r)! &&
+               m.ErrorReason == (string?)r.GetType().GetProperty("ErrorReason")!.GetValue(r)))
+           .Returns(Task.CompletedTask);
 
-        publishMock
-            .Setup(p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Callback<object, CancellationToken>((payload, _) => publishedPayload = payload)
-            .Returns(Task.CompletedTask);
+        var consumer = new ApplyPaymentToInvoiceConsumer(context, NullLogger<ApplyPaymentToInvoiceConsumer>.Instance);
+        await consumer.Consume(ctx.Object);
 
-        var loggerMock = new Mock<ILogger<PaymentCompletedConsumer>>();
-        var consumer = new PaymentCompletedConsumer(context, publishMock.Object, loggerMock.Object);
-
-        var paymentId = Guid.NewGuid();
-        var invoiceId = Guid.NewGuid();
-        var amount = 200m;
-
-        var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();
-        consumeContext
-            .SetupGet(x => x.Message)
-            .Returns(new PaymentCompletedEventFake(paymentId, invoiceId, amount, DateTime.UtcNow));
-
-        await consumer.Consume(consumeContext.Object);
-
-        publishMock.Verify(
-            p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Once);
-        publishedPayload.Should().NotBeNull();
-
-        var payloadType = publishedPayload!.GetType();
-        payloadType.GetProperty("PaymentId")!.GetValue(publishedPayload).Should().Be(paymentId);
-        payloadType.GetProperty("InvoiceId")!.GetValue(publishedPayload).Should().Be(invoiceId);
-        payloadType.GetProperty("Amount")!.GetValue(publishedPayload).Should().Be(amount);
-        payloadType.GetProperty("Reason")!.GetValue(publishedPayload).Should().NotBeNull();
+        response!.Success.Should().BeFalse();
+        response.ErrorReason.Should().Contain("not found");
+        context.Invoices.Should().BeEmpty();
     }
 
-    [Fact]
-    public async Task Consume_WhenAmountMismatch_PublishesCompensation_AndLeavesInvoicePending()
-    {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+    // =========================================================================
+    // 3. Amount không khớp → respond failure, invoice vẫn Pending
+    // =========================================================================
 
-        var invoice = InvoiceEntity.Create("Mismatch", 500m);
+    [Fact]
+    public async Task Consume_WhenAmountMismatch_RespondsFailure_LeavesInvoicePending()
+    {
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(Guid.NewGuid().ToString());
+        var invoice = InvoiceEntity.Create("Bob", 500m);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        publishMock
-            .Setup(p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        IApplyPaymentToInvoiceResponse? response = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = Guid.NewGuid(), InvoiceId = invoice.Id, Amount = 999m });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r => response = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+               m.Success == (bool)r.GetType().GetProperty("Success")!.GetValue(r)! &&
+               m.ErrorReason == (string?)r.GetType().GetProperty("ErrorReason")!.GetValue(r)))
+           .Returns(Task.CompletedTask);
 
-        var consumer = new PaymentCompletedConsumer(context, publishMock.Object, Mock.Of<ILogger<PaymentCompletedConsumer>>());
-
-        var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();
-        consumeContext
-            .SetupGet(x => x.Message)
-            .Returns(new PaymentCompletedEventFake(Guid.NewGuid(), invoice.Id, 999m, DateTime.UtcNow));
-
-        await consumer.Consume(consumeContext.Object);
+        var consumer = new ApplyPaymentToInvoiceConsumer(context, NullLogger<ApplyPaymentToInvoiceConsumer>.Instance);
+        await consumer.Consume(ctx.Object);
 
         context.Invoices.Single(i => i.Id == invoice.Id).Status.Should().Be(InvoiceStatus.Pending);
-        publishMock.Verify(
-            p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        response!.Success.Should().BeFalse();
+        response.ErrorReason.Should().Contain("mismatch");
     }
 
-    [Fact]
-    public async Task Consume_WhenInvoiceAlreadyPaid_PublishesCompensation()
-    {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+    // =========================================================================
+    // 4. Invoice đã Paid → respond failure
+    // =========================================================================
 
-        var invoice = InvoiceEntity.Create("Paid", 300m);
+    [Fact]
+    public async Task Consume_WhenInvoiceAlreadyPaid_RespondsFailure()
+    {
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(Guid.NewGuid().ToString());
+        var invoice = InvoiceEntity.Create("Carol", 300m);
         invoice.Status = InvoiceStatus.Paid;
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        publishMock
-            .Setup(p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        IApplyPaymentToInvoiceResponse? response = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = Guid.NewGuid(), InvoiceId = invoice.Id, Amount = 300m });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r => response = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+               m.Success == (bool)r.GetType().GetProperty("Success")!.GetValue(r)! &&
+               m.ErrorReason == (string?)r.GetType().GetProperty("ErrorReason")!.GetValue(r)))
+           .Returns(Task.CompletedTask);
 
-        var consumer = new PaymentCompletedConsumer(context, publishMock.Object, Mock.Of<ILogger<PaymentCompletedConsumer>>());
+        var consumer = new ApplyPaymentToInvoiceConsumer(context, NullLogger<ApplyPaymentToInvoiceConsumer>.Instance);
+        await consumer.Consume(ctx.Object);
 
-        var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();
-        consumeContext
-            .SetupGet(x => x.Message)
-            .Returns(new PaymentCompletedEventFake(Guid.NewGuid(), invoice.Id, invoice.Amount, DateTime.UtcNow));
-
-        await consumer.Consume(consumeContext.Object);
-
-        publishMock.Verify(
-            p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        response!.Success.Should().BeFalse();
+        response.ErrorReason.Should().Contain("already paid");
     }
 
-    [Fact]
-    public async Task Consume_WhenInvoiceCancelled_PublishesCompensation()
-    {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+    // =========================================================================
+    // 5. Invoice Cancelled → respond failure
+    // =========================================================================
 
-        var invoice = InvoiceEntity.Create("Cancelled", 150m);
+    [Fact]
+    public async Task Consume_WhenInvoiceCancelled_RespondsFailure()
+    {
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(Guid.NewGuid().ToString());
+        var invoice = InvoiceEntity.Create("Dave", 150m);
         invoice.Status = InvoiceStatus.Cancelled;
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        publishMock
-            .Setup(p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        IApplyPaymentToInvoiceResponse? response = null;
+        var ctx = new Mock<ConsumeContext<IApplyPaymentToInvoiceRequest>>();
+        ctx.SetupGet(x => x.Message)
+           .Returns(new ApplyPaymentRequestFake { PaymentId = Guid.NewGuid(), InvoiceId = invoice.Id, Amount = 150m });
+        ctx.Setup(x => x.RespondAsync<IApplyPaymentToInvoiceResponse>(It.IsAny<object>()))
+           .Callback<object>(r => response = Mock.Of<IApplyPaymentToInvoiceResponse>(m =>
+               m.Success == (bool)r.GetType().GetProperty("Success")!.GetValue(r)! &&
+               m.ErrorReason == (string?)r.GetType().GetProperty("ErrorReason")!.GetValue(r)))
+           .Returns(Task.CompletedTask);
 
-        var consumer = new PaymentCompletedConsumer(context, publishMock.Object, Mock.Of<ILogger<PaymentCompletedConsumer>>());
-
-        var consumeContext = new Mock<ConsumeContext<IPaymentCompletedEvent>>();
-        consumeContext
-            .SetupGet(x => x.Message)
-            .Returns(new PaymentCompletedEventFake(Guid.NewGuid(), invoice.Id, invoice.Amount, DateTime.UtcNow));
-
-        await consumer.Consume(consumeContext.Object);
+        var consumer = new ApplyPaymentToInvoiceConsumer(context, NullLogger<ApplyPaymentToInvoiceConsumer>.Instance);
+        await consumer.Consume(ctx.Object);
 
         context.Invoices.Single(i => i.Id == invoice.Id).Status.Should().Be(InvoiceStatus.Cancelled);
-        publishMock.Verify(
-            p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()),
-            Times.Once);
+        response!.Success.Should().BeFalse();
+        response.ErrorReason.Should().Contain("cancelled");
     }
 }
-

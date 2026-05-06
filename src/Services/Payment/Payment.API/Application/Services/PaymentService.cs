@@ -9,46 +9,96 @@ namespace Payment.API.Application.Services
 {
     public interface IPaymentService
     {
-        Task<bool> ProcessPaymentAsync(Payment.API.Domain.Entities.Payment payment, string idempotencyKey);
+        Task<PaymentResult> ProcessPaymentAsync(Payment.API.Domain.Entities.Payment payment, string idempotencyKey);
         Task<IEnumerable<Payment.API.Domain.Entities.Payment>> GetAllAsync();
     }
+
+    public record PaymentResult(bool Success, string? ErrorReason = null);
 
     public class PaymentService : IPaymentService
     {
         private readonly AppDbContext _context;
+        private readonly IRequestClient<IApplyPaymentToInvoiceRequest> _applyPaymentClient;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IMemoryCache _cache;
+        private readonly ILogger<PaymentService> _logger;
 
-        public PaymentService(AppDbContext context, IPublishEndpoint publishEndpoint, IMemoryCache cache)
+        public PaymentService(
+            AppDbContext context,
+            IRequestClient<IApplyPaymentToInvoiceRequest> applyPaymentClient,
+            IPublishEndpoint publishEndpoint,
+            IMemoryCache cache,
+            ILogger<PaymentService> logger)
         {
             _context = context;
+            _applyPaymentClient = applyPaymentClient;
             _publishEndpoint = publishEndpoint;
             _cache = cache;
+            _logger = logger;
         }
 
-        public async Task<bool> ProcessPaymentAsync(Payment.API.Domain.Entities.Payment payment, string idempotencyKey)
+        public async Task<PaymentResult> ProcessPaymentAsync(
+            Payment.API.Domain.Entities.Payment payment,
+            string idempotencyKey)
         {
-            if (string.IsNullOrEmpty(idempotencyKey)) return false;
+            if (string.IsNullOrEmpty(idempotencyKey))
+                return new PaymentResult(false, "Idempotency key is required.");
 
+            // Idempotency: request đã xử lý thành công trước đó
             if (_cache.TryGetValue(idempotencyKey, out _))
             {
-                return true;
+                _logger.LogInformation("Duplicate request detected for IdempotencyKey={Key}", idempotencyKey);
+                return new PaymentResult(true);
             }
 
-            // Note: In event-driven, Payment service might not even need the Invoices table
-            // But for this demo, we check if invoice exists in shared DB
+            // Kiểm tra invoice tồn tại trong read model của Payment service
             var invoiceExists = await _context.Invoices.AnyAsync(i => i.Id == payment.InvoiceId);
-            if (!invoiceExists) return false;
-            
+            if (!invoiceExists)
+            {
+                _logger.LogWarning("Invoice not found in Payment read model InvoiceId={InvoiceId}", payment.InvoiceId);
+                return new PaymentResult(false, "Invoice not found.");
+            }
+
             payment.Id = Guid.NewGuid();
             payment.PaymentDate = DateTime.UtcNow;
             payment.Status = PaymentStatus.Completed;
-            _context.Payments.Add(payment);
 
-            // Set idempotency key in cache
+            // Request-Reply: yêu cầu Invoice service xác nhận và cập nhật trạng thái
+            // Đợi kết quả trước khi commit payment — nếu Invoice từ chối thì không lưu gì cả
+            _logger.LogInformation(
+                "Sending ApplyPayment request to Invoice service PaymentId={PaymentId} InvoiceId={InvoiceId}",
+                payment.Id, payment.InvoiceId);
+
+            Response<IApplyPaymentToInvoiceResponse> response;
+            try
+            {
+                response = await _applyPaymentClient.GetResponse<IApplyPaymentToInvoiceResponse>(new
+                {
+                    PaymentId = payment.Id,
+                    InvoiceId = payment.InvoiceId,
+                    Amount = payment.Amount
+                });
+            }
+            catch (RequestTimeoutException ex)
+            {
+                _logger.LogError(ex,
+                    "Timeout waiting for Invoice service response PaymentId={PaymentId}", payment.Id);
+                return new PaymentResult(false, "Invoice service did not respond in time. Please try again.");
+            }
+
+            if (!response.Message.Success)
+            {
+                _logger.LogWarning(
+                    "Invoice service rejected payment PaymentId={PaymentId} InvoiceId={InvoiceId}: {Reason}",
+                    payment.Id, payment.InvoiceId, response.Message.ErrorReason);
+                return new PaymentResult(false, response.Message.ErrorReason);
+            }
+
+            // Invoice đã xác nhận → commit payment
+            _context.Payments.Add(payment);
             _cache.Set(idempotencyKey, true, TimeSpan.FromMinutes(30));
 
-            // Publish Event to RabbitMQ (Will be saved to Outbox because it's before SaveChanges)
+            // Publish event để Report và Orchestration cập nhật read model của họ
             await _publishEndpoint.Publish<IPaymentCompletedEvent>(new
             {
                 PaymentId = payment.Id,
@@ -59,7 +109,11 @@ namespace Payment.API.Application.Services
 
             await _context.SaveChangesAsync();
 
-            return true;
+            _logger.LogInformation(
+                "Payment committed successfully PaymentId={PaymentId} InvoiceId={InvoiceId}",
+                payment.Id, payment.InvoiceId);
+
+            return new PaymentResult(true);
         }
 
         public async Task<IEnumerable<Payment.API.Domain.Entities.Payment>> GetAllAsync()
