@@ -10,7 +10,7 @@ body:
   type: json
   content: |-
     {
-      "invoiceId": "786D8548-D7BF-48B4-8085-9C5BA50CFDD3",
+      "invoiceId": "786d8548-d7bf-48b4-8085-9c5ba50cfdd3",
       "amount": 99999.99,
       "paymentDate": "2026-05-05T00:00:00Z"
     }

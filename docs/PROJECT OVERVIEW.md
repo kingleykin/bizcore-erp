@@ -2,7 +2,7 @@
 
 ## 🎯 Mục tiêu
 
-Xây dựng hệ thống ERP demo kiến trúc Microservices chuyên nghiệp, tập trung vào luồng nghiệp vụ cốt lõi: **Hóa đơn -> Thanh toán -> Báo cáo**.
+Xây dựng hệ thống ERP **Production-ready** theo kiến trúc Microservices chuyên nghiệp, tích hợp bảo mật toàn diện với luồng nghiệp vụ cốt lõi: **Identity -> Hóa đơn -> Thanh toán -> Báo cáo**.
 
 ## 🏗️ Cấu trúc thư mục
 
@@ -12,9 +12,11 @@ bizcore-erp/
 │   ├── Gateway/
 │   │   └── Gateway.API/ (YARP Gateway)
 │   ├── Services/
+│   │   ├── Identity/ (Xác thực, phân quyền RBAC, JWT)
 │   │   ├── Invoice/ (Quản lý hóa đơn)
 │   │   ├── Payment/ (Xử lý thanh toán)
 │   │   ├── Report/  (Tổng hợp báo cáo)
+│   │   ├── Audit/   (Centralized Audit Service, Immutable log, Hash chain)
 │   │   └── Orchestration/ (Theo dõi luồng giao dịch qua event)
 │   ├── BuildingBlocks/
 │   │   └── Bizcore.BuildingBlocks/ (Shared Library: Contracts, Events)
@@ -26,10 +28,10 @@ bizcore-erp/
 
 ## 🧱 Kiến trúc Kỹ thuật
 
-* **Microservices**: Các service domain (Invoice, Payment, Report) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md).
+* **Microservices**: Các service core (Identity, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md).
 * **API Gateway**: YARP (Yet Another Reverse Proxy) port 5000.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
-* **Database**: SQL Server (Shared Database cho giai đoạn demo).
+* **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
 * **Logging & Observability**:
   * **Serilog + Loki**: Ghi log tập trung và lưu trữ logs có cấu trúc trong Loki.
@@ -40,6 +42,15 @@ bizcore-erp/
 * **Validation**:
   * **FluentValidation**: Kiểm tra tính đúng đắn của dữ liệu đầu vào (format, độ dài, khoảng giá trị) ngay tại tầng API.
   * **Domain Validation**: Kiểm tra các quy tắc nghiệp vụ chuyên sâu (Business Rules) ngay tại tầng Domain, đảm bảo tính toàn vẹn của dữ liệu trong mọi tình huống.
+* **Security & Compliance (Audit)**:
+  ### 4. Centralized Audit & Data Correction (Reversal)
+  **Vấn đề:** Thay vì lưu Snapshot trực tiếp tại Data Database gây phình to database và khó truy vết chéo, dự án áp dụng Centralized Audit. Cùng với đó, hệ thống cần hỗ trợ Admin sửa lỗi nhập liệu (Reversal) một cách an toàn mà không ảnh hưởng tính nhất quán tài chính.
+  **Giải pháp:** 
+  - Hybrid Audit: Sử dụng cả Application Layer (Business Events) và EF Core `SaveChangesInterceptor` để publish `AuditEvent` qua RabbitMQ tới `Audit.API`.
+  - Integrity Check: Áp dụng Hash chain (SHA-256) và chế độ Append-Only để đảm bảo tính bất biến của lịch sử.
+  - **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`RowVersion`) để tránh Stale Data.
+  - Compliance: Che giấu (mask) các trường nhạy cảm bằng `SensitiveFieldMasker`.
+  **Tech Stack:** Event-Driven, EF Core Interceptor, SHA-256, Dynamic Reversal Policy.
 * **Resilience & Operability**:
   * **Global Exception Handling**: Chuẩn hóa phản hồi lỗi toàn hệ thống kèm theo TraceId.
   * **Health Checks**: Cung cấp endpoint `/health` cho từng service phục vụ giám sát trạng thái (Readiness/Liveness).
@@ -58,7 +69,8 @@ bizcore-erp/
 3. **Compensation (Rollback nghiệp vụ)**: Nếu Invoice không áp dụng được event (ví dụ không tìm thấy hóa đơn), Invoice publish `PaymentCompensationRequestedEvent`.
 4. **Payment Service**: Consume `PaymentCompensationRequestedEvent` -> Cập nhật giao dịch thanh toán sang `Reversed`.
 5. **Orchestration** (tuỳ chọn quan sát): Ghi nhận timeline `ProcessFlow` / `FlowStep` theo cùng các event phía trên (queue riêng), API chỉ đọc qua Gateway.
-6. **Report**: Dashboard phản ánh dữ liệu cuối cùng sau khi xử lý bất đồng bộ.
+6. **Audit (Kiểm toán)**: Mọi sự kiện phát sinh từ Identity (đăng nhập), Invoice (tạo, cập nhật) hoặc Payment đều được publish ngầm (qua Application code hoặc EF Interceptor) đến RabbitMQ và được ghi lại bởi Audit Service.
+7. **Report**: Dashboard phản ánh dữ liệu cuối cùng sau khi xử lý bất đồng bộ.
 
 ### 🔄 Cơ chế `Reversed` (Business Rollback)
 
@@ -107,13 +119,49 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 | Service | Method | Endpoint | Quyền yêu cầu (Policy) | Mô tả |
 | :--- | :--- | :--- | :--- | :--- |
-| **Auth** | POST | `/auth/login` | Không yêu cầu | Đăng nhập |
+| **Identity** | POST | `/api/v1/auth/login` | Không yêu cầu | Đăng nhập (trả JWT) |
+| **Identity** | GET | `/api/v1/users` | `Identity.Users.View` | Quản lý Users |
+| **Identity** | GET | `/api/v1/roles` | `Identity.Roles.View` | Quản lý Roles (RBAC) |
 | **Invoice** | GET | `/invoice` | `Invoice.View` | Lấy danh sách hóa đơn |
 | **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn |
 | **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán hóa đơn |
 | **Report** | GET | `/report/summary` | `Report.View` | Báo cáo tổng hợp |
+| **Audit** | GET | `/audit` | `Audit.View` | Truy vấn lịch sử Audit (Compliance) |
+| **Audit** | GET | `/audit/verify-integrity` | `Audit.View` | Kiểm tra tính toàn vẹn của Hash chain |
 | **Orchestration** | GET | `/orchestration/flows` | `Orchestration.View` | Danh sách luồng giao dịch gần đây |
 | **Orchestration** | GET | `/orchestration/flows/{id}` | `Orchestration.View` | Chi tiết luồng theo `InvoiceId` |
+
+### 4. Audit Service (`Audit.API`) - Cổng: `5006`
+*Service thu thập log kiểm toán tập trung từ các nguồn.*
+
+- `GET /api/v1/audit` - Truy vấn danh sách Audit log (Có phân trang, filter theo Entity, Actor, Date).
+- `GET /api/v1/audit/{id}` - Chi tiết 1 bản ghi Audit (Xem Before/After Json).
+- `GET /api/v1/audit/verify-integrity` - Xác minh tính toàn vẹn của chuỗi Hash chain.
+- `PATCH /api/v1/audit/{id}/mark-reversed` - (Internal) Đánh dấu Audit Entry đã được reverse.
+
+### 5. Orchestration Service (`Orchestration.API`) - Cổng: `5007`
+*Service theo dõi vòng đời giao dịch.*
+
+- `GET /api/v1/orchestration/flows` - Danh sách các quy trình giao dịch (Process Flows).
+- `GET /api/v1/orchestration/flows/{id}` - Chi tiết luồng giao dịch, bao gồm danh sách các bước (`FlowSteps`) đã thực hiện.
+- `POST /api/v1/orchestration/flows/replay/{id}` - Kích hoạt lại toàn bộ giao dịch (Event Sourcing Replay).
+
+---
+
+## 🔒 Phân Quyền (Permissions)
+
+Hệ thống sử dụng cơ chế Claim-based Authorization với các Permissions sau:
+
+1. **Invoice**: `invoice:view`, `invoice:create`, `invoice:update`
+2. **Payment**: `payment:view`, `payment:create`, `payment:update`
+3. **Audit**: `audit:view`, `audit:export`, `audit:reverse`, `audit:super-reverse`
+
+## 🛠️ Data Correction (Reversal) Endpoints
+
+Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá trình Audit-Assisted Recovery:
+
+- `GET /api/v1/invoice/{id}/restore-suggestion?auditEntryId={auditId}` - Sinh Diff (Before vs Current) gợi ý các trường có thể khôi phục.
+- `POST /api/v1/invoice/{id}/restore-field` - Thực thi khôi phục một trường cụ thể (`CustomerName`) về giá trị cũ, sinh AuditEntry mới ghi nhận Reversal. Yêu cầu lý do (Reason).
 
 ---
 
@@ -124,7 +172,11 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | `/invoice/{**catch-all}` | `http://invoice-api:8080` | RateLimit, Auth |
 | `/payment/{**catch-all}` | `http://payment-api:8080` | RateLimit, Auth |
 | `/report/{**catch-all}` | `http://report-api:8080` | RateLimit, Auth |
+| `/audit/{**catch-all}` | `http://audit-api:8080` | RateLimit, Auth |
 | `/orchestration/{**catch-all}` | `http://orchestration-api:8080` | RateLimit, Auth |
+| `/auth/{**catch-all}` | `http://identity-api:8080` | RateLimit, Anonymous |
+| `/users/{**catch-all}` | `http://identity-api:8080` | RateLimit, Auth |
+| `/roles/{**catch-all}` | `http://identity-api:8080` | RateLimit, Auth |
 
 ---
 
@@ -133,7 +185,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 ## 🟢 Phase 1 & 2: Backend & Infrastructure (Hoàn thành)
 
 * [x] Khởi tạo Solution và Cấu trúc thư mục chuẩn.
-* [x] Triển khai 3 Microservices với 4 lớp (Domain, Application, Infra, API).
+* [x] Triển khai 5 Microservices (bao gồm Identity & Orchestration) với 4 lớp (Domain, Application, Infra, API).
 * [x] Thiết lập Database Schema & Shared Context.
 
 ## 🟡 Phase 3: Integration & UI (Hoàn thành)
@@ -182,4 +234,4 @@ Hệ thống tích hợp đầy đủ monitoring stack:
 **Xem chi tiết**: Tham khảo [MONITORING_GUIDE.md](MONITORING_GUIDE.md)
 
 ---
-*Cập nhật lần cuối: 05/05/2026 - Nâng cấp hệ thống bảo mật Enterprise.*
+*Cập nhật lần cuối: 07/05/2026 - Nâng cấp hệ thống bảo mật Enterprise và Identity Service Production-Ready.*

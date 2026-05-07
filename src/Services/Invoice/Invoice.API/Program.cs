@@ -1,4 +1,5 @@
 using Invoice.API.Application.Services;
+using Invoice.API.Application.Clients;
 using Invoice.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
@@ -34,7 +35,8 @@ Log.Logger = new LoggerConfiguration()
 builder.Host.UseSerilog();
 
 // JWT Authentication Configuration
-var secretKey = "BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!";
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
 var key = System.Text.Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication("Bearer")
@@ -44,17 +46,20 @@ builder.Services.AddAuthentication("Bearer")
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5)
         };
     });
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("Invoice.View", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.View));
+    options.AddPolicy("Invoice.View",   policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.View));
     options.AddPolicy("Invoice.Create", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Create));
     options.AddPolicy("Invoice.Update", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Update));
+    options.AddPolicy("Audit.View",     policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Audit.View));
 });
 
 builder.Services.AddHealthChecks();
@@ -141,6 +146,15 @@ builder.Services.AddMassTransit(x =>
 
 // Dependency Injection
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+
+// AuditService HTTP Client
+builder.Services.AddHttpClient<IAuditServiceClient, AuditServiceClient>(client =>
+{
+    var auditUrl = builder.Configuration.GetValue<string>("AuditService:BaseUrl")
+        ?? "http://audit-api:8080";
+    client.BaseAddress = new Uri(auditUrl);
+    client.Timeout     = TimeSpan.FromSeconds(10);
+});
 
 // Prometheus
 builder.Services.AddSingleton<ICollectorRegistry>(Metrics.DefaultRegistry);

@@ -51,8 +51,9 @@ builder.Services.AddCors(options =>
     });
 });
 
-// 4. Authentication & Authorization (Mock IdP Setup)
-var secretKey = "BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!"; // Demo secret
+// 4. Authentication & Authorization
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
 var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication("Bearer")
@@ -70,8 +71,23 @@ builder.Services.AddAuthentication("Bearer")
 
 builder.Services.AddAuthorization(options =>
 {
+    // Legacy role-based (kept for backward compat)
     options.AddPolicy("AdminOnly", policy => policy.RequireRole("Admin"));
-    options.AddPolicy("UserOnly", policy => policy.RequireRole("User", "Admin"));
+    options.AddPolicy("UserOnly",  policy => policy.RequireRole("User", "Admin"));
+
+    // Identity — fine-grained permission policies (proxied through Gateway)
+    options.AddPolicy("Identity.Users.View",              p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Users.View));
+    options.AddPolicy("Identity.Users.Create",            p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Users.Create));
+    options.AddPolicy("Identity.Users.Update",            p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Users.Update));
+    options.AddPolicy("Identity.Users.Delete",            p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Users.Delete));
+    options.AddPolicy("Identity.Users.ManageRoles",       p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Users.ManageRoles));
+    options.AddPolicy("Identity.Roles.View",              p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Roles.View));
+    options.AddPolicy("Identity.Roles.Create",            p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Roles.Create));
+    options.AddPolicy("Identity.Roles.ManagePermissions", p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Identity.Roles.ManagePermissions));
+
+    // Audit — compliance trail
+    options.AddPolicy("Audit.View",   p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Audit.View));
+    options.AddPolicy("Audit.Export", p => p.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Audit.Export));
 });
 
 // 5. Rate Limiting
@@ -158,40 +174,7 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.MapHealthChecks("/health");
 
 
-// 7. Mock Login Endpoint (Demonstration)
-app.MapPost("/auth/login", (LoginRequest request) =>
-{
-    var claims = new List<Claim> { new Claim(ClaimTypes.Name, request.Username) };
-
-    if (request.Username == "admin")
-    {
-        claims.Add(new Claim(ClaimTypes.Role, "Admin"));
-        claims.Add(new Claim("permission", Permissions.Invoice.View));
-        claims.Add(new Claim("permission", Permissions.Invoice.Create));
-        claims.Add(new Claim("permission", Permissions.Invoice.Update));
-        claims.Add(new Claim("permission", Permissions.Report.View));
-        claims.Add(new Claim("permission", Permissions.Orchestration.View));
-    }
-    else if (request.Username == "user")
-    {
-        claims.Add(new Claim(ClaimTypes.Role, "User"));
-        claims.Add(new Claim("permission", Permissions.Invoice.View));
-        claims.Add(new Claim("permission", Permissions.Report.View));
-    }
-    else return Results.Unauthorized();
-
-    var tokenHandler = new JwtSecurityTokenHandler();
-    var tokenDescriptor = new SecurityTokenDescriptor
-    {
-        Subject = new ClaimsIdentity(claims),
-        Expires = DateTime.UtcNow.AddHours(1),
-        SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
-    };
-    var token = tokenHandler.CreateToken(tokenDescriptor);
-    return Results.Ok(new { Token = tokenHandler.WriteToken(token), Role = request.Username == "admin" ? "Admin" : "User" });
-}).AllowAnonymous();
-
-// 8. Security Headers & HTTPS
+// 8. Security Headers
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -224,5 +207,3 @@ app.MapMetrics();
 
 app.Run();
 
-// Data models for Mock Auth
-public record LoginRequest(string Username, string Password);

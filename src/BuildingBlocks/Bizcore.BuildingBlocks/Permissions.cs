@@ -27,5 +27,34 @@ namespace Bizcore.BuildingBlocks
         {
             public const string View = "orchestration:view";
         }
+
+        public static class Identity
+        {
+            public static class Users
+            {
+                public const string View = "identity:users:view";
+                public const string Create = "identity:users:create";
+                public const string Update = "identity:users:update";
+                public const string Delete = "identity:users:delete";
+                public const string ManageRoles = "identity:users:manage_roles";
+            }
+
+            public static class Roles
+            {
+                public const string View = "identity:roles:view";
+                public const string Create = "identity:roles:create";
+                public const string Update = "identity:roles:update";
+                public const string Delete = "identity:roles:delete";
+                public const string ManagePermissions = "identity:roles:manage_permissions";
+            }
+        }
+
+        public static class Audit
+        {
+            public const string View        = "audit:view";
+            public const string Export      = "audit:export";
+            /// <summary>Cho phép reverse kể cả entity đang ở trạng thái đóng/đã thanh toán.</summary>
+            public const string SuperReverse = "audit:super-reverse";
+        }
     }
 }

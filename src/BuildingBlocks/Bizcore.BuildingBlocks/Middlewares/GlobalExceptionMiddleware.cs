@@ -40,6 +40,18 @@ namespace Bizcore.BuildingBlocks.Middlewares
                 message = domainEx.Message;
                 type = "DOMAIN_ERROR";
             }
+            else if (exception is UnauthorizedException unauthorizedEx)
+            {
+                code = StatusCodes.Status401Unauthorized;
+                message = unauthorizedEx.Message;
+                type = "UNAUTHORIZED";
+            }
+            else if (exception is NotFoundException notFoundEx)
+            {
+                code = StatusCodes.Status404NotFound;
+                message = notFoundEx.Message;
+                type = "NOT_FOUND";
+            }
 
             _logger.LogError(exception, "Error captured by middleware: {Message}", exception.Message);
 

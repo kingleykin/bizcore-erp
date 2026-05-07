@@ -73,12 +73,17 @@ services:
       - ReverseProxy__Clusters__payment-cluster__Destinations__d1__Address=http://payment-api:8080
       - ReverseProxy__Clusters__report-cluster__Destinations__d1__Address=http://report-api:8080
       - ReverseProxy__Clusters__orchestration-cluster__Destinations__d1__Address=http://orchestration-api:8080
+      - ReverseProxy__Clusters__identity-cluster__Destinations__d1__Address=http://identity-api:8080
+      - ReverseProxy__Clusters__audit-cluster__Destinations__d1__Address=http://audit-api:8080
       - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - invoice-api
       - payment-api
       - report-api
       - orchestration-api
+      - identity-api
+      - audit-api
       - loki
 
   invoice-api:
@@ -91,6 +96,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=InvoiceDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
@@ -106,6 +112,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=PaymentDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
@@ -122,6 +129,7 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
@@ -139,6 +147,44 @@ services:
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrchestrationDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+    depends_on:
+      - sql-server
+      - rabbitmq
+      - loki
+
+  identity-api:
+    image: bizcore-identity-api
+    container_name: bizcore-identity
+    build:
+      context: .
+      dockerfile: src/Services/Identity/Identity.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=IdentityDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+    depends_on:
+      - sql-server
+      - rabbitmq
+      - loki
+
+  audit-api:
+    image: bizcore-audit-api
+    container_name: bizcore-audit
+    build:
+      context: .
+      dockerfile: src/Services/Audit/Audit.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=AuditDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+      - Retention__HotDays=180
     depends_on:
       - sql-server
       - rabbitmq

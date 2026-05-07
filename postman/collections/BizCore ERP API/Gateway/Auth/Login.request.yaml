@@ -1,7 +1,7 @@
 $kind: http-request
 name: Login
 method: POST
-url: "{{baseUrl}}/auth/login"
+url: "{{baseUrl}}/api/v1/auth/login"
 scripts:
   - type: afterResponse
     code: "// parse response JSON\r
@@ -36,7 +36,7 @@ body:
   content: |-
     {
       "username": "admin",
-      "password": "password"
+      "password": "Admin@123"
     }
 event:
   - listen: test

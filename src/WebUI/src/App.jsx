@@ -64,8 +64,8 @@ function App() {
     e.preventDefault();
     setAuthError('');
     try {
-      const res = await axios.post(`${GATEWAY_URL}/auth/login`, loginData);
-      const newToken = res.data.token;
+      const res = await axios.post(`${GATEWAY_URL}/api/v1/auth/login`, loginData);
+      const newToken = res.data.accessToken;
       setToken(newToken);
       localStorage.setItem('token', newToken);
       toast.success('Chào mừng quay trở lại, ' + loginData.username + '!');

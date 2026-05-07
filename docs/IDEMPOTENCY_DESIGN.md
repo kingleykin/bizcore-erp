@@ -28,7 +28,7 @@ Client Request (X-Idempotency-Key: "key-123")
     ↓
 [IdempotencyService] Check DB (IdempotencyRecords table)
     ├─ EXISTS → Return existing PaymentId
-    │   ├─ Expired? → Delete + Create new
+    │   ├─ Expired? → Reuse only if operation is terminal; otherwise keep/reconcile
     │   └─ Hash mismatch? → Return conflict error
     └─ NOT EXISTS → Insert record + Return new PaymentId
     ↓
@@ -44,9 +44,16 @@ CREATE TABLE IdempotencyRecords (
     CreatedAt DATETIME2 NOT NULL,
     ExpiresAt DATETIME2 NOT NULL,
     RequestHash NVARCHAR(64) NULL,
+    Status NVARCHAR(32) NOT NULL, -- InProgress, Completed, Failed, Expired
+    ResponseJson NVARCHAR(MAX) NULL,
+    StatusCode INT NULL,
     INDEX IX_IdempotencyRecords_ExpiresAt (ExpiresAt),
     INDEX IX_IdempotencyRecords_PaymentId (PaymentId)
 );
+
+CREATE UNIQUE INDEX UX_Payments_IdempotencyKey
+ON Payments (IdempotencyKey)
+WHERE IdempotencyKey IS NOT NULL;
 ```
 
 ---
@@ -63,6 +70,9 @@ public class IdempotencyRecord
     public DateTime CreatedAt { get; set; }      // Creation timestamp
     public DateTime ExpiresAt { get; set; }      // TTL expiration
     public string? RequestHash { get; set; }     // SHA256 of request payload
+    public string Status { get; set; }           // InProgress, Completed, Failed, Expired
+    public string? ResponseJson { get; set; }    // Cached response for replay
+    public int? StatusCode { get; set; }         // Original HTTP status code
 }
 ```
 
@@ -71,6 +81,8 @@ public class IdempotencyRecord
 - `PaymentId`: Payment đã được tạo cho key này
 - `ExpiresAt`: TTL để cleanup (default 30 phút)
 - `RequestHash`: Verify request consistency (same key, same payload)
+- `Status`: Theo dõi request đang xử lý, đã hoàn tất, thất bại, hoặc hết hạn
+- `ResponseJson`/`StatusCode`: Replay đúng response cho duplicate request
 
 ### IdempotencyService
 
@@ -85,6 +97,12 @@ public interface IIdempotencyService
         TimeSpan ttl);
 
     Task<int> CleanupExpiredRecordsAsync(CancellationToken cancellationToken);
+
+    Task CacheResponseAsync(
+        string idempotencyKey,
+        object response,
+        int statusCode,
+        CancellationToken cancellationToken);
 }
 ```
 
@@ -93,6 +111,8 @@ public interface IIdempotencyService
 - ✅ Race condition handling (unique constraint + catch)
 - ✅ Request payload validation (SHA256 hash)
 - ✅ TTL support
+- ✅ Response replay
+- ✅ In-progress duplicate handling
 - ✅ Automatic cleanup
 
 ---
@@ -499,6 +519,9 @@ public async Task InitiatePayment_RaceCondition_OnlyOnePaymentCreated()
 ```
 
 #### 5. Expired Record
+
+Chỉ tạo operation mới khi record cũ đã ở trạng thái terminal (`Completed`, `Failed`, hoặc `Expired`) và không còn business operation nào có thể hoàn tất muộn. Nếu record vẫn `InProgress`, duplicate request phải trả lại trạng thái hiện tại hoặc trigger reconciliation, không được xóa và tạo payment mới.
+
 ```csharp
 [Fact]
 public async Task InitiatePayment_ExpiredRecord_CreatesNewPayment()
@@ -511,7 +534,8 @@ public async Task InitiatePayment_ExpiredRecord_CreatesNewPayment()
         Key = key,
         PaymentId = Guid.NewGuid(),
         CreatedAt = DateTime.UtcNow.AddHours(-2),
-        ExpiresAt = DateTime.UtcNow.AddHours(-1) // Expired 1 hour ago
+        ExpiresAt = DateTime.UtcNow.AddHours(-1), // Expired 1 hour ago
+        Status = "Expired"
     };
     _context.IdempotencyRecords.Add(expiredRecord);
     await _context.SaveChangesAsync();
@@ -612,7 +636,9 @@ ORDER BY RequestCount DESC;
 | ✅ Database-backed | Implemented | IdempotencyRecords table |
 | ✅ Race condition safe | Implemented | Unique constraint + catch |
 | ✅ Payload validation | Implemented | SHA256 hash |
-| ✅ TTL support | Implemented | 30 minutes default |
+| ✅ TTL support | Implemented | 30 minutes default; do not delete non-terminal operations blindly |
+| ✅ Response replay | Implemented | `ResponseJson` + `StatusCode` |
+| ✅ In-progress handling | Implemented | Duplicate request should return the existing operation status |
 | ✅ Automatic cleanup | Implemented | Hourly background job |
 | ✅ Multi-instance safe | Implemented | Shared database |
 | ✅ Persistent | Implemented | Survives restarts |

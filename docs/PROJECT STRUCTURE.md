@@ -10,7 +10,7 @@ Kiến trúc này được thiết kế để giải quyết 3 bài toán chính
 
 1. **Khả năng Scale (Scalability)**: Dễ dàng tách các service ra các server riêng biệt hoặc repository riêng biệt khi hệ thống phát triển.
 2. **Khả năng Bảo trì (Maintainability)**: Phân tách rõ ràng giữa Logic nghiệp vụ (Domain) và Công nghệ (Infrastructure).
-3. **Tốc độ Phát triển (Velocity)**: Cấu trúc đủ đơn giản để triển khai nhanh trong 2 ngày nhưng đủ chuẩn để không phải đập đi xây lại sau này.
+3. **Production-Ready**: Hệ thống áp dụng các best practices (Identity, RBAC, JWT, Outbox Pattern) sẵn sàng cho môi trường thực tế.
 
 ---
 
@@ -21,9 +21,9 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 ### 🔹 Macro-level (Kiến trúc tổng thể)
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
-* **Microservices**: Mỗi service (Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch (không thay đổi nghiệp vụ tại chỗ các bounded context khác — xem [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md)).
+* **Microservices**: Mỗi service (Identity, Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices.
-  * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA.
+  * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA (`AuditEvent`, `PaymentCompletedEvent`...).
   * **Permissions**: Định nghĩa tập trung toàn bộ các hành động (Fine-grained actions) của hệ thống phục vụ Permission-based Authorization.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
 
@@ -33,7 +33,7 @@ Hệ thống áp dụng mô hình bảo mật nhiều lớp:
 
 1. **Edge Security (Gateway)**:
     * **Rate Limiting**: Ngăn chặn spam request ở tầng Gateway.
-    * **Mock Identity Provider**: Tích hợp sẵn endpoint `/auth/login` để cấp mã JWT Token cho mục đích demo và kiểm thử.
+    * **Identity Service**: Microservice độc lập chuyên xử lý Authentication (JWT, BCrypt) và phân quyền RBAC động (Roles/Permissions).
 2. **Zero Trust (Services)**:
     * Mọi Microservice đều tự thực hiện việc kiểm tra chữ ký của JWT Token (không chỉ tin tưởng Gateway).
     * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Policy cụ thể (ví dụ: `Invoice.Create`). User phải có đúng claim `permission` mới có thể thực hiện.
@@ -60,13 +60,14 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 ## ⚙️ 3. Chức năng chính (Key Functions)
 
 * **Gateway Routing**: Điều phối thông minh các request dựa trên Prefix URL.
-* **Shared DB Strategy**: Sử dụng chung một SQL Server Instance nhưng phân tách bảng theo Domain. Điều này giúp tối ưu chi phí và tốc độ trong giai đoạn đầu nhưng vẫn sẵn sàng để tách DB bất cứ lúc nào.
+* **Logical DB Isolation**: Mặc dù sử dụng chung một SQL Server Engine để tiết kiệm tài nguyên, nhưng mỗi Microservice kết nối đến một logical Database riêng biệt (IdentityDb, InvoiceDb...). Điều này chuẩn bị sẵn sàng cho việc tách DB vật lý.
 * **DI (Dependency Injection)**: Toàn bộ Services được đăng ký trong DI Container để đảm bảo tính Loose Coupling (kết nối lỏng lẻo).
 * **Observability**: Tích hợp **Serilog + Loki** cho log aggregation, **Prometheus** cho metrics collection, **Grafana** cho visualization, và **Correlation ID** đồng nhất. Cho phép theo dõi hành trình của một request xuyên suốt các microservices, phân tích performance, và tìm root cause nhanh chóng.
 * **Operability**: Hệ thống cung cấp các endpoint `/health` theo chuẩn Cloud-native, giúp các công cụ điều phối (Docker, K8s) nhận biết tình trạng sức khỏe của service.
 * **Resilience**: Áp dụng **Global Exception Middleware** để đảm bảo hệ thống không bao giờ bị "sập" và luôn trả về phản hồi có cấu trúc cho người dùng.
 * **Hardening**: Cấu hình Security Headers và giới hạn kích thước Payload để bảo vệ các service.
 * **Business Compensation**: Nếu luồng bất đồng bộ liên service lỗi nghiệp vụ, hệ thống dùng event compensation để đưa trạng thái thanh toán về `Reversed` thay vì rollback transaction xuyên service.
+* **Compliance & Security**: Áp dụng **Centralized Audit** bằng cách đẩy `AuditEvent` qua RabbitMQ thay vì lưu trực tiếp vào từng service DB. Điều này giúp Audit Log là append-only, chống xóa/sửa và được bảo vệ bằng cơ chế Hash chain (tamper-detection).
 
 ---
 
@@ -82,15 +83,43 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao tách lớp Application?** | Để khi bạn cần chuyển sang Unit Test, bạn chỉ cần test lớp Application Service mà không cần quan tâm đến HTTP Request/Response của Controller. |
 | **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth, RateLimit) bằng code C# quen thuộc. |
 | **Tại sao dùng Permission-based?** | Để tránh tình trạng **Role Explosion**. Permission-based cho phép phân quyền chi tiết (Granular) và dễ dàng scale khi số lượng chức năng của hệ thống tăng lên. |
-| **Tại sao dùng Shared DB?** | Việc duy trì 3 DB riêng biệt cho demo 2 ngày sẽ gây khó khăn cho việc migrate và chạy local (tốn tài nguyên). Shared DB với naming convention tốt là sự cân bằng hoàn hảo giữa tốc độ và chuẩn hóa. |
+| **Tại sao dùng Logical DB Isolation?** | Việc duy trì nhiều DB vật lý riêng biệt tốn tài nguyên. Dùng chung 1 Server nhưng cấp phát các Logical DB (InvoiceDb, PaymentDb) đảm bảo tính cách ly dữ liệu (Data Isolation) theo đúng chuẩn Microservices nhưng vẫn dễ cấu hình. |
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |
 | **Tại sao tách Validation?** | Tách biệt giữa **Input Validation** (FluentValidation) và **Domain Validation** (Business Rules) giúp mã nguồn sạch hơn, dễ bảo trì và thể hiện tư duy kiến trúc phân lớp chuyên nghiệp. |
 | **Tại sao dùng Outbox Pattern?** | Để giải quyết bài toán "Lưu DB xong nhưng mất điện không kịp bắn Message". Outbox đảm bảo message chỉ được gửi đi khi và chỉ khi DB đã commit thành công. |
 | **Tại sao cần Compensation (`Reversed`)?** | Payment và Invoice là 2 bounded context độc lập nên không rollback bằng 1 transaction chung. Compensation giúp rollback ở mức nghiệp vụ khi Invoice không cập nhật được trạng thái sau khi Payment đã thành công. |
+| **Tại sao dùng Centralized Audit Service thay vì Interceptor cục bộ?** | Audit data phát triển rất nhanh, cần DB riêng và policy lưu trữ (Retention) riêng. Việc tách ra giúp các service core không bị phình to DB. Hơn nữa, nó tăng tính bảo mật (Immutable, Hash chain) vì attacker dù có chiếm được service core cũng không sửa được log trên AuditDb. |
+| **Tại sao dùng Hybrid Trigger cho Audit?** | Application layer publish event giúp hiểu rõ Business Intent (VD: "Approve Invoice"). EF Interceptor tự động catch field-level thay đổi (VD: "Amount 100 -> 200"). Kết hợp cả 2 cho cái nhìn hoàn hảo về compliance. |
 | **Tại sao dùng Polly?** | Để hệ thống có khả năng tự phục hồi (Self-healing). Nếu service đích bận, Gateway sẽ tự động thử lại (Retry) thay vì trả lỗi ngay lập tức cho người dùng. |
 | **Tại sao dùng Idempotency?** | Đặc biệt quan trọng với thanh toán. Nếu mạng lag và user bấm "Thanh toán" 2 lần, hệ thống sẽ chỉ xử lý 1 lần dựa trên Idempotency Key, tránh trừ tiền 2 lần. |
 | **Tại sao dùng API Versioning?** | Để hỗ trợ tiến hóa hệ thống. Khi có thay đổi lớn (Breaking Change), chúng ta có thể triển khai V2 trong khi các Client cũ vẫn dùng V1 bình thường. |
+
+---
+
+## 3. Kiến trúc Audit Service (Production-ready)
+
+Hệ thống ERP yêu cầu truy xuất nguồn gốc (traceability) nghiêm ngặt để phục vụ Compliance và hỗ trợ sửa sai dữ liệu (Data Correction). Thiết kế được chọn là **Centralized Audit Service** kết hợp **Hybrid Trigger**.
+
+### Quyết định Thiết kế cốt lõi
+
+1.  **Hybrid Trigger (Event + Interceptor)**:
+    *   **Application Layer**: Publish Business Events (ví dụ: `PaymentCompleted`, `LoginFailed`) để ghi nhận ý nghĩa nghiệp vụ.
+    *   **EF Core `SaveChangesInterceptor`**: Tự động capture sự thay đổi ở cấp độ Field (Before/After) mỗi khi gọi `SaveChanges()`. Bảo vệ hệ thống khỏi rủi ro Dev quên viết log.
+
+2.  **Toàn vẹn dữ liệu (Data Integrity)**:
+    *   Database được cấu hình **Append-only** (DENY UPDATE/DELETE) đối với tài khoản service.
+    *   Sử dụng **Hash Chain (SHA-256)**: Mỗi AuditEntry chứa Hash của chính nó + Hash của bản ghi trước đó. Nếu bất kỳ dữ liệu cũ nào bị thay đổi lén lút, toàn bộ chuỗi Hash sau đó sẽ bị sai lệch, giúp phát hiện lập tức (Tamper Detection).
+
+3.  **Data Masking**:
+    *   Sử dụng `SensitiveFieldMasker` để thay thế thông tin nhạy cảm (Password, Token, PII) bằng chuỗi `***` *trước khi* lưu vào Database.
+
+4.  **Audit-Assisted Recovery (Data Correction / Reversal)**:
+    *   Phân biệt rạch ròi giữa **Business Compensation** (hủy giao dịch tài chính tự động) và **Admin Data Correction** (sửa lỗi nhập liệu thủ công).
+    *   **Không tự động ghi đè (No Snapshot Overwrite)**: Tránh việc revert lại một phiên bản Entity cũ đã bị lỗi thời (Stale Data).
+    *   **Restore Suggestion**: Audit Service chỉ cung cấp `BeforeJson`. `RestoreDiffEngine` so sánh `BeforeJson` với State hiện tại để gợi ý các trường có thể khôi phục.
+    *   **Dynamic Policy (`IReversalPolicy<T>`)**: Quyết định field nào được khôi phục dựa trên ngữ cảnh: chặn các field tài chính (`Amount`, `Status`), chỉ cho phép các field metadata (`CustomerName`), kiểm tra trạng thái Entity (`Cancelled`/`Paid`), và kiểm tra quyền (`Audit.SuperReverse`).
+    *   **Semantic Domain Command**: Việc khôi phục thực sự được thực thi bởi các hàm trong Domain (ví dụ `RestoreCustomerName()`), kết hợp với Concurrency Token (`RowVersion`) để đảm bảo Thread-safe.
 
 ---
 

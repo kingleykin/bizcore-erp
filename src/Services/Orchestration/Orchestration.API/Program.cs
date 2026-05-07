@@ -36,7 +36,8 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-var secretKey = "BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!";
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
 var key = Encoding.ASCII.GetBytes(secretKey);
 
 builder.Services.AddAuthentication("Bearer")
@@ -46,8 +47,10 @@ builder.Services.AddAuthentication("Bearer")
         {
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
-            ValidateIssuer = false,
-            ValidateAudience = false,
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5)
         };
     });

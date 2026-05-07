@@ -11,7 +11,7 @@ Client → POST /payment/pay
            ↓ [BLOCKING]
     Payment service → IRequestClient → Invoice service
            ↓ [WAIT 30s]
-    Invoice validates + marks Paid
+    Invoice validates request
            ↓
     Payment commits
            ↓
@@ -36,11 +36,13 @@ Client → POST /payment/pay
            ↓
     Saga → send IValidateInvoiceCommand → Invoice service
            ↓
-    Invoice validates → publish IInvoiceValidated / IInvoiceValidationFailed
+    Invoice validates only → publish IInvoiceValidated / IInvoiceValidationFailed
            ↓
     Saga nhận kết quả:
       ✅ OK  → send IConfirmPaymentCommand → Payment{Status=Completed}
       ❌ FAIL → send IRejectPaymentCommand → Payment{Status=Failed}
+           ↓
+    Payment completed event → Invoice marks Paid in its own transaction
            ↓
     Client poll: GET /payment/{id} → lấy trạng thái cuối
 ```
@@ -102,10 +104,12 @@ Initial → Validating → Confirmed / Rejected → Final
 **Consumer nhận `IValidateInvoiceCommand`:**
 - Validate invoice (tồn tại, status, amount match)
 - Nếu OK:
-  - Cập nhật `Invoice.Status = Paid`
+  - Không cập nhật `Invoice.Status = Paid` ở bước validate
   - Publish `IInvoiceValidatedEvent`
 - Nếu FAIL:
   - Publish `IInvoiceValidationFailedEvent` (kèm reason)
+
+`Invoice.Status = Paid` chỉ được cập nhật sau khi Payment service đã confirm thành công và publish `IPaymentCompletedEvent`/`IPaymentConfirmedEvent`. Nếu hệ thống chọn cập nhật Invoice trước khi Payment confirmed, saga bắt buộc phải có compensation để revert/adjust invoice khi confirm payment thất bại.
 
 ### 5. Saga Orchestrator (tiếp)
 
@@ -347,7 +351,7 @@ Chỉ cần nói, tôi giúp bạn biến hệ thống này thành “đủ chu�
 **ConfirmPaymentConsumer nhận `IConfirmPaymentCommand`:**
 - Cập nhật `Payment.Status = Completed`
 - Publish `IPaymentConfirmedEvent` (để Saga finalize)
-- Publish `IPaymentCompletedEvent` (legacy, cho Report service)
+- Publish `IPaymentCompletedEvent` (cho Invoice mark paid và Report projection)
 
 **RejectPaymentConsumer nhận `IRejectPaymentCommand`:**
 - Cập nhật `Payment.Status = Failed`, `FailureReason = reason`
@@ -404,9 +408,10 @@ GET /api/v1/payment/{paymentId}
 | Event | Publisher | Subscribers | Mục đích |
 |-------|-----------|-------------|----------|
 | `IPaymentInitiatedEvent` | Payment service | Saga orchestrator | Bắt đầu saga flow |
-| `IInvoiceValidatedEvent` | Invoice service | Saga orchestrator | Invoice hợp lệ, saga confirm payment |
+| `IInvoiceValidatedEvent` | Invoice service | Saga orchestrator | Invoice hợp lệ; saga có thể confirm payment |
 | `IInvoiceValidationFailedEvent` | Invoice service | Saga orchestrator | Invoice không hợp lệ, saga reject payment |
 | `IPaymentConfirmedEvent` | Payment service | Saga orchestrator | Payment đã confirmed, saga finalize |
+| `IPaymentCompletedEvent` | Payment service | Invoice, Report | Invoice mark paid và Report cập nhật projection |
 | `IPaymentRejectedEvent` | Payment service | Saga orchestrator | Payment đã rejected, saga finalize |
 
 ### Commands

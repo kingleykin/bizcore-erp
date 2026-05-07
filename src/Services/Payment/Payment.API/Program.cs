@@ -36,6 +36,33 @@ builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddMemoryCache();
 
+// JWT Authentication Configuration
+var secretKey = builder.Configuration["Jwt:SecretKey"]
+    ?? throw new InvalidOperationException("Jwt:SecretKey is not configured.");
+var key = System.Text.Encoding.ASCII.GetBytes(secretKey);
+
+builder.Services.AddAuthentication("Bearer")
+    .AddJwtBearer("Bearer", options =>
+    {
+        options.TokenValidationParameters = new Microsoft.IdentityModel.Tokens.TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
+            ValidateIssuer = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidateAudience = true,
+            ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
+            ClockSkew = TimeSpan.FromMinutes(5)
+        };
+    });
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Payment.View", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.View));
+    options.AddPolicy("Payment.Create", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.Create));
+    options.AddPolicy("Payment.Process", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.Process));
+});
+
 builder.Services.AddApiVersioning(options =>
 {
     options.DefaultApiVersion = new ApiVersion(1, 0);
@@ -157,6 +184,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
