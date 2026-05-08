@@ -8,13 +8,17 @@
 
   <ItemGroup>
     <!-- Database -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.7">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.7" />
 
     <!-- Authentication -->
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.5" />
 
     <!-- Message Bus -->
-    <PackageReference Include="MassTransit.RabbitMQ" Version="8.4.1" />
+    <PackageReference Include="MassTransit.RabbitMQ" Version="8.2.5" />
 
     <!-- Background Jobs (Retention + Integrity) -->
     <PackageReference Include="Hangfire.AspNetCore" Version="1.8.20" />

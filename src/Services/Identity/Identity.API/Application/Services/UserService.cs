@@ -3,6 +3,11 @@ using Identity.API.Application.DTOs;
 using Identity.API.Domain.Entities;
 using Identity.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Audit;
+using Bizcore.BuildingBlocks.Contracts;
+using MassTransit;
+using System.Diagnostics;
 
 namespace Identity.API.Application.Services
 {
@@ -10,11 +15,19 @@ namespace Identity.API.Application.Services
     {
         private readonly IdentityDbContext _db;
         private readonly ILogger<UserService> _logger;
+        private readonly IPermissionCache _cache;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-        public UserService(IdentityDbContext db, ILogger<UserService> logger)
+        public UserService(
+            IdentityDbContext db, 
+            ILogger<UserService> logger,
+            IPermissionCache cache,
+            IPublishEndpoint publishEndpoint)
         {
             _db = db;
             _logger = logger;
+            _cache = cache;
+            _publishEndpoint = publishEndpoint;
         }
 
         public async Task<IEnumerable<UserDto>> GetAllAsync()
@@ -113,6 +126,21 @@ namespace Identity.API.Application.Services
             _db.UserRoles.AddRange(newUserRoles);
             await _db.SaveChangesAsync();
 
+            // Invalidate cache
+            await _cache.InvalidateAsync(userId);
+
+            // Publish event
+            await _publishEndpoint.Publish<IUserPermissionsChangedEvent>(new
+            {
+                UserId = userId,
+                ChangedAt = DateTime.UtcNow
+            });
+
+            // Audit
+            await PublishAuditAsync("Identity.User.RolesAssigned", "Security",
+                entityType: "User", entityId: userId.ToString(),
+                afterJson: SensitiveFieldMasker.ToMaskedJson(new { userId, RoleCount = roleIds.Count }));
+
             _logger.LogInformation("Assigned {Count} role(s) to user '{Id}'.", roleIds.Count, userId);
         }
 
@@ -138,5 +166,26 @@ namespace Identity.API.Application.Services
             u.CreatedAt,
             u.UserRoles.Select(ur => ur.Role.Name)
         );
+
+        private async Task PublishAuditAsync(
+            string action, string auditLevel,
+            string? entityType = null, string? entityId = null,
+            string? beforeJson = null, string? afterJson = null)
+        {
+            var activity = Activity.Current;
+            await _publishEndpoint.Publish(new AuditEvent
+            {
+                ServiceName = "Identity.API",
+                Action = action,
+                AuditLevel = auditLevel,
+                EntityType = entityType,
+                EntityId = entityId,
+                BeforeJson = beforeJson,
+                AfterJson = afterJson,
+                TraceId = activity?.TraceId.ToString(),
+                SpanId = activity?.SpanId.ToString(),
+                OccurredAt = DateTime.UtcNow
+            });
+        }
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using Orchestration.API.Application.Services;
 using Orchestration.API.Domain;
 
@@ -46,7 +47,7 @@ public class ProcessOrchestrationServiceTests
     {
         var dbName = Guid.NewGuid().ToString();
         await using var db = TestDbContextFactory.CreateOrchestrationDbContext(dbName);
-        var svc = new ProcessOrchestrationService(db);
+        var svc = new ProcessOrchestrationService(db, NullLogger<ProcessOrchestrationService>.Instance);
 
         var id = Guid.NewGuid();
         await svc.RecordInvoiceCreatedAsync(new InvoiceCreatedFake(id, "A", 100m, DateTime.UtcNow));
@@ -61,7 +62,7 @@ public class ProcessOrchestrationServiceTests
     {
         var dbName = Guid.NewGuid().ToString();
         await using var db = TestDbContextFactory.CreateOrchestrationDbContext(dbName);
-        var svc = new ProcessOrchestrationService(db);
+        var svc = new ProcessOrchestrationService(db, NullLogger<ProcessOrchestrationService>.Instance);
 
         var invoiceId = Guid.NewGuid();
         await svc.RecordInvoiceCreatedAsync(new InvoiceCreatedFake(invoiceId, "B", 200m, DateTime.UtcNow));

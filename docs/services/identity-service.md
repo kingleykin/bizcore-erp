@@ -1,45 +1,131 @@
 # Identity Service
 
 ## 🎯 Tổng quan (Overview)
-**Identity Service** là trái tim bảo mật của BizCore ERP. Nó chịu trách nhiệm quản lý định danh người dùng (Authentication) và phân quyền chi tiết (Authorization) thông qua cơ chế Role-Based Access Control (RBAC) kết hợp Permission-based claims.
+
+**Identity Service** là trung tâm bảo mật của BizCore ERP, cung cấp giải pháp **Dynamic Authorization** hiện đại. Nó không chỉ quản lý định danh người dùng (Authentication) mà còn cung cấp cơ chế phân quyền động (Dynamic Permissions) theo Menu, Action, Field và Data-level.
 
 ## 🧱 Cấu trúc (Architecture)
+
 * **Port nội bộ**: `5005`
 * **Cơ sở dữ liệu**: `IdentityDb` (SQL Server)
+* **Caching**: **Redis** (Lưu trữ user permissions để tối ưu hiệu năng)
 * **Công nghệ cốt lõi**:
-  * **JWT (JSON Web Token)**: Cấp phát Access Token và Refresh Token cho xác thực phi trạng thái (Stateless Authentication).
-  * **BCrypt**: Băm mật khẩu một chiều để bảo vệ an toàn thông tin đăng nhập.
-  * **MassTransit (RabbitMQ)**: Publish các Audit Events (Login, Change Password, etc.) về Audit Service.
+  * **JWT (JSON Web Token)**: Cấp phát Access Token và Refresh Token. Claim `permission` chứa các code dạng PascalCase (ví dụ: `Invoice.View`).
+  * **Dynamic Policy Provider**: Tự động đánh giá quyền tại runtime không cần khai báo static policies.
+  * **BCrypt**: Băm mật khẩu bảo mật.
+  * **MassTransit (RabbitMQ)**: Publish Audit Events và Permission Change Events.
 
 ## 🔑 Các tính năng chính (Key Features)
+
 1. **Xác thực (Authentication)**:
-   - Đăng nhập với Username/Password.
-   - Cấp phát Access Token (sống ngắn hạn) và Refresh Token (sống dài hạn).
-   - Cơ chế xoay vòng Refresh Token (Refresh Token Rotation) để chống đánh cắp token.
-   - Theo dõi số lần đăng nhập sai và khóa tài khoản tạm thời (Lockout Policy).
-2. **Quản lý phân quyền (Authorization - RBAC)**:
-   - Quản lý `Users`, `Roles` và `Permissions`.
-   - Một User có thể có nhiều Role. Một Role chứa nhiều Permission (ví dụ: `Invoice.Create`, `Payment.View`).
-   - Cấp phát các claim `permission` trực tiếp vào JWT Token để các Microservices khác có thể kiểm tra quyền tại chỗ mà không cần gọi lại Identity Service (Zero Trust).
+   * Đăng nhập, Refresh Token Rotation, Lockout Policy.
+2. **Dynamic Authorization**:
+   * **Permission-based**: Phân quyền dựa trên Code (ví dụ: `Invoice.Create`).
+   * **Menu-based**: Render menu động thông qua endpoint `/me/navigation`.
+   * **Field-level**: Kiểm soát quyền truy cập đến từng trường dữ liệu (đang triển khai).
+   * **Runtime Refresh**: Cập nhật quyền của người dùng ngay lập tức thông qua cơ chế Invalidate Redis Cache.
 3. **Quản lý Tài khoản (Account Management)**:
-   - Đổi mật khẩu.
-   - Revoke (thu hồi) Refresh Token khi cần thiết.
+   * Profile, Đổi mật khẩu, Quản lý Role/Permission.
+
+## 📊 Quy trình hoạt động (Workflow Diagrams)
+
+### 1. Quy trình Xác thực (Authentication Flow)
+
+Quy trình từ lúc người dùng gửi yêu cầu đăng nhập cho đến khi nhận được Access Token và Refresh Token.
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant G as Gateway (YARP)
+    participant I as Identity.API
+    participant DB as SQL Server (IdentityDb)
+    participant R as Redis
+
+    U->>G: POST /auth/login
+    G->>I: Forward Request
+    I->>DB: Truy vấn User & Roles/Permissions
+    DB-->>I: Thông tin User & Password Hash
+    I->>I: Kiểm tra mật khẩu (BCrypt)
+    I->>DB: Lưu Refresh Token mới
+    I->>I: Tạo JWT (chứa Claims & Permissions)
+    I->>U: Trả về LoginResponse (JWT + RefreshToken)
+```
+
+### 2. Quy trình Tạo User (User Creation Flow)
+
+Đảm bảo mật khẩu được băm an toàn và có vết Audit log.
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant I as Identity.API
+    participant DB as SQL Server
+    participant AM as Event Bus (Audit Log)
+
+    A->>I: POST /users (CreateUserRequest)
+    I->>I: Băm mật khẩu (BCrypt)
+    I->>DB: Lưu User Entity
+    I->>AM: Publish AuditEvent (Security level)
+    I-->>A: HTTP 201 Created
+```
+
+### 3. Quy trình Phân quyền & Invalidation (Authorization & Cache Invalidation)
+
+Cơ chế đảm bảo quyền hạn mới có hiệu lực ngay lập tức toàn hệ thống.
+
+```mermaid
+sequenceDiagram
+    participant A as Admin
+    participant I as Identity.API
+    participant DB as SQL Server
+    participant R as Redis
+    participant EB as Event Bus (RabbitMQ)
+    participant S as Other Services
+
+    A->>I: PUT /roles/{id}/permissions
+    I->>DB: Cập nhật RolePermissions Mapping
+    I->>R: Invalidate Cache (Users thuộc Role)
+    I->>EB: Publish RolePermissionsChangedEvent
+    EB-->>S: Xóa cache permissions cục bộ
+    I->>EB: Publish Security Audit Event
+    I-->>A: HTTP 204 No Content
+```
 
 ## 🔗 Endpoint API (API Endpoints)
-Tất cả các endpoint được expose qua API Gateway với prefix `/api/v1/...`
 
 | Endpoint | Method | Chức năng | Phân quyền yêu cầu |
 | --- | --- | --- | --- |
-| `/auth/login` | POST | Đăng nhập và lấy JWT | N/A (Anonymous) |
-| `/auth/refresh` | POST | Làm mới Access Token | N/A |
-| `/auth/change-password` | POST | Đổi mật khẩu | Yêu cầu JWT hợp lệ |
-| `/users` | GET/POST | Quản lý người dùng | `Identity.Users.View/Create` |
-| `/roles` | GET/POST | Quản lý Role và Permission | `Identity.Roles.View/Create` |
+| **Auth** | | | |
+| `/auth/login` | POST | Đăng nhập và lấy JWT | Anonymous |
+| `/auth/refresh` | POST | Làm mới Access Token (Rotation) | Anonymous |
+| `/auth/logout` | POST | Đăng xuất (thu hồi Refresh Token) | [Authorize] |
+| `/auth/change-password` | POST | Người dùng tự đổi mật khẩu | [Authorize] |
+| **Profile** | | | |
+| `/me/permissions` | GET | Lấy danh sách quyền của user hiện tại | [Authorize] |
+| `/me/navigation` | GET | Lấy danh sách menu động theo quyền | [Authorize] |
+| **Users** | | | |
+| `/users` | GET | Danh sách người dùng | `Identity.Users.View` |
+| `/users` | POST | Tạo người dùng mới | `Identity.Users.Create` |
+| `/users/{id}` | GET | Chi tiết người dùng | `Identity.Users.View` |
+| `/users/{id}` | PUT | Cập nhật thông tin người dùng | `Identity.Users.Update` |
+| `/users/{id}` | DELETE | Vô hiệu hóa người dùng | `Identity.Users.Delete` |
+| `/users/{id}/roles` | PUT | Gán Roles cho người dùng | `Identity.Users.ManageRoles` |
+| `/users/{id}/unlock` | POST | Mở khóa tài khoản | `Identity.Users.Update` |
+| **Roles & Permissions** | | | |
+| `/roles` | GET | Danh sách các Role | `Identity.Roles.View` |
+| `/roles` | POST | Tạo Role mới | `Identity.Roles.Create` |
+| `/roles/{id}` | GET | Chi tiết Role & Quyền | `Identity.Roles.View` |
+| `/roles/{id}` | PUT | Cập nhật tên/mô tả Role | `Identity.Roles.Update` |
+| `/roles/{id}` | DELETE | Xóa Role | `Identity.Roles.Delete` |
+| `/roles/{id}/permissions` | PUT | Gán Permissions cho Role | `Identity.Roles.ManagePermissions` |
+| `/roles/permissions` | GET | Danh sách tất cả Permission hệ thống | `Identity.Roles.View` |
 
-## 🛡️ Tích hợp Audit (Audit Integration)
-Identity Service tạo ra rất nhiều dữ liệu nhạy cảm. Nó đã được tích hợp việc Publish `AuditEvent` về Audit Service cho các thao tác quan trọng ở mức **Security** như:
-- `Auth.Login.Success`
-- `Auth.Login.Failed`
-- `Auth.ChangePassword`
+## 🛡️ Tích hợp Cache & Audit
 
-Tất cả các event này đều trải qua cơ chế **Sensitive Field Masking** tự động trước khi serialize sang JSON để đảm bảo mật khẩu hoặc Token không bao giờ bị lộ trong hệ thống Audit.
+* **Redis Cache**: Mọi request kiểm tra quyền sẽ truy vấn Redis trước khi fallback về SQL Server. Mặc định TTL là 5 phút.
+
+* **Audit Integration**: Ghi log mọi thay đổi Role/Permission với mức độ **Security**.
+* **Permission Changed Event**: Khi một Role bị thay đổi permission, một event được publish để tất cả microservices liên quan invalidate cache local.
+
+---
+*Tài liệu cập nhật ngày: 08/05/2026 sau khi hoàn thành Phase 3: Real-time Cache Invalidation & Security Audit.*

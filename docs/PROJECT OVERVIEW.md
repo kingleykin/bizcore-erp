@@ -12,10 +12,10 @@ bizcore-erp/
 │   ├── Gateway/
 │   │   └── Gateway.API/ (YARP Gateway)
 │   ├── Services/
-│   │   ├── Identity/ (Xác thực, phân quyền RBAC, JWT)
+│   │   ├── Identity/ (Xác thực, phân quyền Dynamic, JWT, Redis)
 │   │   ├── Invoice/ (Quản lý hóa đơn)
 │   │   ├── Payment/ (Xử lý thanh toán)
-│   │   ├── Report/  (Tổng hợp báo cáo)
+│   │   ├── Report/  (Tổng hợp báo cáo, Redis)
 │   │   ├── Audit/   (Centralized Audit Service, Immutable log, Hash chain)
 │   │   └── Orchestration/ (Theo dõi luồng giao dịch qua event)
 │   ├── BuildingBlocks/
@@ -55,7 +55,7 @@ bizcore-erp/
   * **Global Exception Handling**: Chuẩn hóa phản hồi lỗi toàn hệ thống kèm theo TraceId.
   * **Health Checks**: Cung cấp endpoint `/health` cho từng service phục vụ giám sát trạng thái (Readiness/Liveness).
 * **Performance**:
-  * **Memory Caching**: Tối ưu hóa tốc độ phản hồi cho các báo cáo Dashboard tại Report Service.
+  * **Redis Caching**: Tập trung tại Identity Service để quản lý quyền hạn (Permissions) toàn hệ thống và tại Report Service để tối ưu hóa Dashboard.
 * **API Versioning**: Hỗ trợ nhiều phiên bản API song song (ví dụ: `/api/v1/invoice`).
 * **Resilience & Reliability**:
   * **Polly**: Triển khai Retry và Circuit Breaker tại Gateway để bảo vệ hệ thống khỏi các lỗi tạm thời hoặc quá tải.
@@ -117,19 +117,19 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 # 📘 3. API CONTRACT
 
-| Service | Method | Endpoint | Quyền yêu cầu (Policy) | Mô tả |
+| Service | Method | Endpoint | Quyền (Permission Code) | Mô tả |
 | :--- | :--- | :--- | :--- | :--- |
-| **Identity** | POST | `/api/v1/auth/login` | Không yêu cầu | Đăng nhập (trả JWT) |
-| **Identity** | GET | `/api/v1/users` | `Identity.Users.View` | Quản lý Users |
-| **Identity** | GET | `/api/v1/roles` | `Identity.Roles.View` | Quản lý Roles (RBAC) |
-| **Invoice** | GET | `/invoice` | `Invoice.View` | Lấy danh sách hóa đơn |
-| **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn |
-| **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán hóa đơn |
-| **Report** | GET | `/report/summary` | `Report.View` | Báo cáo tổng hợp |
-| **Audit** | GET | `/audit` | `Audit.View` | Truy vấn lịch sử Audit (Compliance) |
-| **Audit** | GET | `/audit/verify-integrity` | `Audit.View` | Kiểm tra tính toàn vẹn của Hash chain |
-| **Orchestration** | GET | `/orchestration/flows` | `Orchestration.View` | Danh sách luồng giao dịch gần đây |
-| **Orchestration** | GET | `/orchestration/flows/{id}` | `Orchestration.View` | Chi tiết luồng theo `InvoiceId` |
+| **Identity** | POST | `/api/v1/auth/login` | Công khai | Đăng nhập |
+| **Identity** | GET | `/api/v1/me/permissions`| [Authorize] | Lấy quyền User hiện tại |
+| **Identity** | GET | `/api/v1/me/navigation` | [Authorize] | Lấy menu động theo quyền |
+| **Identity** | GET | `/api/v1/users` | `Identity.Users.View` | Danh sách người dùng |
+| **Identity** | GET | `/api/v1/roles` | `Identity.Roles.View` | Danh sách Roles & Permissions |
+| **Invoice** | GET | `/invoice` | `Invoice.View` | Xem danh sách hóa đơn |
+| **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn mới |
+| **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán (Idempotent) |
+| **Report** | GET | `/report/summary` | `Report.View` | Báo cáo doanh thu |
+| **Audit** | GET | `/audit` | `Audit.View` | Truy vấn nhật ký |
+| **Orchestration** | GET | `/orchestration/flows`| `Orchestration.View`| Giám sát luồng giao dịch |
 
 ### 4. Audit Service (`Audit.API`) - Cổng: `5006`
 *Service thu thập log kiểm toán tập trung từ các nguồn.*
@@ -148,13 +148,13 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 ---
 
-## 🔒 Phân Quyền (Permissions)
+## 🔒 Phân Quyền (Dynamic Authorization)
 
-Hệ thống sử dụng cơ chế Claim-based Authorization với các Permissions sau:
+Hệ thống sử dụng cơ chế **Dynamic Authorization** với Redis Cache:
 
-1. **Invoice**: `invoice:view`, `invoice:create`, `invoice:update`
-2. **Payment**: `payment:view`, `payment:create`, `payment:update`
-3. **Audit**: `audit:view`, `audit:export`, `audit:reverse`, `audit:super-reverse`
+- 1. **Resource Format**: PascalCase dot-notation (ví dụ: `Invoice.View`, `Payment.Create`).
+- 2. **Scopes**: Menu, Action, Field (Enterprise).
+- 3. **Real-time Invalidation**: Thay đổi quyền trong Role sẽ có hiệu lực ngay lập tức cho toàn bộ User thuộc Role đó nhờ cơ chế xóa cache qua Event Bus.
 
 ## 🛠️ Data Correction (Reversal) Endpoints
 

@@ -56,12 +56,11 @@ namespace Invoice.API.Application.Consumers
                 return;
             }
 
-            // Validation thành công → cập nhật invoice status
-            invoice!.Status = InvoiceStatus.Paid;
-            await _context.SaveChangesAsync();
+            // Validation thành công — chỉ logging, không cập nhật status tại đây.
+            // Status Paid sẽ được cập nhật bởi PaymentCompletedConsumer khi nhận được event IPaymentCompletedEvent.
 
             _logger.LogInformation(
-                "[Invoice] Invoice validated and marked as Paid CorrelationId={CorrelationId} PaymentId={PaymentId} InvoiceId={InvoiceId}",
+                "[Invoice] Invoice validated successfully CorrelationId={CorrelationId} PaymentId={PaymentId} InvoiceId={InvoiceId}",
                 correlationId, cmd.PaymentId, cmd.InvoiceId);
 
             // Publish validation success event để Saga confirm payment

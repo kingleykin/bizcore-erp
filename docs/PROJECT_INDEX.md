@@ -19,7 +19,8 @@
 - **Database**: SQL Server (Các service dùng chung 1 instance SQL Server nhưng phân tách logical database: IdentityDb, InvoiceDb, AuditDb...).
 - **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), Promtail.
 - **Frontend**: React/Vite.
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**.
+- **Caching**: **Redis** (Phân quyền, Performance).
+- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**.
 
 ---
 
@@ -118,8 +119,10 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 
 > [!TIP]
 > **Bảo mật & Phân quyền**:
-> - Mọi API endpoint mới (trừ endpoint public/auth) đều phải được gắn `Policy` tương ứng (ví dụ `[Authorize(Policy = Permissions.Invoice.Create)]`).
-> - Các quyền phải được định nghĩa tập trung tại thư viện `Bizcore.BuildingBlocks`.
+> - Hệ thống sử dụng **Dynamic Authorization** với **Redis Caching**.
+> - Mọi API endpoint mới (trừ endpoint public/auth) đều phải được gắn `RequirePermission` attribute (ví dụ `[RequirePermission(Permissions.Invoice.Create)]`).
+> - Quyền được phân loại theo: Menu, Page, Action, Field. Định nghĩa tập trung tại `Bizcore.BuildingBlocks`.
+> - Thay đổi quyền hạn có hiệu lực tức thì nhờ cơ chế **Real-time Cache Invalidation** qua Event-bus.
 
 > [!IMPORTANT]
 > **Xử lý Lỗi (Error Handling) & Observability**:

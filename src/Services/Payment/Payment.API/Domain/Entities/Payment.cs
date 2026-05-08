@@ -19,6 +19,7 @@ namespace Payment.API.Domain.Entities
         public Guid Id { get; set; }
         public Guid InvoiceId { get; set; }
         public decimal Amount { get; set; }
+        public string? PaymentMethod { get; set; }
         public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
         public PaymentStatus Status { get; set; } = PaymentStatus.Processing;
         public string? IdempotencyKey { get; set; }

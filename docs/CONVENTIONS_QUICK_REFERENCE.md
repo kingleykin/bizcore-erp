@@ -251,7 +251,7 @@ public class InvoicesController : ControllerBase
 
 ### Domain Entity Template
 ```csharp
-public class Invoice : IAuditable
+public class Invoice
 {
     public Guid Id { get; set; }
     public string CustomerName { get; set; } = string.Empty;

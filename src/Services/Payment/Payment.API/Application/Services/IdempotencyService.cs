@@ -20,6 +20,14 @@ namespace Payment.API.Application.Services
             TimeSpan ttl);
 
         /// <summary>
+        /// Cache response for idempotency replay.
+        /// </summary>
+        Task CacheResponseAsync(
+            string idempotencyKey,
+            object response,
+            int statusCode = 200);
+
+        /// <summary>
         /// Cleanup expired idempotency records (gọi từ background job).
         /// </summary>
         Task<int> CleanupExpiredRecordsAsync(CancellationToken cancellationToken = default);
@@ -28,7 +36,9 @@ namespace Payment.API.Application.Services
     public record IdempotencyCheckResult(
         bool IsNew,
         Guid PaymentId,
-        string? ConflictReason = null);
+        string? ConflictReason = null,
+        object? CachedResponse = null,
+        int? StatusCode = null);
 
     public class IdempotencyService : IIdempotencyService
     {
@@ -93,7 +103,27 @@ namespace Payment.API.Application.Services
                         "Duplicate request detected Key={Key} PaymentId={PaymentId}",
                         idempotencyKey, existing.PaymentId);
 
-                    return new IdempotencyCheckResult(false, existing.PaymentId);
+                    // Deserialize cached response if available
+                    object? cachedResponse = null;
+                    if (!string.IsNullOrEmpty(existing.ResponseJson))
+                    {
+                        try
+                        {
+                            cachedResponse = JsonSerializer.Deserialize<object>(existing.ResponseJson);
+                        }
+                        catch (Exception ex)
+                        {
+                            _logger.LogWarning(ex, "Failed to deserialize cached response for Key={Key}", idempotencyKey);
+                        }
+                    }
+
+                    return new IdempotencyCheckResult(
+                        false,
+                        existing.PaymentId,
+                        null,
+                        cachedResponse,
+                        existing.StatusCode
+                    );
                 }
             }
 
@@ -104,7 +134,8 @@ namespace Payment.API.Application.Services
                 PaymentId = paymentId,
                 RequestHash = requestHash,
                 CreatedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.Add(ttl)
+                ExpiresAt = DateTime.UtcNow.Add(ttl),
+                Status = "InProgress"
             };
 
             try
@@ -137,6 +168,31 @@ namespace Payment.API.Application.Services
 
                 // Shouldn't happen, but rethrow if we can't find the record
                 throw;
+            }
+        }
+
+        public async Task CacheResponseAsync(
+            string idempotencyKey,
+            object response,
+            int statusCode = 200)
+        {
+            var record = await _context.IdempotencyRecords
+                .FirstOrDefaultAsync(r => r.Key == idempotencyKey);
+
+            if (record != null)
+            {
+                record.ResponseJson = JsonSerializer.Serialize(response, new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    WriteIndented = false
+                });
+                record.StatusCode = statusCode;
+                record.Status = statusCode < 500 ? "Completed" : "Failed";
+
+                // Note: Do NOT call SaveChangesAsync here when called inside a TransactionBehavior flow.
+                // The UnitOfWork.CommitAsync will persist the cached response with the business changes.
+                // If called outside transaction context (e.g., from a background job), SaveChangesAsync is needed.
+                // For now, we rely on the transaction pipeline to save.
             }
         }
 

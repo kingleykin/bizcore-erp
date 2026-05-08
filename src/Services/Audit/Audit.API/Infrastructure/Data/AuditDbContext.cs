@@ -10,6 +10,7 @@ namespace Audit.API.Infrastructure.Data
 
         public DbSet<AuditEntry>   AuditEntries   { get; set; } = null!;
         public DbSet<ArchiveEntry> ArchiveEntries  { get; set; } = null!;
+        public DbSet<AuditHashChainHead> AuditHashChainHeads { get; set; } = null!;
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -81,6 +82,14 @@ namespace Audit.API.Infrastructure.Data
                 e.HasIndex(x => x.PerformedAt);
                 e.HasIndex(x => x.ServiceName);
                 e.HasIndex(x => x.ArchivedAt);
+            });
+
+            // ── AuditHashChainHeads (Partitioned Hash Chain) ───────────────────
+            modelBuilder.Entity<AuditHashChainHead>(e =>
+            {
+                e.ToTable("AuditHashChainHeads");
+                e.HasKey(x => x.Id);
+                e.HasIndex(x => new { x.PartitionKey, x.Sequence }).IsUnique();
             });
         }
     }

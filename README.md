@@ -11,7 +11,43 @@
 - Truy cập Portainer tại: <http://localhost:9000> mật khẩu: admin123456789
 - Truy cập RabbitMQ tại: <http://localhost:15672>
 
-# Demo
+## Clear project
+
+- Xóa toàn bộ: ```dotnet clean```
+- Remove all folderbin
+
+```
+    cd /src
+    Remove-Item -Path "Services\Invoice\Invoice.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Invoice\Invoice.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Services\Payment\Payment.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Payment\Payment.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Services\Report\Report.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Report\Report.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Services\Orchestration\Orchestration.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Orchestration\Orchestration.API\bin" -Recurse -Force
+
+    Remove-Item -Path "BuildingBlocks\Bizcore.BuildingBlocks\obj" -Recurse -Force
+    Remove-Item -Path "BuildingBlocks\Bizcore.BuildingBlocks\bin" -Recurse -Force
+
+    Remove-Item -Path "Services\Identity\Identity.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Identity\Identity.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Gateway\Gateway.API\obj" -Recurse -Force
+    Remove-Item -Path "Gateway\Gateway.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Services\Audit\Audit.API\obj" -Recurse -Force
+    Remove-Item -Path "Services\Audit\Audit.API\bin" -Recurse -Force
+
+    Remove-Item -Path "Tests\Bizcore.UnitTests\obj" -Recurse -Force
+    Remove-Item -Path "Tests\Bizcore.UnitTests\bin" -Recurse -Force
+
+```
+
+# Demoz
 
 ## Tạo Hóa đơn
 

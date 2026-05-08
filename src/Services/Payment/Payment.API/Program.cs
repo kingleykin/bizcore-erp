@@ -9,7 +9,13 @@ using Asp.Versioning;
 using Bizcore.BuildingBlocks.Middlewares;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Abstractions;
+using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Behaviors;
+using Microsoft.AspNetCore.Authorization;
 using Prometheus;
+using StackExchange.Redis;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -56,12 +62,16 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Payment.View", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.View));
-    options.AddPolicy("Payment.Create", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.Create));
-    options.AddPolicy("Payment.Process", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Payment.Process));
-});
+// Redis Caching cho Permissions
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "redis:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddScoped<IPermissionCache, RedisPermissionCache>();
+
+// Dynamic Authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
 
 builder.Services.AddApiVersioning(options =>
 {
@@ -82,6 +92,22 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+// Register UnitOfWork for transaction management
+builder.Services.AddScoped<IUnitOfWork, PaymentUnitOfWork>();
+
+// Register MediatR with Transaction Pipeline
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    
+    // Add pipeline behaviors (order matters: Logging -> Validation -> Transaction)
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+    cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+});
 
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
@@ -188,22 +214,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Database Initialization
-using (var scope = app.Services.CreateScope())
+// Database Initialization & Seeding
+try
 {
+    await app.Services.MigrateDatabaseAsync<AppDbContext>();
+    
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
-
-    // Seed Invoices for local check
-    if (!context.Invoices.Any())
-    {
-        context.Invoices.AddRange(
-            new Payment.API.Domain.Entities.Invoice { Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a"), Status = InvoiceStatus.Pending },
-            new Payment.API.Domain.Entities.Invoice { Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"), Status = InvoiceStatus.Pending },
-            new Payment.API.Domain.Entities.Invoice { Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f"), Status = InvoiceStatus.Pending }
-        );
-        context.SaveChanges();
-    }
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DbSeeder.SeedAsync(context, seedLogger);
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Error occurred during database initialization/seeding.");
+    throw;
 }
 
 app.Run();

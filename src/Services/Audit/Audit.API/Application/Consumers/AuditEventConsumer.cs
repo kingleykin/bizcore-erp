@@ -59,11 +59,26 @@ namespace Audit.API.Application.Consumers
                 occurredAt      : msg.OccurredAt
             );
 
-            // Compute hash chain INSIDE the same DbContext scope
-            await _hashChain.ComputeAndSetHashAsync(entry);
+            // Wrap hash chain computation and insert in a transaction.
+            // Using ReadCommitted with explicit row-level locking in HashChainService
+            // provides better concurrency than global Serializable.
+            await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, context.CancellationToken);
 
-            _db.AuditEntries.Add(entry);
-            await _db.SaveChangesAsync(context.CancellationToken);
+            try
+            {
+                // Compute hash chain INSIDE the same DbContext scope and transaction
+                await _hashChain.ComputeAndSetHashAsync(entry, context.CancellationToken);
+
+                _db.AuditEntries.Add(entry);
+                await _db.SaveChangesAsync(context.CancellationToken);
+
+                await transaction.CommitAsync(context.CancellationToken);
+            }
+            catch
+            {
+                await transaction.RollbackAsync(context.CancellationToken);
+                throw;
+            }
 
             _logger.LogDebug("AuditEntry {Id} persisted with hash {Hash}.", entry.Id, entry.Hash);
         }

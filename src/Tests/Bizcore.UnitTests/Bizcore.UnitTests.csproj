@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -27,6 +27,7 @@
     <ProjectReference Include="..\..\Services\Payment\Payment.API\Payment.API.csproj" />
     <ProjectReference Include="..\..\Services\Report\Report.API\Report.API.csproj" />
     <ProjectReference Include="..\..\Services\Orchestration\Orchestration.API\Orchestration.API.csproj" />
+    <ProjectReference Include="..\..\Services\Identity\Identity.API\Identity.API.csproj" />
   </ItemGroup>
 
 </Project>

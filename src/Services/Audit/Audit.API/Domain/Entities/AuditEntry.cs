@@ -109,11 +109,12 @@ namespace Audit.API.Domain.Entities
             return entry;
         }
 
-        /// <summary>Assigns the computed hash. Called by HashChainService after creation.</summary>
-        public void SetHash(string hash)
+        /// <summary>Assigns the computed hash and previous hash. Called by HashChainService after creation.</summary>
+        public void SetHash(string? previousHash, string hash)
         {
             if (Hash is not null)
                 throw new InvalidOperationException("Hash already set — AuditEntry is immutable.");
+            PreviousHash = previousHash;
             Hash = hash;
         }
 

@@ -174,7 +174,7 @@ Invoice.API/
 
 ```csharp
 [Table("Invoices")]
-public class Invoice : IAuditable
+public class Invoice
 {
     [Key]
     public Guid Id { get; set; }
@@ -336,7 +336,7 @@ public class InvoiceCreatedConsumer : IConsumer<IInvoiceCreatedEvent>
 #### ✅ Domain Layer phải "sạch" (Pure)
 **SAI:**
 ```csharp
-public class Invoice : IAuditable
+public class Invoice
 {
     private readonly AppDbContext _context;  // ❌ KHÔNG: Framework dependency
     private readonly ILogger _logger;         // ❌ KHÔNG: Logger in Domain
@@ -351,7 +351,7 @@ public class Invoice : IAuditable
 
 **ĐÚNG:**
 ```csharp
-public class Invoice : IAuditable
+public class Invoice
 {
     // ✅ Pure domain logic, no dependencies
     public void MarkAsPaid()

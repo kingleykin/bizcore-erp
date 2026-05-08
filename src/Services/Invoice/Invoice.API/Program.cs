@@ -10,8 +10,14 @@ using FluentValidation.AspNetCore;
 using FluentValidation;
 using Bizcore.BuildingBlocks.Middlewares;
 using Bizcore.BuildingBlocks.MassTransit;
+using Bizcore.BuildingBlocks.Abstractions;
+using Bizcore.BuildingBlocks.Behaviors;
+using Bizcore.BuildingBlocks.Authorization;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Prometheus;
+using StackExchange.Redis;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -54,13 +60,16 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Invoice.View",   policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.View));
-    options.AddPolicy("Invoice.Create", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Create));
-    options.AddPolicy("Invoice.Update", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Invoice.Update));
-    options.AddPolicy("Audit.View",     policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Audit.View));
-});
+// Redis Caching cho Permissions
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "redis:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddScoped<IPermissionCache, RedisPermissionCache>();
+
+// Dynamic Authorization — policy tự động tạo runtime theo permission name
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
@@ -92,11 +101,28 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+// Register UnitOfWork for transaction management
+builder.Services.AddScoped<IUnitOfWork, InvoiceUnitOfWork>();
+
+// Register MediatR with Transaction Pipeline
+builder.Services.AddMediatR(cfg =>
+{
+    cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+    
+    // Add pipeline behaviors (order matters: Logging -> Validation -> Transaction)
+    cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+    cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+    cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+});
+
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
     // Saga orchestrator command consumer
     x.AddConsumer<ValidateInvoiceCommandConsumer>();
+    x.AddConsumer<PaymentCompletedConsumer>();
 
     // Legacy Request-Reply consumer (giữ lại tạm để không break existing tests)
     x.AddConsumer<ApplyPaymentToInvoiceConsumer>();
@@ -140,6 +166,13 @@ builder.Services.AddMassTransit(x =>
         {
             e.Durable = true;
             e.ConfigureConsumer<ApplyPaymentToInvoiceConsumer>(context);
+        });
+
+        // Luồng Saga - lắng nghe kết quả thanh toán cuối cùng
+        cfg.ReceiveEndpoint("invoice-payment-completed", e =>
+        {
+            e.Durable = true;
+            e.ConfigureConsumer<PaymentCompletedConsumer>(context);
         });
     });
 });
@@ -185,25 +218,19 @@ app.UseAuthorization();
 app.MapControllers();
 
 // 10. Database Initialization & Seeding
-using (var scope = app.Services.CreateScope())
+try
 {
+    await app.Services.MigrateDatabaseAsync<AppDbContext>();
+    
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
-
-    if (!context.Invoices.Any())
-    {
-        var invoice1 = Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500);
-        invoice1.Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a");
-        
-        var invoice2 = Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn Kingley", 3200);
-        invoice2.Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d");
-        
-        var invoice3 = Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450);
-        invoice3.Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f");
-
-        context.Invoices.AddRange(invoice1, invoice2, invoice3);
-        context.SaveChanges();
-    }
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DbSeeder.SeedAsync(context, seedLogger);
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Error occurred during database initialization/seeding.");
+    throw;
 }
 
 app.Run();

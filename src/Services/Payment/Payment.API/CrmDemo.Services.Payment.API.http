@@ -1,6 +1,0 @@
-@CrmDemo.Services.Payment.API_HostAddress = http://localhost:5197
-
-GET {{CrmDemo.Services.Payment.API_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

@@ -12,7 +12,7 @@ namespace Payment.API.Application.Services
         /// Tạo payment record với trạng thái Processing và publish IPaymentInitiatedEvent.
         /// Kết quả cuối cùng (Completed/Failed) sẽ được cập nhật async bởi Saga.
         /// </summary>
-        Task<InitiatePaymentResult> InitiatePaymentAsync(
+        Task<InitiatePaymentResult> ProcessPaymentAsync(
             Payment.API.Domain.Entities.Payment payment,
             string idempotencyKey);
 
@@ -41,7 +41,7 @@ namespace Payment.API.Application.Services
             _logger = logger;
         }
 
-        public async Task<InitiatePaymentResult> InitiatePaymentAsync(
+        public async Task<InitiatePaymentResult> ProcessPaymentAsync(
             Payment.API.Domain.Entities.Payment payment,
             string idempotencyKey)
         {

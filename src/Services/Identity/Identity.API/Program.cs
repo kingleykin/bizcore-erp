@@ -1,19 +1,25 @@
 using Asp.Versioning;
 using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Identity.API.Application.DTOs;
 using Identity.API.Application.Services;
 using Identity.API.Infrastructure.Data;
+using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
+using StackExchange.Redis;
 using System.Text;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -61,29 +67,64 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// ── 4. Authorization — Fine-grained Permission Policies ─────────────────────
-builder.Services.AddAuthorization(options =>
+// ── 4. Dynamic Authorization ─────────────────────────────────────────────────
+// DynamicAuthorizationPolicyProvider tự động tạo policy từ permission name.
+// Không cần khai báo tĩnh từng policy trong options.AddPolicy().
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
+
+// ── 5. Redis Permission Cache ─────────────────────────────────────────────────
+var redisConn = builder.Configuration.GetConnectionString("Redis")
+             ?? builder.Configuration.GetValue<string>("Redis:ConnectionString")
+             ?? "localhost:6379";
+
+try
 {
-    // Identity — Users
-    options.AddPolicy("Identity.Users.View",              p => p.RequireClaim("permission", Permissions.Identity.Users.View));
-    options.AddPolicy("Identity.Users.Create",            p => p.RequireClaim("permission", Permissions.Identity.Users.Create));
-    options.AddPolicy("Identity.Users.Update",            p => p.RequireClaim("permission", Permissions.Identity.Users.Update));
-    options.AddPolicy("Identity.Users.Delete",            p => p.RequireClaim("permission", Permissions.Identity.Users.Delete));
-    options.AddPolicy("Identity.Users.ManageRoles",       p => p.RequireClaim("permission", Permissions.Identity.Users.ManageRoles));
+    var redis = await ConnectionMultiplexer.ConnectAsync(redisConn);
+    builder.Services.AddSingleton<IConnectionMultiplexer>(redis);
+    builder.Services.AddSingleton<IPermissionCache>(sp =>
+        new RedisPermissionCache(
+            sp.GetRequiredService<IConnectionMultiplexer>(),
+            sp.GetRequiredService<ILogger<RedisPermissionCache>>(),
+            ttl: TimeSpan.FromMinutes(5)));
+    Log.Information("Redis connected at {RedisConn}.", redisConn);
+}
+catch (Exception ex)
+{
+    Log.Warning(ex, "Redis connection failed. Permission cache will be disabled.");
+    // App vẫn chạy được — chỉ không có cache
+}
 
-    // Identity — Roles
-    options.AddPolicy("Identity.Roles.View",              p => p.RequireClaim("permission", Permissions.Identity.Roles.View));
-    options.AddPolicy("Identity.Roles.Create",            p => p.RequireClaim("permission", Permissions.Identity.Roles.Create));
-    options.AddPolicy("Identity.Roles.Update",            p => p.RequireClaim("permission", Permissions.Identity.Roles.Update));
-    options.AddPolicy("Identity.Roles.Delete",            p => p.RequireClaim("permission", Permissions.Identity.Roles.Delete));
-    options.AddPolicy("Identity.Roles.ManagePermissions", p => p.RequireClaim("permission", Permissions.Identity.Roles.ManagePermissions));
-});
-
-// ── 5. Database ───────────────────────────────────────────────────────────────
+// ── 6. Database ───────────────────────────────────────────────────────────────
 builder.Services.AddDbContext<IdentityDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// ── 6. MVC, Validation, API Versioning ───────────────────────────────────────
+// Đảm bảo DB tồn tại trước khi HealthChecks chạy
+DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
+// ── 7. MassTransit ────────────────────────────────────────────────────────────
+builder.Services.AddMassTransit(x =>
+{
+    x.UsingRabbitMq((context, cfg) =>
+    {
+        cfg.UseCorrelationId(context);
+
+        cfg.UseMessageRetry(r => r.Intervals(
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromSeconds(10),
+            TimeSpan.FromSeconds(30)
+        ));
+
+        cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
+        {
+            h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
+            h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
+        });
+    });
+});
+
+// ── 8. MVC, Validation, API Versioning ───────────────────────────────────────
 builder.Services.AddControllers(options =>
 {
     options.Filters.Add<Identity.API.Filters.HttpExceptionFilter>();
@@ -106,7 +147,7 @@ builder.Services.AddApiVersioning(options =>
     options.SubstituteApiVersionInUrl = true;
 });
 
-// ── 7. Swagger ────────────────────────────────────────────────────────────────
+// ── 9. Swagger ────────────────────────────────────────────────────────────────
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -117,7 +158,6 @@ builder.Services.AddSwaggerGen(c =>
         Description = "Authentication, Authorization, User & Role Management Service"
     });
 
-    // JWT Security in Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization. Enter 'Bearer {token}'",
@@ -138,14 +178,14 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// ── 8. Health Checks ─────────────────────────────────────────────────────────
+// ── 10. Health Checks ─────────────────────────────────────────────────────────
 builder.Services.AddHealthChecks()
     .AddSqlServer(
         builder.Configuration.GetConnectionString("DefaultConnection")!,
         name: "identity-db",
         tags: new[] { "db", "sql" });
 
-// ── 9. Application Services (DI) ─────────────────────────────────────────────
+// ── 11. Application Services ──────────────────────────────────────────────────
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IRoleService, RoleService>();
@@ -182,19 +222,21 @@ app.UseAuthorization();
 app.MapControllers();
 
 // ── Database Initialization & Seeding ────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
+try
 {
+    await app.Services.MigrateDatabaseAsync<IdentityDbContext>();
+    
+    using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        await DbSeeder.SeedAsync(db, seedLogger);
-    }
-    catch (Exception ex)
-    {
-        seedLogger.LogError(ex, "Error occurred during database seeding.");
-        throw;
-    }
+    await DbSeeder.SeedAsync(db, seedLogger);
+}
+catch (Exception ex)
+{
+    using var scope = app.Services.CreateScope();
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    seedLogger.LogError(ex, "Error occurred during database initialization/seeding.");
+    throw;
 }
 
 app.Run();

@@ -3,6 +3,11 @@ using Identity.API.Application.DTOs;
 using Identity.API.Domain.Entities;
 using Identity.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Audit;
+using Bizcore.BuildingBlocks.Contracts;
+using MassTransit;
+using System.Diagnostics;
 
 namespace Identity.API.Application.Services
 {
@@ -10,11 +15,19 @@ namespace Identity.API.Application.Services
     {
         private readonly IdentityDbContext _db;
         private readonly ILogger<RoleService> _logger;
+        private readonly IPermissionCache _cache;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-        public RoleService(IdentityDbContext db, ILogger<RoleService> logger)
+        public RoleService(
+            IdentityDbContext db, 
+            ILogger<RoleService> logger,
+            IPermissionCache cache,
+            IPublishEndpoint publishEndpoint)
         {
             _db = db;
             _logger = logger;
+            _cache = cache;
+            _publishEndpoint = publishEndpoint;
         }
 
         public async Task<IEnumerable<RoleDto>> GetAllAsync()
@@ -107,13 +120,29 @@ namespace Identity.API.Application.Services
             _db.RolePermissions.AddRange(newPerms);
             await _db.SaveChangesAsync();
 
+            // Invalidate cache for all users in this role
+            await _cache.InvalidateRoleAsync(roleId);
+
+            // Publish event
+            await _publishEndpoint.Publish<IRolePermissionsChangedEvent>(new
+            {
+                RoleId = role.Id,
+                RoleName = role.Name,
+                ChangedAt = DateTime.UtcNow
+            });
+
+            // Audit
+            await PublishAuditAsync("Identity.Role.PermissionsAssigned", "Security",
+                entityType: "Role", entityId: role.Id.ToString(),
+                afterJson: SensitiveFieldMasker.ToMaskedJson(new { role.Name, PermissionCount = permissionIds.Count }));
+
             _logger.LogInformation("Assigned {Count} permission(s) to role '{Name}'.", permissionIds.Count, role.Name);
         }
 
         public async Task<IEnumerable<PermissionDto>> GetAllPermissionsAsync()
         {
             var perms = await _db.Permissions.AsNoTracking().ToListAsync();
-            return perms.Select(p => new PermissionDto(p.Id, p.Action, p.Description));
+            return perms.Select(p => new PermissionDto(p.Id, p.Code, p.Name, p.Scope, p.Description));
         }
 
         private static RoleDto MapToDto(Role r) => new(
@@ -121,7 +150,33 @@ namespace Identity.API.Application.Services
             r.Name,
             r.Description,
             r.IsSystem,
-            r.RolePermissions.Select(rp => new PermissionDto(rp.Permission.Id, rp.Permission.Action, rp.Permission.Description))
+            r.RolePermissions.Select(rp => new PermissionDto(
+                rp.Permission.Id,
+                rp.Permission.Code,
+                rp.Permission.Name,
+                rp.Permission.Scope,
+                rp.Permission.Description))
         );
+
+        private async Task PublishAuditAsync(
+            string action, string auditLevel,
+            string? entityType = null, string? entityId = null,
+            string? beforeJson = null, string? afterJson = null)
+        {
+            var activity = Activity.Current;
+            await _publishEndpoint.Publish(new AuditEvent
+            {
+                ServiceName = "Identity.API",
+                Action = action,
+                AuditLevel = auditLevel,
+                EntityType = entityType,
+                EntityId = entityId,
+                BeforeJson = beforeJson,
+                AfterJson = afterJson,
+                TraceId = activity?.TraceId.ToString(),
+                SpanId = activity?.SpanId.ToString(),
+                OccurredAt = DateTime.UtcNow
+            });
+        }
     }
 }

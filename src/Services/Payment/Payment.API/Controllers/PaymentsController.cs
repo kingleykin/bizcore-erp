@@ -1,20 +1,31 @@
 using Payment.API.Application.Services;
+using Payment.API.Application.Commands;
 using Payment.API.Domain.Entities;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
+using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Authorization;
+using MediatR;
 
 namespace Payment.API.Controllers
 {
     [ApiController]
     [Route("api/v{version:apiVersion}/payment")]
     [ApiVersion("1.0")]
+    [Authorize]
     public class PaymentsController : ControllerBase
     {
+        private readonly IMediator _mediator;
         private readonly IPaymentService _paymentService;
         private readonly ILogger<PaymentsController> _logger;
 
-        public PaymentsController(IPaymentService paymentService, ILogger<PaymentsController> logger)
+        public PaymentsController(
+            IMediator mediator,
+            IPaymentService paymentService,
+            ILogger<PaymentsController> logger)
         {
+            _mediator = mediator;
             _paymentService = paymentService;
             _logger = logger;
         }
@@ -25,15 +36,16 @@ namespace Payment.API.Controllers
         /// Client cần poll GET /payment/{id} để lấy trạng thái cuối.
         /// </summary>
         [HttpPost("pay")]
+        [RequirePermission(Permissions.Payment.Create)]
         [ProducesResponseType(StatusCodes.Status202Accepted)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         public async Task<IActionResult> ProcessPayment(
-            [FromBody] Payment.API.Domain.Entities.Payment payment,
+            [FromBody] ProcessPaymentRequest request,
             [FromHeader(Name = "X-Idempotency-Key")] string? idempotencyKey)
         {
             _logger.LogInformation(
                 "Processing payment request InvoiceId={InvoiceId} Amount={Amount}",
-                payment.InvoiceId, payment.Amount);
+                request.InvoiceId, request.Amount);
 
             if (string.IsNullOrEmpty(idempotencyKey))
             {
@@ -41,13 +53,31 @@ namespace Payment.API.Controllers
                 return BadRequest(new { Error = "Missing X-Idempotency-Key header" });
             }
 
-            var result = await _paymentService.InitiatePaymentAsync(payment, idempotencyKey);
+            // Use MediatR command with transaction pipeline
+            var command = new InitiatePaymentCommand(
+                request.InvoiceId,
+                request.Amount,
+                request.PaymentMethod,
+                idempotencyKey
+            );
+
+            var result = await _mediator.Send(command);
+
             if (!result.Accepted)
             {
                 _logger.LogWarning(
                     "Payment initiation failed InvoiceId={InvoiceId}: {Reason}",
-                    payment.InvoiceId, result.ErrorReason);
+                    request.InvoiceId, result.ErrorReason);
                 return BadRequest(new { Error = result.ErrorReason });
+            }
+
+            // If cached response exists (duplicate request), return it with same status code
+            if (result.CachedResponse != null)
+            {
+                _logger.LogInformation(
+                    "Returning cached response for duplicate request. PaymentId={PaymentId}",
+                    result.PaymentId);
+                return StatusCode(result.StatusCode ?? 202, result.CachedResponse);
             }
 
             _logger.LogInformation(
@@ -72,6 +102,7 @@ namespace Payment.API.Controllers
         /// Client dùng endpoint này để poll trạng thái sau khi POST /pay.
         /// </summary>
         [HttpGet("{id}")]
+        [RequirePermission(Permissions.Payment.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<ActionResult<PaymentStatusResponse>> GetPaymentById(Guid id)
@@ -115,6 +146,7 @@ namespace Payment.API.Controllers
         /// Lấy danh sách tất cả payments (dùng cho admin/debug).
         /// </summary>
         [HttpGet]
+        [RequirePermission(Permissions.Payment.View)]
         [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult<IEnumerable<Payment.API.Domain.Entities.Payment>>> GetPayments()
         {
@@ -123,6 +155,13 @@ namespace Payment.API.Controllers
             _logger.LogInformation("Retrieved {Count} payments", payments.Count());
             return Ok(payments);
         }
+    }
+
+    public class ProcessPaymentRequest
+    {
+        public Guid InvoiceId { get; set; }
+        public decimal Amount { get; set; }
+        public string PaymentMethod { get; set; } = string.Empty;
     }
 
     public class PaymentStatusResponse

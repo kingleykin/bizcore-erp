@@ -9,6 +9,10 @@ using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
 using MassTransit;
 using Prometheus;
+using StackExchange.Redis;
+using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Infrastructure;
+using Microsoft.AspNetCore.Authorization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -51,10 +55,16 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Report.View", policy => policy.RequireClaim("permission", Bizcore.BuildingBlocks.Permissions.Report.View));
-});
+// Redis Caching cho Permissions
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "redis:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddScoped<IPermissionCache, RedisPermissionCache>();
+
+// Dynamic Authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
@@ -79,6 +89,8 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("DefaultConnection")!);
 
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
@@ -143,22 +155,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// Database Initialization
-using (var scope = app.Services.CreateScope())
+// Database Initialization & Seeding
+try
 {
+    await app.Services.MigrateDatabaseAsync<AppDbContext>();
+    
+    using var scope = app.Services.CreateScope();
     var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    context.Database.EnsureCreated();
-
-    // Seed Invoices for Dashboard
-    if (!context.Invoices.Any())
-    {
-        context.Invoices.AddRange(
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a"), CustomerName = "Công ty Công nghệ ABC", Amount = 1500, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-5) },
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d"), CustomerName = "Tập đoàn Kingley", Amount = 3200, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-2) },
-            new Report.API.Domain.Entities.Invoice { Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f"), CustomerName = "Cửa hàng Bán lẻ XYZ", Amount = 450, Status = InvoiceStatus.Pending, CreatedAt = DateTime.UtcNow.AddDays(-1) }
-        );
-        context.SaveChanges();
-    }
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DbSeeder.SeedAsync(context, seedLogger);
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Error occurred during database initialization/seeding.");
+    throw;
 }
 
 app.Run();

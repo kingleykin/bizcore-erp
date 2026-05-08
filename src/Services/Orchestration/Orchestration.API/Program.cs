@@ -1,6 +1,9 @@
 using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Infrastructure;
+using Bizcore.BuildingBlocks.Authorization;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
+using Microsoft.AspNetCore.Authorization;
 using MassTransit;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +18,7 @@ using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using Asp.Versioning;
 using System.Text;
+using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,12 +59,16 @@ builder.Services.AddAuthentication("Bearer")
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy(
-        "Orchestration.View",
-        policy => policy.RequireClaim("permission", Permissions.Orchestration.View));
-});
+// Redis Caching cho Permissions
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "redis:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddScoped<IPermissionCache, RedisPermissionCache>();
+
+// Dynamic Authorization
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
@@ -85,10 +93,14 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("DefaultConnection")!);
+
 builder.Services.AddScoped<IProcessOrchestrationService, ProcessOrchestrationService>();
 
 builder.Services.AddMassTransit(x =>
 {
+    x.AddDelayedMessageScheduler();
+
     // Legacy event observers (giữ lại cho backward compatibility)
     x.AddConsumer<InvoiceCreatedOrchestrationConsumer>();
     x.AddConsumer<PaymentCompletedOrchestrationConsumer>();
@@ -108,6 +120,7 @@ builder.Services.AddMassTransit(x =>
 
     x.UsingRabbitMq((context, cfg) =>
     {
+        cfg.UseDelayedMessageScheduler();
         cfg.UseCorrelationId(context);
 
         // Message retry policy
@@ -178,10 +191,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-using (var scope = app.Services.CreateScope())
-{
-    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.EnsureCreated();
-}
+// Database Initialization
+await app.Services.MigrateDatabaseAsync<AppDbContext>();
 
 app.Run();

@@ -22,20 +22,44 @@ namespace Audit.API.Infrastructure.Services
         }
 
         /// <summary>
-        /// Fetches the most recent hash from the DB and computes the hash
-        /// for the provided entry. Mutates entry.Hash and entry.PreviousHash.
+        /// Fetches the most recent hash from the DB (via AuditHashChainHeads) and computes the hash
+        /// for the provided entry. Mutates entry.Hash, entry.PreviousHash, and updates/inserts AuditHashChainHead.
         /// Must be called INSIDE the same transaction as SaveChanges.
         /// </summary>
-        public async Task ComputeAndSetHashAsync(AuditEntry entry)
+        public async Task ComputeAndSetHashAsync(AuditEntry entry, CancellationToken ct = default)
         {
-            var previousHash = await _db.AuditEntries
-                .OrderByDescending(a => a.PerformedAt)
-                .Select(a => a.Hash)
-                .FirstOrDefaultAsync();
+            var partitionKey = string.IsNullOrEmpty(entry.EntityName) ? "Global" : entry.EntityName;
+
+            // Fetch head with UPDLOCK and ROWLOCK to ensure serialized append for this partition.
+            // This allows us to use ReadCommitted isolation level safely.
+            var head = await _db.AuditHashChainHeads
+                .FromSqlRaw("SELECT * FROM AuditHashChainHeads WITH (UPDLOCK, ROWLOCK) WHERE PartitionKey = {0}", partitionKey)
+                .FirstOrDefaultAsync(ct);
+
+            string? previousHash = head?.CurrentHash;
+            long nextSequence = (head?.Sequence ?? 0) + 1;
 
             var content = BuildContent(entry, previousHash);
             var hash = ComputeSha256(content);
-            entry.SetHash(hash);
+            
+            entry.SetHash(previousHash, hash);
+
+            if (head == null)
+            {
+                _db.AuditHashChainHeads.Add(new AuditHashChainHead
+                {
+                    PartitionKey = partitionKey,
+                    Sequence = nextSequence,
+                    CurrentHash = hash,
+                    UpdatedAt = DateTime.UtcNow
+                });
+            }
+            else
+            {
+                head.Sequence = nextSequence;
+                head.CurrentHash = hash;
+                head.UpdatedAt = DateTime.UtcNow;
+            }
         }
 
         /// <summary>

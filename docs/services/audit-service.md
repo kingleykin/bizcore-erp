@@ -16,10 +16,9 @@ Hệ thống Audit tuân thủ các quy tắc bảo mật khắt khe nhất:
 2. **Hash Chain (Tamper Detection)**: Tương tự như Blockchain, mỗi một Audit Record được băm SHA-256 kèm theo tham chiếu (PreviousHash) đến record trước đó. Bất kỳ nỗ lực nào can thiệp trực tiếp vào Database đều làm đứt gãy chuỗi Hash, và hệ thống sẽ phát hiện ngay lập tức qua `IntegrityVerificationJob`.
 3. **Sensitive Data Masking**: Các trường như `password`, `token`, `cardNumber` tự động bị che khuất (`***`) thông qua tiện ích `SensitiveFieldMasker` trước khi được lưu vào JSON Before/After.
 
-## 🚀 Kiến trúc Hybrid Trigger
-Audit Service thu thập dữ liệu qua 2 luồng song song:
-1. **Application Layer (Explicit)**: Các Service chủ động `IBus.Publish` các event mang ý nghĩa nghiệp vụ (Ví dụ: `Auth.Login.Success` ở mức Security, `DataReversal.Invoice.CustomerName` ở mức Compliance).
-2. **EF Core Interceptor (Implicit)**: `AuditSaveChangesInterceptor` tự động bắt mọi thay đổi (Before/After) của bất kỳ Entity nào implement `IAuditable` và gửi đi dưới dạng Field-level audit (Mức Operational).
+## 🚀 Cơ chế thu thập (Trigger Mechanism)
+Audit Service thu thập dữ liệu thông qua:
+**Application Layer (Explicit)**: Các Service chủ động `IBus.Publish` các event mang ý nghĩa nghiệp vụ (Ví dụ: `Auth.Login.Success` ở mức Security, `DataReversal.Invoice.CustomerName` ở mức Compliance). Điều này đảm bảo tính chính xác, bối cảnh nghiệp vụ rõ ràng và tính nguyên tử (atomic) khi kết hợp với Outbox pattern tại các Domain Service.
 
 ## 🔄 Reversal Tracking (Theo dõi khôi phục)
 Audit Service đóng vai trò là kho dữ liệu (nguồn `BeforeJson`) cho các Domain Service chạy thuật toán **Restore Diff Engine**. Nó không trực tiếp thực hiện ghi đè dữ liệu. 

@@ -1,14 +1,12 @@
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Exceptions;
-using Bizcore.BuildingBlocks.Interfaces;
 
 namespace Invoice.API.Domain.Entities
 {
     /// <summary>
-    /// Invoice entity. Implements IAuditable để EF Core Interceptor tự động
-    /// capture field-level Before/After khi entity thay đổi.
+    /// Invoice entity.
     /// </summary>
-    public class Invoice : IAuditable
+    public class Invoice
     {
         public Guid          Id           { get; set; }
         public string        CustomerName { get; set; } = string.Empty;

@@ -16,6 +16,9 @@ namespace Invoice.API.Infrastructure.Data
         {
             modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>().HasKey(i => i.Id);
             modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>().Property(i => i.Amount).HasPrecision(18, 2);
+            modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>()
+                .Property(i => i.RowVersion)
+                .IsRowVersion();
 
             // MassTransit Outbox Mappings
             modelBuilder.AddInboxStateEntity();

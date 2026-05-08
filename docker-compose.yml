@@ -15,6 +15,14 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  redis:
+    image: redis:7-alpine
+    container_name: bizcore-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+
   portainer:
     image: portainer/portainer-ce:latest
     container_name: bizcore-portainer
@@ -94,12 +102,14 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=InvoiceDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   payment-api:
@@ -110,12 +120,14 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=PaymentDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   report-api:
@@ -126,13 +138,15 @@ services:
       dockerfile: src/Services/Report/Report.API/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb_v2;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   orchestration-api:
@@ -145,12 +159,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrchestrationDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   identity-api:
@@ -163,12 +179,14 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=IdentityDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   audit-api:
@@ -181,6 +199,7 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=AuditDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
@@ -188,6 +207,7 @@ services:
     depends_on:
       - sql-server
       - rabbitmq
+      - redis
       - loki
 
   web-ui:

@@ -34,6 +34,8 @@ namespace Payment.API.Infrastructure.Data
                 e.HasKey(x => x.Key);
                 e.Property(x => x.Key).HasMaxLength(256).IsRequired();
                 e.Property(x => x.RequestHash).HasMaxLength(64);
+                e.Property(x => x.Status).HasMaxLength(50).HasDefaultValue("InProgress");
+                e.Property(x => x.ResponseJson).HasColumnType("nvarchar(max)");
                 e.HasIndex(x => x.ExpiresAt); // For cleanup queries
                 e.HasIndex(x => x.PaymentId);
             });

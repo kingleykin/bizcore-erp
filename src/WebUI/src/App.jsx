@@ -9,11 +9,365 @@ import {
   DollarSign, 
   CheckCircle2, 
   Clock,
-  LogOut
+  LogOut,
+  Workflow,
+  Users,
+  ShieldCheck,
+  Activity,
+  ChevronRight,
+  ShieldAlert,
+  Search,
+  Filter,
+  RefreshCcw,
+  UserPlus
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
 const GATEWAY_URL = 'http://localhost:5000';
+
+const OrchestrationFlow = ({ api }) => {
+  const [flows, setFlows] = useState([]);
+  const [selectedFlow, setSelectedFlow] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchFlows();
+  }, []);
+
+  const fetchFlows = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/orchestration/flows');
+      setFlows(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải dữ liệu Orchestration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (state) => {
+    switch (state) {
+      case 'InvoiceFinalized': return '#22c55e';
+      case 'PaymentFailed': return '#ef4444';
+      case 'CompensationCompleted': return '#eab308';
+      default: return '#38bdf8';
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2 style={{ fontSize: '1.25rem' }}>Luồng điều phối (Saga Flows)</h2>
+        <button className="btn btn-outline" onClick={fetchFlows} disabled={loading}>
+          <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Làm mới
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: selectedFlow ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+        <div className="table-wrapper">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Hóa đơn</th>
+                <th>Loại</th>
+                <th>Trạng thái</th>
+                <th>Cập nhật</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {flows.map(flow => (
+                <tr key={flow.id} 
+                    style={{ cursor: 'pointer', background: selectedFlow?.id === flow.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                    onClick={() => setSelectedFlow(flow)}>
+                  <td style={{ fontSize: '0.75rem', opacity: 0.6 }}>{flow.invoiceId.substring(0, 8)}...</td>
+                  <td>{flow.flowType}</td>
+                  <td>
+                    <span className="status-badge" style={{ background: `${getStatusColor(flow.currentState)}20`, color: getStatusColor(flow.currentState) }}>
+                      {flow.currentState}
+                    </span>
+                  </td>
+                  <td style={{ fontSize: '0.875rem' }}>{new Date(flow.updatedAtUtc).toLocaleTimeString()}</td>
+                  <td><ChevronRight size={16} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedFlow && (
+          <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', paddingLeft: '2rem' }}>
+            <h3 style={{ marginBottom: '1.5rem', color: '#94a3b8' }}>Chi tiết sự kiện: {selectedFlow.invoiceId.substring(0, 8)}</h3>
+            <div className="timeline">
+              {selectedFlow.steps.map((step, idx) => (
+                <div key={step.id} className="timeline-item">
+                  <div className="timeline-icon">
+                    {step.stepType.includes('Failed') ? <ShieldAlert size={20} color="#ef4444" /> : <Activity size={20} color="#38bdf8" />}
+                  </div>
+                  <div className="timeline-content">
+                    <div className="timeline-header">
+                      <span className="timeline-title">{step.stepType}</span>
+                      <span className="timeline-time">{new Date(step.occurredAtUtc).toLocaleTimeString()}</span>
+                    </div>
+                    {step.payloadJson && (
+                      <pre className="timeline-payload">
+                        {JSON.stringify(JSON.parse(step.payloadJson), null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const IdentityManager = ({ api }) => {
+  const [activeSubTab, setActiveSubTab] = useState('users');
+  const [users, setUsers] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (activeSubTab === 'users') fetchUsers();
+    else fetchRoles();
+  }, [activeSubTab]);
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/users');
+      setUsers(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách người dùng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRoles = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/roles');
+      setRoles(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách vai trò');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="tab-header">
+        <div className={`tab-btn ${activeSubTab === 'users' ? 'active' : ''}`} onClick={() => setActiveSubTab('users')}>
+          <Users size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Người dùng
+        </div>
+        <div className={`tab-btn ${activeSubTab === 'roles' ? 'active' : ''}`} onClick={() => setActiveSubTab('roles')}>
+          <ShieldCheck size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Vai trò & Quyền
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+        <button className="btn btn-primary">
+          <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Thêm {activeSubTab === 'users' ? 'Người dùng' : 'Vai trò'}
+        </button>
+      </div>
+
+      <div className="table-wrapper">
+        {activeSubTab === 'users' ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Vai trò</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(user => (
+                <tr key={user.id}>
+                  <td>{user.userName}</td>
+                  <td>{user.email}</td>
+                  <td>
+                    {user.roles?.map(r => (
+                      <span key={r} className="status-badge" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8', marginRight: '4px' }}>
+                        {r}
+                      </span>
+                    ))}
+                  </td>
+                  <td>
+                    <span className="status-badge status-paid">Active</span>
+                  </td>
+                  <td><button className="btn btn-outline" style={{ padding: '4px 8px' }}>Sửa</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Tên vai trò</th>
+                <th>Mô tả</th>
+                <th>Quyền</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {roles.map(role => (
+                <tr key={role.id}>
+                  <td style={{ fontWeight: 600 }}>{role.name}</td>
+                  <td style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{role.description || 'N/A'}</td>
+                  <td>
+                    <span className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#94a3b8' }}>
+                      {role.permissions?.length || 0} permissions
+                    </span>
+                  </td>
+                  <td><button className="btn btn-outline" style={{ padding: '4px 8px' }}>Quản lý quyền</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+const AuditLogViewer = ({ api }) => {
+  const [logs, setLogs] = useState([]);
+  const [selectedLog, setSelectedLog] = useState(null);
+  const [filters, setFilters] = useState({ userId: '', action: '' });
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchLogs();
+  }, []);
+
+  const fetchLogs = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/audit', { params: filters });
+      setLogs(res.data.items || []);
+    } catch (error) {
+      toast.error('Lỗi khi tải nhật ký Audit');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getActionColor = (action) => {
+    if (action.includes('Create') || action.includes('Add')) return '#22c55e';
+    if (action.includes('Update') || action.includes('Modify')) return '#38bdf8';
+    if (action.includes('Delete') || action.includes('Remove')) return '#ef4444';
+    return '#94a3b8';
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ fontSize: '1.25rem' }}>Nhật ký hệ thống (Audit Logs)</h2>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+           <button className="btn btn-outline" onClick={() => api.get('/api/v1/audit/verify-integrity').then(() => toast.success('Xác thực chuỗi Hash thành công!'))}>
+            <ShieldCheck size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+            Kiểm tra tính toàn vẹn
+          </button>
+          <button className="btn btn-outline" onClick={fetchLogs}>
+            <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+            Làm mới
+          </button>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: selectedLog ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+        <div className="table-wrapper">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Thời gian</th>
+                <th>Người dùng</th>
+                <th>Hành động</th>
+                <th>Đối tượng</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {logs.map(log => (
+                <tr key={log.id} 
+                    style={{ cursor: 'pointer', background: selectedLog?.id === log.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                    onClick={() => setSelectedFlow(null) || setSelectedLog(log)}>
+                  <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{new Date(log.timestampUtc).toLocaleString()}</td>
+                  <td>{log.userName || 'System'}</td>
+                  <td>
+                    <span className="status-badge" style={{ background: `${getActionColor(log.action)}20`, color: getActionColor(log.action) }}>
+                      {log.action}
+                    </span>
+                  </td>
+                  <td>{log.entityName}</td>
+                  <td><ChevronRight size={16} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {selectedLog && (
+          <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', paddingLeft: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <h3 style={{ marginBottom: '1.5rem', color: '#94a3b8' }}>Chi tiết thay đổi</h3>
+              <button className="btn btn-outline" style={{ padding: '4px' }} onClick={() => setSelectedLog(null)}>×</button>
+            </div>
+            
+            <div style={{ marginBottom: '1.5rem' }}>
+              <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.25rem' }}>TRANSACTION ID</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{selectedLog.transactionId}</div>
+            </div>
+
+            <div className="diff-container">
+              <div>
+                <div className="diff-label">Dữ liệu cũ (Old)</div>
+                <pre className="diff-box" style={{ color: '#ef4444' }}>
+                  {selectedLog.oldValues ? JSON.stringify(JSON.parse(selectedLog.oldValues), null, 2) : 'N/A'}
+                </pre>
+              </div>
+              <div>
+                <div className="diff-label">Dữ liệu mới (New)</div>
+                <pre className="diff-box" style={{ color: '#22c55e' }}>
+                  {selectedLog.newValues ? JSON.stringify(JSON.parse(selectedLog.newValues), null, 2) : 'N/A'}
+                </pre>
+              </div>
+            </div>
+
+            {selectedLog.affectedColumns && (
+              <div style={{ marginTop: '1.5rem' }}>
+                <div className="diff-label">Các trường bị ảnh hưởng</div>
+                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                  {JSON.parse(selectedLog.affectedColumns).map(col => (
+                    <span key={col} className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#cbd5e1' }}>
+                      {col}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
@@ -200,6 +554,15 @@ function App() {
           <div className={`nav-item ${activeTab === 'invoices' ? 'active' : ''}`} onClick={() => setActiveTab('invoices')}>
             <FileText size={20} /> Hóa đơn
           </div>
+          <div className={`nav-item ${activeTab === 'orchestration' ? 'active' : ''}`} onClick={() => setActiveTab('orchestration')}>
+            <Workflow size={20} /> Orchestration
+          </div>
+          <div className={`nav-item ${activeTab === 'identity' ? 'active' : ''}`} onClick={() => setActiveTab('identity')}>
+            <ShieldCheck size={20} /> Phân quyền
+          </div>
+          <div className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
+            <Activity size={20} /> Audit Logs
+          </div>
         </nav>
         <div className="nav-item logout" onClick={handleLogout} style={{ borderTop: '1px solid #334155', paddingTop: '1.5rem', marginTop: 'auto', color: '#94a3b8' }}>
           <CheckCircle2 size={20} /> Đăng xuất
@@ -210,7 +573,11 @@ function App() {
       <main className="main-content">
         <header className="header">
           <h1 className="title">
-            {activeTab === 'dashboard' ? 'Tổng quan hệ thống' : 'Quản lý hóa đơn'}
+            {activeTab === 'dashboard' && 'Tổng quan hệ thống'}
+            {activeTab === 'invoices' && 'Quản lý hóa đơn'}
+            {activeTab === 'orchestration' && 'Luồng nghiệp vụ'}
+            {activeTab === 'identity' && 'Quản trị danh tính'}
+            {activeTab === 'audit' && 'Truy vết hệ thống'}
           </h1>
           {activeTab === 'invoices' && (
             <button className="btn btn-primary" onClick={() => setShowModal(true)}>
@@ -269,7 +636,7 @@ function App() {
               </table>
             </div>
           </>
-        ) : (
+        ) : activeTab === 'invoices' ? (
           <div className="card">
             <table className="table">
               <thead>
@@ -306,7 +673,13 @@ function App() {
               </tbody>
             </table>
           </div>
-        )}
+        ) : activeTab === 'orchestration' ? (
+          <OrchestrationFlow api={api} />
+        ) : activeTab === 'identity' ? (
+          <IdentityManager api={api} />
+        ) : activeTab === 'audit' ? (
+          <AuditLogViewer api={api} />
+        ) : null}
       </main>
 
       {/* Modal Tạo Hóa Đơn */}

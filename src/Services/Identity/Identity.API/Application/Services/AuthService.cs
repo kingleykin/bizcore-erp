@@ -21,14 +21,18 @@ namespace Identity.API.Application.Services
         private readonly IdentityDbContext _db;
         private readonly IConfiguration _config;
         private readonly ILogger<AuthService> _logger;
-        private readonly IBus _bus;
+        private readonly IPublishEndpoint _publishEndpoint;
 
-        public AuthService(IdentityDbContext db, IConfiguration config, ILogger<AuthService> logger, IBus bus)
+        public AuthService(
+            IdentityDbContext db,
+            IConfiguration config,
+            ILogger<AuthService> logger,
+            IPublishEndpoint publishEndpoint)
         {
-            _db     = db;
-            _config = config;
-            _logger = logger;
-            _bus    = bus;
+            _db              = db;
+            _config          = config;
+            _logger          = logger;
+            _publishEndpoint = publishEndpoint;
         }
 
         public async Task<LoginResponse> LoginAsync(LoginRequest request, string? ipAddress = null)
@@ -74,7 +78,7 @@ namespace Identity.API.Application.Services
             var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
             var permissions = user.UserRoles
                 .SelectMany(ur => ur.Role.RolePermissions)
-                .Select(rp => rp.Permission.Action)
+                .Select(rp => rp.Permission.Code)   // Dùng Code (Invoice.View) thay vì Action cũ
                 .Distinct()
                 .ToArray();
 
@@ -119,7 +123,7 @@ namespace Identity.API.Application.Services
             var roles = user.UserRoles.Select(ur => ur.Role.Name).ToArray();
             var permissions = user.UserRoles
                 .SelectMany(ur => ur.Role.RolePermissions)
-                .Select(rp => rp.Permission.Action)
+                .Select(rp => rp.Permission.Code)
                 .Distinct()
                 .ToArray();
 
@@ -221,7 +225,7 @@ namespace Identity.API.Application.Services
             string? ipAddress = null)
         {
             var activity = Activity.Current;
-            await _bus.Publish(new AuditEvent
+            await _publishEndpoint.Publish(new AuditEvent
             {
                 ServiceName   = "Identity.API",
                 Action        = action,

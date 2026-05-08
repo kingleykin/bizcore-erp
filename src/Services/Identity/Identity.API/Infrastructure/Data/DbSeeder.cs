@@ -5,125 +5,216 @@ using Microsoft.EntityFrameworkCore;
 namespace Identity.API.Infrastructure.Data
 {
     /// <summary>
-    /// Seeds default data: Roles, Permissions (tất cả từ Bizcore.BuildingBlocks.Permissions),
-    /// và 2 user mặc định: admin / user.
-    /// Idempotent: có thể chạy lại an toàn.
+    /// Seeds: Permissions (full metadata + Menu permissions), Roles (Admin/Accountant/Viewer),
+    /// NavigationMenus, và 2 default users.
+    /// Idempotent — an toàn khi chạy lại.
     /// </summary>
     public static class DbSeeder
     {
+        // ── Permission definitions ───────────────────────────────────────────────
+        private record PermDef(string Code, string Name, string Resource, string Scope, string? Desc = null);
+
+        private static readonly PermDef[] AllPermissions =
+        [
+            // Menu navigation
+            new(Permissions.Menu.Invoice,      "Xem menu Invoice",      "Navigation.Invoice",      PermissionScope.Menu),
+            new(Permissions.Menu.Payment,      "Xem menu Payment",      "Navigation.Payment",      PermissionScope.Menu),
+            new(Permissions.Menu.Audit,        "Xem menu Audit",        "Navigation.Audit",        PermissionScope.Menu),
+            new(Permissions.Menu.Orchestration,"Xem menu Orchestration","Navigation.Orchestration",PermissionScope.Menu),
+            new(Permissions.Menu.Report,       "Xem menu Report",       "Navigation.Report",       PermissionScope.Menu),
+            new(Permissions.Menu.Identity,     "Xem menu Identity",     "Navigation.Identity",     PermissionScope.Menu),
+
+            // Invoice — page & action
+            new(Permissions.Invoice.View,   "Xem danh sách Invoice",   "Invoice", PermissionScope.Page),
+            new(Permissions.Invoice.Create, "Tạo Invoice mới",         "Invoice", PermissionScope.Action),
+            new(Permissions.Invoice.Update, "Cập nhật Invoice",        "Invoice", PermissionScope.Action),
+            new(Permissions.Invoice.Delete, "Xóa Invoice",             "Invoice", PermissionScope.Action),
+
+            // Invoice — field level
+            new(Permissions.Invoice.AmountView,      "Xem trường Amount",       "Invoice.Amount",       PermissionScope.Field),
+            new(Permissions.Invoice.AmountEdit,      "Sửa trường Amount",       "Invoice.Amount",       PermissionScope.Field),
+            new(Permissions.Invoice.CustomerNameEdit,"Sửa tên khách hàng",      "Invoice.CustomerName", PermissionScope.Field),
+
+            // Payment
+            new(Permissions.Payment.View,    "Xem danh sách Payment",  "Payment", PermissionScope.Page),
+            new(Permissions.Payment.Create,  "Tạo Payment",            "Payment", PermissionScope.Action),
+            new(Permissions.Payment.Process, "Xử lý/Approve Payment",  "Payment", PermissionScope.Action),
+
+            // Report
+            new(Permissions.Report.View,   "Xem báo cáo",    "Report", PermissionScope.Page),
+            new(Permissions.Report.Export, "Xuất báo cáo",   "Report", PermissionScope.Action),
+
+            // Orchestration
+            new(Permissions.Orchestration.View, "Xem Orchestration flows", "Orchestration", PermissionScope.Page),
+
+            // Audit
+            new(Permissions.Audit.View,         "Xem Audit log",               "Audit", PermissionScope.Page),
+            new(Permissions.Audit.Export,        "Xuất Audit log",              "Audit", PermissionScope.Action),
+            new(Permissions.Audit.SuperReverse,  "Super Reverse (override)",    "Audit", PermissionScope.Action,
+                "Cho phép đảo ngược kể cả entity đã đóng/thanh toán"),
+
+            // Identity — Users
+            new(Permissions.Identity.Users.View,        "Xem danh sách Users",          "Identity.Users", PermissionScope.Page),
+            new(Permissions.Identity.Users.Create,      "Tạo User mới",                 "Identity.Users", PermissionScope.Action),
+            new(Permissions.Identity.Users.Update,      "Cập nhật User",                "Identity.Users", PermissionScope.Action),
+            new(Permissions.Identity.Users.Delete,      "Xóa User",                     "Identity.Users", PermissionScope.Action),
+            new(Permissions.Identity.Users.ManageRoles, "Gán/Thu hồi Role cho User",    "Identity.Users", PermissionScope.Action),
+
+            // Identity — Roles
+            new(Permissions.Identity.Roles.View,              "Xem danh sách Roles",          "Identity.Roles", PermissionScope.Page),
+            new(Permissions.Identity.Roles.Create,            "Tạo Role mới",                 "Identity.Roles", PermissionScope.Action),
+            new(Permissions.Identity.Roles.Update,            "Cập nhật Role",                "Identity.Roles", PermissionScope.Action),
+            new(Permissions.Identity.Roles.Delete,            "Xóa Role",                     "Identity.Roles", PermissionScope.Action),
+            new(Permissions.Identity.Roles.ManagePermissions, "Gán/Thu hồi Permission cho Role","Identity.Roles", PermissionScope.Action),
+        ];
+
+        // ── Navigation menu definitions ─────────────────────────────────────────
+        private record NavDef(string Name, string Route, string PermCode, int Sort, string? Icon = null);
+
+        private static readonly NavDef[] AllMenus =
+        [
+            new("Invoice",       "/invoice",       Permissions.Menu.Invoice,       10, "receipt"),
+            new("Payment",       "/payment",       Permissions.Menu.Payment,       20, "credit-card"),
+            new("Report",        "/report",        Permissions.Menu.Report,        30, "bar-chart"),
+            new("Orchestration", "/orchestration", Permissions.Menu.Orchestration, 40, "git-branch"),
+            new("Audit",         "/audit",         Permissions.Menu.Audit,         50, "shield-check"),
+            new("Identity",      "/identity",      Permissions.Menu.Identity,      60, "users"),
+        ];
+
         public static async Task SeedAsync(IdentityDbContext context, ILogger logger)
         {
-            await context.Database.EnsureCreatedAsync();
+            await context.Database.MigrateAsync();
 
-            // ── 1. Seed Permissions ─────────────────────────────────────────────
-            var allPermissionActions = new[]
-            {
-                // Invoice
-                Permissions.Invoice.View, Permissions.Invoice.Create,
-                Permissions.Invoice.Update, Permissions.Invoice.Delete,
-                // Payment
-                Permissions.Payment.View, Permissions.Payment.Create, Permissions.Payment.Process,
-                // Report
-                Permissions.Report.View, Permissions.Report.Export,
-                // Orchestration
-                Permissions.Orchestration.View,
-                // Identity - Users
-                Permissions.Identity.Users.View, Permissions.Identity.Users.Create,
-                Permissions.Identity.Users.Update, Permissions.Identity.Users.Delete,
-                Permissions.Identity.Users.ManageRoles,
-                // Identity - Roles
-                Permissions.Identity.Roles.View, Permissions.Identity.Roles.Create,
-                Permissions.Identity.Roles.Update, Permissions.Identity.Roles.Delete,
-                Permissions.Identity.Roles.ManagePermissions,
-            };
-
-            var existingActions = await context.Permissions.Select(p => p.Action).ToListAsync();
-            var newPermissions = allPermissionActions
-                .Where(a => !existingActions.Contains(a))
-                .Select(a => Permission.Create(a, $"Permission: {a}"))
+            // ── 1. Seed Permissions ────────────────────────────────────────────
+            var existingCodes = await context.Permissions.Select(p => p.Code).ToListAsync();
+            var newPerms = AllPermissions
+                .Where(d => !existingCodes.Contains(d.Code))
+                .Select(d => Permission.Create(d.Code, d.Name, d.Resource, d.Scope, d.Desc))
                 .ToList();
 
-            if (newPermissions.Count > 0)
+            if (newPerms.Count > 0)
             {
-                context.Permissions.AddRange(newPermissions);
+                context.Permissions.AddRange(newPerms);
                 await context.SaveChangesAsync();
-                logger.LogInformation("Seeded {Count} permissions.", newPermissions.Count);
+                logger.LogInformation("Seeded {Count} permissions.", newPerms.Count);
             }
 
-            var permissionMap = await context.Permissions.ToDictionaryAsync(p => p.Action, p => p.Id);
+            var permMap = await context.Permissions.ToDictionaryAsync(p => p.Code, p => p.Id);
 
-            // ── 2. Seed Roles ───────────────────────────────────────────────────
-            if (!await context.Roles.AnyAsync(r => r.Name == "Admin"))
+            // ── 2. Seed NavigationMenus ────────────────────────────────────────
+            var existingRoutes = await context.NavigationMenus.Select(n => n.Route).ToListAsync();
+            var newMenus = AllMenus
+                .Where(d => !existingRoutes.Contains(d.Route))
+                .Select(d => NavigationMenu.Create(d.Name, d.Route, d.PermCode, d.Sort, d.Icon))
+                .ToList();
+
+            if (newMenus.Count > 0)
             {
-                var adminRole = Role.Create("Admin", "Full system access", isSystem: true);
-                context.Roles.Add(adminRole);
+                context.NavigationMenus.AddRange(newMenus);
                 await context.SaveChangesAsync();
-
-                // Admin gets ALL permissions
-                var adminPerms = permissionMap.Values
-                    .Select(pid => new RolePermission { RoleId = adminRole.Id, PermissionId = pid });
-                context.RolePermissions.AddRange(adminPerms);
-                await context.SaveChangesAsync();
-                logger.LogInformation("Seeded Admin role with all {Count} permissions.", permissionMap.Count);
+                logger.LogInformation("Seeded {Count} navigation menu items.", newMenus.Count);
             }
 
-            if (!await context.Roles.AnyAsync(r => r.Name == "User"))
-            {
-                var userRole = Role.Create("User", "Read-only access for standard users", isSystem: true);
-                context.Roles.Add(userRole);
-                await context.SaveChangesAsync();
+            // ── 3. Seed Roles ──────────────────────────────────────────────────
+            await SeedRoleAsync(context, logger, permMap, "Admin",
+                description: "Toàn quyền hệ thống",
+                permCodes: AllPermissions.Select(p => p.Code).ToArray());
 
-                // User gets View-only permissions
-                var viewPermissions = new[]
-                {
-                    Permissions.Invoice.View,
+            await SeedRoleAsync(context, logger, permMap, "Accountant",
+                description: "Kế toán — xem và xử lý Invoice/Payment",
+                permCodes:
+                [
+                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report,
+                    Permissions.Invoice.View, Permissions.Invoice.Create, Permissions.Invoice.Update,
+                    Permissions.Invoice.AmountView,
+                    Permissions.Payment.View, Permissions.Payment.Create, Permissions.Payment.Process,
                     Permissions.Report.View,
+                ]);
+
+            await SeedRoleAsync(context, logger, permMap, "Viewer",
+                description: "Chỉ xem — không thao tác",
+                permCodes:
+                [
+                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report,
+                    Permissions.Invoice.View, Permissions.Invoice.AmountView,
                     Permissions.Payment.View,
-                };
-                var userPerms = viewPermissions
-                    .Where(a => permissionMap.ContainsKey(a))
-                    .Select(a => new RolePermission { RoleId = userRole.Id, PermissionId = permissionMap[a] });
-                context.RolePermissions.AddRange(userPerms);
+                    Permissions.Report.View,
+                ]);
+
+            // ── 4. Seed Default Users ──────────────────────────────────────────
+            await SeedUserAsync(context, logger, "admin",   "admin@bizcore.com",   "Admin@123",   "Admin");
+            await SeedUserAsync(context, logger, "accountant", "accountant@bizcore.com", "Acc@123", "Accountant");
+            await SeedUserAsync(context, logger, "viewer",  "viewer@bizcore.com",  "Viewer@123",  "Viewer");
+        }
+
+        // ── Helpers ──────────────────────────────────────────────────────────────
+
+        private static async Task SeedRoleAsync(
+            IdentityDbContext context,
+            ILogger logger,
+            Dictionary<string, Guid> permMap,
+            string roleName,
+            string description,
+            string[] permCodes)
+        {
+            if (await context.Roles.AnyAsync(r => r.Name == roleName)) return;
+
+            var role = Role.Create(roleName, description, isSystem: true);
+            context.Roles.Add(role);
+            await context.SaveChangesAsync();
+
+            var rolePerms = permCodes
+                .Where(c => permMap.ContainsKey(c))
+                .Select(c => new RolePermission { RoleId = role.Id, PermissionId = permMap[c] });
+
+            context.RolePermissions.AddRange(rolePerms);
+            await context.SaveChangesAsync();
+            logger.LogInformation("Seeded role '{Role}' with {Count} permissions.", roleName, permCodes.Length);
+        }
+
+        private static async Task SeedUserAsync(
+            IdentityDbContext context,
+            ILogger logger,
+            string username,
+            string email,
+            string password,
+            string roleName)
+        {
+            var user = await context.Users.FirstOrDefaultAsync(u => u.Username == username);
+            
+            if (user == null)
+            {
+                user = User.Create(username, email, BCrypt.Net.BCrypt.HashPassword(password));
+                context.Users.Add(user);
                 await context.SaveChangesAsync();
-                logger.LogInformation("Seeded User role with view-only permissions.");
+                logger.LogInformation("Seeded user '{Username}'.", username);
+            }
+            else
+            {
+                // Update password if it was dummy or changed (self-healing)
+                // Note: In production you wouldn't override passwords on every seed, 
+                // but this ensures the dev environment has the correct password.
+                user.UpdatePassword(BCrypt.Net.BCrypt.HashPassword(password));
+                context.Users.Update(user);
+                await context.SaveChangesAsync();
+                logger.LogInformation("Updated password for user '{Username}'.", username);
             }
 
-            // ── 3. Seed Default Users ──────────────────────────────────────────
-            var adminRoleId = (await context.Roles.FirstAsync(r => r.Name == "Admin")).Id;
-            var userRoleId = (await context.Roles.FirstAsync(r => r.Name == "User")).Id;
-
-            if (!await context.Users.AnyAsync(u => u.Username == "admin"))
+            var roleId = (await context.Roles.FirstOrDefaultAsync(r => r.Name == roleName))?.Id;
+            if (roleId.HasValue)
             {
-                var adminUser = User.Create("admin", "admin@bizcore.com",
-                    BCrypt.Net.BCrypt.HashPassword("Admin@123"));
-                context.Users.Add(adminUser);
-                await context.SaveChangesAsync();
-
-                context.UserRoles.Add(new UserRole
+                var userHasRole = await context.UserRoles.AnyAsync(ur => ur.UserId == user.Id && ur.RoleId == roleId.Value);
+                if (!userHasRole)
                 {
-                    UserId = adminUser.Id,
-                    RoleId = adminRoleId,
-                    AssignedAt = DateTime.UtcNow
-                });
-                await context.SaveChangesAsync();
-                logger.LogInformation("Seeded admin user.");
-            }
-
-            if (!await context.Users.AnyAsync(u => u.Username == "user"))
-            {
-                var stdUser = User.Create("user", "user@bizcore.com",
-                    BCrypt.Net.BCrypt.HashPassword("User@123"));
-                context.Users.Add(stdUser);
-                await context.SaveChangesAsync();
-
-                context.UserRoles.Add(new UserRole
-                {
-                    UserId = stdUser.Id,
-                    RoleId = userRoleId,
-                    AssignedAt = DateTime.UtcNow
-                });
-                await context.SaveChangesAsync();
-                logger.LogInformation("Seeded standard user.");
+                    context.UserRoles.Add(new UserRole
+                    {
+                        UserId     = user.Id,
+                        RoleId     = roleId.Value,
+                        AssignedAt = DateTime.UtcNow
+                    });
+                    await context.SaveChangesAsync();
+                    logger.LogInformation("Assigned role '{Role}' to user '{Username}'.", roleName, username);
+                }
             }
         }
     }

@@ -33,10 +33,11 @@ Hệ thống áp dụng mô hình bảo mật nhiều lớp:
 
 1. **Edge Security (Gateway)**:
     * **Rate Limiting**: Ngăn chặn spam request ở tầng Gateway.
-    * **Identity Service**: Microservice độc lập chuyên xử lý Authentication (JWT, BCrypt) và phân quyền RBAC động (Roles/Permissions).
+    * **Identity Service**: Microservice độc lập chuyên xử lý Authentication (JWT, BCrypt) và phân quyền **Dynamic Authorization** (Roles/Permissions) với Redis Caching.
 2. **Zero Trust (Services)**:
     * Mọi Microservice đều tự thực hiện việc kiểm tra chữ ký của JWT Token (không chỉ tin tưởng Gateway).
-    * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Policy cụ thể (ví dụ: `Invoice.Create`). User phải có đúng claim `permission` mới có thể thực hiện.
+    * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Permission cụ thể (ví dụ: `Invoice.Create`). User phải có quyền tương ứng trong Redis Cache hoặc JWT mới có thể thực hiện.
+    * **Real-time Refresh**: Quyền hạn được cập nhật tức thì toàn hệ thống mà không cần người dùng đăng nhập lại.
 
 ### 🔹 Micro-level (Cấu trúc nội bộ Service)
 
@@ -82,7 +83,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao dùng Memory Caching?** | Đối với các dữ liệu nặng về tính toán như báo cáo Dashboard, việc cache kết quả giúp giảm tải cho Database và mang lại trải nghiệm người dùng tức thì. |
 | **Tại sao tách lớp Application?** | Để khi bạn cần chuyển sang Unit Test, bạn chỉ cần test lớp Application Service mà không cần quan tâm đến HTTP Request/Response của Controller. |
 | **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth, RateLimit) bằng code C# quen thuộc. |
-| **Tại sao dùng Permission-based?** | Để tránh tình trạng **Role Explosion**. Permission-based cho phép phân quyền chi tiết (Granular) và dễ dàng scale khi số lượng chức năng của hệ thống tăng lên. |
+| **Tại sao dùng Dynamic Authorization?** | Để tránh tình trạng **Role Explosion**. Permission-based kết hợp Redis giúp phân quyền chi tiết (Granular), hiệu năng cao và có thể thay đổi quyền hạn runtime mà không cần cấp lại JWT. |
 | **Tại sao dùng Logical DB Isolation?** | Việc duy trì nhiều DB vật lý riêng biệt tốn tài nguyên. Dùng chung 1 Server nhưng cấp phát các Logical DB (InvoiceDb, PaymentDb) đảm bảo tính cách ly dữ liệu (Data Isolation) theo đúng chuẩn Microservices nhưng vẫn dễ cấu hình. |
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |

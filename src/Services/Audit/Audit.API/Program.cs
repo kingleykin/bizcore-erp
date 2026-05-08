@@ -6,6 +6,9 @@ using Audit.API.Infrastructure.Data;
 using Audit.API.Infrastructure.Services;
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Middlewares;
+using Bizcore.BuildingBlocks.Abstractions;
+using Bizcore.BuildingBlocks.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Hangfire;
 using Hangfire.SqlServer;
 using MassTransit;
@@ -17,6 +20,8 @@ using Prometheus;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using System.Text;
+using StackExchange.Redis;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -40,6 +45,10 @@ builder.Host.UseSerilog();
 
 // ── 2. Database ───────────────────────────────────────────────────────────────
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
+
+// Đảm bảo DB tồn tại trước khi Hangfire khởi tạo (qua master)
+DatabaseExtensions.PreCreateDatabase(connStr);
+
 builder.Services.AddDbContext<AuditDbContext>(options => options.UseSqlServer(connStr));
 
 // ── 3. JWT Authentication ────────────────────────────────────────────────────
@@ -62,12 +71,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// ── 4. Authorization Policies ────────────────────────────────────────────────
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("Audit.View",   p => p.RequireClaim("permission", Permissions.Audit.View));
-    options.AddPolicy("Audit.Export", p => p.RequireClaim("permission", Permissions.Audit.Export));
-});
+// ── 4. Dynamic Authorization ────────────────────────────────────────────────
+// Redis Caching cho Permissions
+var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "redis:6379";
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp => 
+    ConnectionMultiplexer.Connect(redisConnection));
+builder.Services.AddScoped<IPermissionCache, RedisPermissionCache>();
+
+builder.Services.AddSingleton<IAuthorizationPolicyProvider, DynamicAuthorizationPolicyProvider>();
+builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+builder.Services.AddAuthorization();
 
 // ── 5. MassTransit — Consumer only (no Outbox on Audit side) ─────────────────
 builder.Services.AddMassTransit(x =>
@@ -177,6 +190,7 @@ builder.Services.AddHealthChecks()
 
 // ── 10. Application Services ──────────────────────────────────────────────────
 builder.Services.AddScoped<HashChainService>();
+builder.Services.AddScoped<IUnitOfWork, AuditUnitOfWork>();
 builder.Services.AddScoped<IAuditQueryService, AuditQueryService>();
 builder.Services.AddScoped<RetentionCleanupJob>();
 builder.Services.AddScoped<IntegrityVerificationJob>();
@@ -210,21 +224,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-// ── Database Initialization ───────────────────────────────────────────────────
-using (var scope = app.Services.CreateScope())
+// ── Database Initialization & Seeding ────────────────────────────────────────
+try
 {
-    var db     = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
-    var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
-    try
-    {
-        await db.Database.EnsureCreatedAsync();
-        logger.LogInformation("AuditDb initialized successfully.");
-    }
-    catch (Exception ex)
-    {
-        logger.LogError(ex, "AuditDb initialization failed.");
-        throw;
-    }
+    await app.Services.MigrateDatabaseAsync<AuditDbContext>();
+    
+    using var scope = app.Services.CreateScope();
+    var context = scope.ServiceProvider.GetRequiredService<AuditDbContext>();
+    var seedLogger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+    await DbSeeder.SeedAsync(context, seedLogger);
+    
+    Log.Information("AuditDb initialized and migrated successfully.");
+}
+catch (Exception ex)
+{
+    Log.Error(ex, "Error occurred during AuditDb initialization/migration.");
+    throw;
 }
 
 // ── Hangfire Recurring Jobs ───────────────────────────────────────────────────

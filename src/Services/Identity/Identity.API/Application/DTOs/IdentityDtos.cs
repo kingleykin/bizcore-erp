@@ -52,18 +52,8 @@ namespace Identity.API.Application.DTOs
     );
 
     // ── Permission ────────────────────────────────────────────────────────────
-    public record PermissionDto(Guid Id, string Action, string? Description);
+    public record PermissionDto(Guid Id, string Code, string Name, string Scope, string? Description);
 
-    // ── AuditLog ──────────────────────────────────────────────────────────────
-    public record AuditLogDto(
-        Guid Id,
-        string? ActorUsername,
-        string Action,
-        string? TargetEntityType,
-        string? TargetEntityId,
-        string? IpAddress,
-        DateTime CreatedAt
-    );
 
     // ── Validators ────────────────────────────────────────────────────────────
     public class CreateUserRequestValidator : AbstractValidator<CreateUserRequest>

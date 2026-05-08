@@ -18,15 +18,18 @@ namespace Invoice.API.Controllers
     {
         private readonly IInvoiceService      _invoiceService;
         private readonly IAuditServiceClient  _auditClient;
+        private readonly MediatR.IMediator    _mediator;
         private readonly ILogger<InvoicesController> _logger;
 
         public InvoicesController(
             IInvoiceService      invoiceService,
             IAuditServiceClient  auditClient,
+            MediatR.IMediator    mediator,
             ILogger<InvoicesController> logger)
         {
             _invoiceService = invoiceService;
             _auditClient    = auditClient;
+            _mediator       = mediator;
             _logger         = logger;
         }
 
@@ -59,9 +62,8 @@ namespace Invoice.API.Controllers
             _logger.LogInformation("Creating invoice for CustomerName={CustomerName}, Amount={Amount}",
                 request.CustomerName, request.Amount);
 
-            // FluentValidation handled by middleware
-            var invoice = Invoice.API.Domain.Entities.Invoice.Create(request.CustomerName, request.Amount);
-            var created = await _invoiceService.CreateAsync(invoice);
+            var command = new Invoice.API.Application.Commands.CreateInvoiceCommand(request.CustomerName, request.Amount);
+            var created = await _mediator.Send(command);
 
             _logger.LogInformation("Invoice created successfully InvoiceId={InvoiceId}", created.Id);
             return CreatedAtAction(nameof(GetInvoice), new { id = created.Id }, created);
@@ -71,8 +73,8 @@ namespace Invoice.API.Controllers
         [Authorize(Policy = "Invoice.Update")]
         public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] InvoiceStatus status)
         {
-            _logger.LogInformation("Updating invoice status InvoiceId={InvoiceId}, Status={Status}", id, status);
-            var success = await _invoiceService.UpdateStatusAsync(id, status);
+            var command = new Invoice.API.Application.Commands.UpdateInvoiceStatusCommand(id, status);
+            var success = await _mediator.Send(command);
             if (!success)
             {
                 _logger.LogWarning("Invoice not found for status update InvoiceId={InvoiceId}", id);
@@ -142,14 +144,15 @@ namespace Invoice.API.Controllers
             if (!decision.IsAllowed)
                 return StatusCode(403, new { error = decision.Reason });
 
-            var result = await _invoiceService.RestoreFieldAsync(
-                invoiceId         : id,
-                field             : request.Field,
-                previousValue     : request.PreviousValue,
-                sourceAuditEntryId: request.AuditEntryId,
-                reason            : request.Reason,
-                actor             : User,
-                ct                : ct);
+            var command = new Invoice.API.Application.Commands.RestoreInvoiceFieldCommand(
+                InvoiceId         : id,
+                Field             : request.Field,
+                PreviousValue     : request.PreviousValue,
+                SourceAuditEntryId: request.AuditEntryId,
+                Reason            : request.Reason,
+                Actor             : User);
+
+            var result = await _mediator.Send(command, ct);
 
             if (!result.Success)
                 return BadRequest(new { error = result.Message });

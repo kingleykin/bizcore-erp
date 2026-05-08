@@ -21,4 +21,10 @@
   <Folder Name="/Services/Orchestration/">
     <Project Path="Services/Orchestration/Orchestration.API/Orchestration.API.csproj" />
   </Folder>
+  <Folder Name="/Services/Identity/">
+    <Project Path="Services/Identity/Identity.API/Identity.API.csproj" />
+  </Folder>
+  <Folder Name="/Services/Audit/">
+    <Project Path="Services/Audit/Audit.API/Audit.API.csproj" />
+  </Folder>
 </Solution>
