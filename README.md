@@ -7,7 +7,7 @@
 - Copy dự án nếu chạy Docker local dùng WSL: ```cp -r /mnt/d/Project/bizcore-erp ~/projects/```
 - Run lệnh để build và chạy dự án:  ```docker compose up -d --build```
 - Truy cập vào Giao diện (WebUI) tại: <http://localhost:3000>
-- Truy cập vào API Gateway tại: <http://localhost:5000>
+- Truy cập vào API Gateway tại: <http://localhost:5001>
 - Truy cập Portainer tại: <http://localhost:9000> mật khẩu: admin123456789
 - Truy cập RabbitMQ tại: <http://localhost:15672>
 
@@ -51,12 +51,23 @@
 
 ## Tạo Hóa đơn
 
-- Truy cập vào dự án tại: <http://localhost:5000>
+- Truy cập vào dự án tại: <http://localhost:5001>
 - Login: "user" / "password"
 - Tạo hóa đơn
 
 ## Thanh toán hóa đơn
 
-- Truy cập vào dự án tại: <http://localhost:5000>
+- Truy cập vào dự án tại: <http://localhost:5001>
 - Login: "user" / "password"
 - Thanh toán hóa đơn
+
+---
+
+## Xử lý sự cố (Troubleshooting)
+
+### Lỗi xung đột cổng 5001 trên macOS
+Trên các phiên bản macOS mới (Monterey trở đi), cổng **5001** thường được sử dụng bởi tính năng **AirPlay Receiver**. Nếu bạn không thể truy cập API Gateway hoặc Docker báo lỗi cổng đã bị chiếm dụng, hãy thực hiện:
+1. Vào **System Settings** (Cài đặt hệ thống).
+2. Chọn **General** -> **AirDrop & Handoff**.
+3. Tắt **AirPlay Receiver** (Bộ thu AirPlay).
+4. Khởi động lại Docker containers: `docker compose up -d`.

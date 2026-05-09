@@ -29,7 +29,7 @@ bizcore-erp/
 ## 🧱 Kiến trúc Kỹ thuật
 
 * **Microservices**: Các service core (Identity, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md).
-* **API Gateway**: YARP (Yet Another Reverse Proxy) port 5000.
+* **API Gateway**: YARP (Yet Another Reverse Proxy) port 5001.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
@@ -212,7 +212,7 @@ Hệ thống đã được tối ưu hóa để chạy bằng Docker:
 
 2. **Frontend**: `cd src/WebUI` sau đó `npm install`, `npm run dev`.
 3. **Truy cập**:
-   * **API Gateway**: `http://localhost:5000`
+   * **API Gateway**: `http://localhost:5001`
    * **Web UI**: `http://localhost:3000`
    * **Grafana Dashboard**: `http://localhost:3001` (admin/admin)
    * **Prometheus**: `http://localhost:9090`

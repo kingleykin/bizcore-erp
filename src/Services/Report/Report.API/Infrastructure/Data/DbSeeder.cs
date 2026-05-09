@@ -8,6 +8,24 @@ namespace Report.API.Infrastructure.Data
     {
         public static async Task SeedAsync(AppDbContext context, ILogger logger)
         {
+            // Check DB connection
+
+            if (!await context.Database.CanConnectAsync())
+            {
+                logger.LogWarning("Cannot connect to database.");
+                return;
+            }
+
+            // Check table exists
+            var tableExists = await context.Database
+                .SqlQueryRaw<int>("SELECT COUNT(*) AS [Value] FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Invoices'")
+                .SingleOrDefaultAsync() > 0;
+            if (!tableExists)
+            {
+                logger.LogWarning("Invoices table does not exist.");
+                return;
+            }
+
             // Seed Invoices for Dashboard
             if (!await context.Invoices.AnyAsync())
             {

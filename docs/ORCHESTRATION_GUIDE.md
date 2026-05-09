@@ -33,10 +33,10 @@ Lắng nghe các domain events để xây dựng bức tranh tổng thể:
 Đảm bảo Invoice ID `f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a` tồn tại trong hệ thống (mặc định đã được seed trong InvoiceDb và PaymentDb).
 
 ### Bước 2: Thực hiện thanh toán
-Gọi API qua Gateway (cổng 5000):
+Gọi API qua Gateway (cổng 5001):
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/payment/pay \
+curl -X POST http://localhost:5001/api/v1/payment/pay \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: test-key-101" \
   -H "Authorization: Bearer <TOKEN>" \
@@ -50,21 +50,21 @@ curl -X POST http://localhost:5000/api/v1/payment/pay \
 
 ### Bước 3: Kiểm tra trạng thái Payment (Polling)
 ```bash
-curl -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/v1/payment/{paymentId}
+curl -H "Authorization: Bearer <TOKEN>" http://localhost:5001/api/v1/payment/{paymentId}
 ```
 Trạng thái sẽ chuyển từ `Processing` -> `Completed`.
 
 ### Bước 4: Kiểm tra Timeline tại Orchestration API
 Xem lịch sử các bước đã thực hiện:
 ```bash
-curl -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/v1/orchestration/flows/f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a
+curl -H "Authorization: Bearer <TOKEN>" http://localhost:5001/api/v1/orchestration/flows/f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a
 ```
 Bạn sẽ thấy danh sách các steps kèm timestamp tương ứng.
 
 ### Bước 5: Xác nhận Invoice đã thanh toán
 Kiểm tra trạng thái hóa đơn tại Invoice service:
 ```bash
-curl -H "Authorization: Bearer <TOKEN>" http://localhost:5000/api/v1/invoices/f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a
+curl -H "Authorization: Bearer <TOKEN>" http://localhost:5001/api/v1/invoices/f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a
 ```
 Trạng thái phải là `Paid`.
 

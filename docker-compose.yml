@@ -33,38 +33,38 @@ services:
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - portainer_data:/data
-  loki:
-    image: grafana/loki:2.9.0
-    container_name: loki
-    ports:
-      - "3100:3100"
-    command: -config.file=/etc/loki/local-config.yaml
+  # loki:
+  #   image: grafana/loki:2.9.0
+  #   container_name: loki
+  #   ports:
+  #     - "3100:3100"
+  #   command: -config.file=/etc/loki/local-config.yaml
 
-  promtail:
-    image: grafana/promtail:2.9.0
-    container_name: promtail
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /var/lib/docker/containers:/var/lib/docker/containers
-      - ./promtail-config.yml:/etc/promtail/config.yml
-    command: -config.file=/etc/promtail/config.yml
+  # promtail:
+  #   image: grafana/promtail:2.9.0
+  #   container_name: promtail
+  #   volumes:
+  #     - /var/run/docker.sock:/var/run/docker.sock
+  #     - /var/lib/docker/containers:/var/lib/docker/containers
+  #     - ./promtail-config.yml:/etc/promtail/config.yml
+  #   command: -config.file=/etc/promtail/config.yml
 
-  grafana:
-    image: grafana/grafana:latest
-    container_name: grafana
-    ports:
-      - "3001:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: prometheus
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-    ports:
-      - "9090:9090"
-    depends_on:
-      - loki
+  # grafana:
+  #   image: grafana/grafana:latest
+  #   container_name: grafana
+  #   ports:
+  #     - "3001:3000"
+  #   environment:
+  #     - GF_SECURITY_ADMIN_PASSWORD=admin
+  # prometheus:
+  #   image: prom/prometheus:latest
+  #   container_name: prometheus
+  #   volumes:
+  #     - ./prometheus.yml:/etc/prometheus/prometheus.yml
+  #   ports:
+  #     - "9090:9090"
+  #   depends_on:
+  #     - loki
 
   gateway-api:
     image: bizcore-gateway-api
@@ -73,7 +73,7 @@ services:
       context: .
       dockerfile: src/Gateway/Gateway.API/Dockerfile
     ports:
-      - "5000:8080"
+      - "5001:8080"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_URLS=http://+:8080
@@ -88,11 +88,11 @@ services:
     depends_on:
       - invoice-api
       - payment-api
-      - report-api
-      - orchestration-api
+      # - report-api
+      # - orchestration-api
       - identity-api
       - audit-api
-      - loki
+      # - loki
 
   invoice-api:
     image: bizcore-invoice-api
@@ -110,7 +110,7 @@ services:
       - sql-server
       - rabbitmq
       - redis
-      - loki
+      # - loki
 
   payment-api:
     image: bizcore-payment-api
@@ -128,46 +128,46 @@ services:
       - sql-server
       - rabbitmq
       - redis
-      - loki
+      # - loki
 
-  report-api:
-    image: bizcore-report-api
-    container_name: bizcore-report
-    build:
-      context: .
-      dockerfile: src/Services/Report/Report.API/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb_v2;User Id=sa;Password=Password123!;TrustServerCertificate=True
-      - ConnectionStrings__Redis=redis:6379
-      - RabbitMQ__Host=rabbitmq
-      - Loki__Url=http://loki:3100
-      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
-    depends_on:
-      - sql-server
-      - rabbitmq
-      - redis
-      - loki
+  # report-api:
+  #   image: bizcore-report-api
+  #   container_name: bizcore-report
+  #   build:
+  #     context: .
+  #     dockerfile: src/Services/Report/Report.API/Dockerfile
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ReportDb_v2;User Id=sa;Password=Password123!;TrustServerCertificate=True
+  #     - ConnectionStrings__Redis=redis:6379
+  #     - RabbitMQ__Host=rabbitmq
+  #     - Loki__Url=http://loki:3100
+  #     - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+  #   depends_on:
+  #     - sql-server
+  #     - rabbitmq
+  #     - redis
+  #     - loki
 
-  orchestration-api:
-    image: bizcore-orchestration-api
-    container_name: bizcore-orchestration
-    build:
-      context: .
-      dockerfile: src/Services/Orchestration/Orchestration.API/Dockerfile
-    environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrchestrationDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
-      - ConnectionStrings__Redis=redis:6379
-      - RabbitMQ__Host=rabbitmq
-      - Loki__Url=http://loki:3100
-      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
-    depends_on:
-      - sql-server
-      - rabbitmq
-      - redis
-      - loki
+  # orchestration-api:
+  #   image: bizcore-orchestration-api
+  #   container_name: bizcore-orchestration
+  #   build:
+  #     context: .
+  #     dockerfile: src/Services/Orchestration/Orchestration.API/Dockerfile
+  #   environment:
+  #     - ASPNETCORE_ENVIRONMENT=Development
+  #     - ASPNETCORE_URLS=http://+:8080
+  #     - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrchestrationDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+  #     - ConnectionStrings__Redis=redis:6379
+  #     - RabbitMQ__Host=rabbitmq
+  #     - Loki__Url=http://loki:3100
+  #     - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+  #   depends_on:
+  #     - sql-server
+  #     - rabbitmq
+  #     - redis
+  #     - loki
 
   identity-api:
     image: bizcore-identity-api
@@ -187,7 +187,7 @@ services:
       - sql-server
       - rabbitmq
       - redis
-      - loki
+      # - loki
 
   audit-api:
     image: bizcore-audit-api
@@ -208,7 +208,7 @@ services:
       - sql-server
       - rabbitmq
       - redis
-      - loki
+      # - loki
 
   web-ui:
     image: bizcore-web-ui
@@ -223,3 +223,4 @@ services:
 
 volumes:
   portainer_data:
+

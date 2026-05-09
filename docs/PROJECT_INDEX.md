@@ -9,7 +9,7 @@
 
 - **Tên dự án**: Bizcore ERP
 - **Mô tả**: Hệ thống ERP **Production-ready** được xây dựng theo chuẩn kiến trúc Microservices chuyên nghiệp. Luồng nghiệp vụ cốt lõi tập trung vào: **Xác thực (Identity) -> Hóa đơn (Invoice) -> Thanh toán (Payment) -> Báo cáo (Report)**, được giám sát toàn diện bởi **Hệ thống Audit (Centralized Audit Service)**.
-- **Tài liệu chi tiết**: Xem [PROJECT OVERVIEW](file:///d:/Project/bizcore-erp/docs/PROJECT%20OVERVIEW.md)
+- **Tài liệu chi tiết**: Xem [PROJECT OVERVIEW](PROJECT%20OVERVIEW.md)
 
 ### 🛠 Tech Stack & Patterns
 - **Backend**: C#, .NET (ASP.NET Core Web API).
@@ -26,7 +26,7 @@
 
 ## 2. 📂 Cấu trúc Mã nguồn (Project Structure)
 
-Dự án áp dụng mô hình phân tách rõ ràng. Chi tiết thiết kế xem tại [PROJECT STRUCTURE](file:///d:/Project/bizcore-erp/docs/PROJECT%20STRUCTURE.md).
+Dự án áp dụng mô hình phân tách rõ ràng. Chi tiết thiết kế xem tại [PROJECT STRUCTURE](PROJECT%20STRUCTURE.md).
 
 ```text
 bizcore-erp/
@@ -61,7 +61,7 @@ Hệ thống giao tiếp bất đồng bộ bằng **RabbitMQ** (Event-Driven) �
 1. Khách hàng **Thanh toán**: `Payment Service` lưu giao dịch `Completed` -> Publish event `PaymentCompletedEvent`.
 2. **Cập nhật Hóa đơn**: `Invoice Service` consume event trên -> Cập nhật trạng thái hóa đơn thành `Paid`.
 3. **Rollback Nghiệp vụ (Compensation)**: Nếu `Invoice Service` xử lý lỗi (VD: hóa đơn không tồn tại), nó publish `PaymentCompensationRequestedEvent`. `Payment Service` consume event này và đổi trạng thái thanh toán thành `Reversed`.
-4. **Theo dõi luồng (Orchestration)**: `Orchestration Service` lắng nghe tất cả events trên để lưu vào `ProcessFlow` và `FlowStep`. Cho phép theo dõi toàn bộ vòng đời giao dịch một cách minh bạch. Xem chi tiết tại [ORCHESTRATION_GUIDE](file:///d:/Project/bizcore-erp/docs/ORCHESTRATION_GUIDE.md).
+4. **Theo dõi luồng (Orchestration)**: `Orchestration Service` lắng nghe tất cả events trên để lưu vào `ProcessFlow` và `FlowStep`. Cho phép theo dõi toàn bộ vòng đời giao dịch một cách minh bạch. Xem chi tiết tại [ORCHESTRATION_GUIDE](ORCHESTRATION_GUIDE.md).
 5. **Kiểm toán (Audit)**: Mọi thao tác làm thay đổi dữ liệu (từ Application Layer hoặc EF Core Interceptor) đều publish `AuditEvent` về `Audit Service` để lưu trữ dạng append-only với Hash chain chống thay đổi.
 6. **Sửa sai dữ liệu (Admin Data Correction / Reversal)**: Khi Admin nhập sai dữ liệu (VD: sai tên khách hàng), hệ thống hỗ trợ khôi phục (Restore) dựa trên `BeforeJson` của Audit log. Audit Service đóng vai trò "gợi ý" (Suggest), còn Core Service (VD: Invoice) đóng vai trò "thực thi" (Execute) thông qua các Semantic Domain Commands để đảm bảo tính an toàn tài chính (không overwrite bừa bãi).
 
@@ -93,12 +93,12 @@ Hệ thống áp dụng **3 Transaction Patterns** để đảm bảo tính toà
 
 | Document | Mục đích | Đối tượng |
 |----------|----------|-----------|
-| [TRANSACTION_README.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_README.md) | Hướng dẫn sử dụng tài liệu | Everyone |
-| [TRANSACTION_SUMMARY.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_SUMMARY.md) | Executive summary, ROI | Managers |
-| [TRANSACTION_MANAGEMENT_DESIGN.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_MANAGEMENT_DESIGN.md) | Thiết kế chi tiết | Architects |
-| [TRANSACTION_IMPLEMENTATION_GUIDE.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_IMPLEMENTATION_GUIDE.md) | Code examples, step-by-step | Developers |
-| [TRANSACTION_QUICK_REFERENCE.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_QUICK_REFERENCE.md) | Code templates, troubleshooting | Developers |
-| [TRANSACTION_PATTERNS_DIAGRAM.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_PATTERNS_DIAGRAM.md) | Visual diagrams | Everyone |
+| [TRANSACTION_README.md](TRANSACTION_README.md) | Hướng dẫn sử dụng tài liệu | Everyone |
+| [TRANSACTION_SUMMARY.md](TRANSACTION_SUMMARY.md) | Executive summary, ROI | Managers |
+| [TRANSACTION_MANAGEMENT_DESIGN.md](TRANSACTION_MANAGEMENT_DESIGN.md) | Thiết kế chi tiết | Architects |
+| [TRANSACTION_IMPLEMENTATION_GUIDE.md](TRANSACTION_IMPLEMENTATION_GUIDE.md) | Code examples, step-by-step | Developers |
+| [TRANSACTION_QUICK_REFERENCE.md](TRANSACTION_QUICK_REFERENCE.md) | Code templates, troubleshooting | Developers |
+| [TRANSACTION_PATTERNS_DIAGRAM.md](TRANSACTION_PATTERNS_DIAGRAM.md) | Visual diagrams | Everyone |
 
 ---
 
@@ -140,4 +140,4 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > - **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính atomic giữa DB write và Message publish (tránh dual write problem).
 > - **Partitioned Audit Hash Chain**: Áp dụng cho Audit Service; serialize append theo `PartitionKey`, không dùng global Serializable.
 > - **ExecutionStrategy**: Sử dụng để tự động retry khi gặp transient errors (deadlock, connection timeout).
-> - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](file:///d:/Project/bizcore-erp/docs/TRANSACTION_IMPLEMENTATION_GUIDE.md)
+> - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](TRANSACTION_IMPLEMENTATION_GUIDE.md)

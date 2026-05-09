@@ -24,24 +24,24 @@ Sử dụng công cụ như Postman hoặc curl để gọi API login tại Gate
 
 **Đăng nhập với quyền Admin:**
 
-* **POST**: `http://localhost:5000/auth/login`
+* **POST**: `http://localhost:5001/auth/login`
 * **Body**: `{ "username": "admin", "password": "any" }`
 * **Kết quả**: Bạn sẽ nhận được một chuỗi JWT Token. Hãy lưu lại mã này.
 
 **Đăng nhập với quyền User thường:**
 
-* **POST**: `http://localhost:5000/auth/login`
+* **POST**: `http://localhost:5001/auth/login`
 * **Body**: `{ "username": "user", "password": "any" }`
 
 ### Bước 2: Kiểm tra Phân quyền (Permission-based)
 
 1. **Xem danh sách hóa đơn (Quyền `invoice:view`)**:
-   * **GET**: `http://localhost:5000/invoice`
+   * **GET**: `http://localhost:5001/invoice`
    * **Header**: `Authorization: Bearer <ADMIN_OR_USER_TOKEN>`
    * **Kết quả**: Thành công (200 OK). Cả Admin và User đều xem được.
 
 2. **Tạo hóa đơn mới (Quyền `invoice:create` - Chỉ Admin)**:
-   * **POST**: `http://localhost:5000/invoice`
+   * **POST**: `http://localhost:5001/invoice`
    * **Header**: `Authorization: Bearer <ADMIN_TOKEN>`
    * **Body**: `{ "customerName": "Demo Customer", "amount": 1000 }`
    * **Kết quả**: Thành công (201 Created).
@@ -56,7 +56,7 @@ Hệ thống đã được cấu hình giới hạn 100 request/phút.
 **Cách demo:**
 
 1. Sử dụng một công cụ benchmark (như `ab` hoặc lặp lại request nhanh bằng Postman).
-2. Gửi liên tục các request đến `http://localhost:5000/invoice`.
+2. Gửi liên tục các request đến `http://localhost:5001/invoice`.
 3. **Kết quả**: Sau khi vượt ngưỡng, Gateway sẽ trả về **429 Too Many Requests**. Chứng minh hệ thống có khả năng tự bảo vệ trước tấn công spam.
 
 ---
@@ -87,7 +87,7 @@ docker-compose logs -f
 
 Thử nghiệm khả năng tự giám sát của hệ thống:
 
-* **Truy cập**: `http://localhost:5000/health` (Gateway)
+* **Truy cập**: `http://localhost:5001/health` (Gateway)
 * **Truy cập**: `http://localhost:5001/health` (Invoice)
 * **Kết quả**: Trả về `Healthy`.
 * **Ý nghĩa**: "Hệ thống sẵn sàng để tích hợp với các công cụ Orchestration như Kubernetes để tự động khởi động lại khi có service gặp sự cố."
@@ -102,7 +102,7 @@ Thử nghiệm khả năng tự giám sát của hệ thống:
 
 Thử tạo hóa đơn với dữ liệu sai định dạng:
 
-* **POST**: `http://localhost:5000/invoice`
+* **POST**: `http://localhost:5001/invoice`
 * **Body**: `{ "customerName": "", "amount": -100 }`
 * **Kết quả**: Trả về **400 Bad Request** với chi tiết lỗi rõ ràng (ví dụ: "Số tiền phải lớn hơn 0").
 
@@ -110,7 +110,7 @@ Thử tạo hóa đơn với dữ liệu sai định dạng:
 
 Thử tạo hóa đơn với số tiền hợp lệ về format nhưng vi phạm quy tắc nghiệp vụ:
 
-* **POST**: `http://localhost:5000/invoice`
+* **POST**: `http://localhost:5001/invoice`
 * **Body**: `{ "customerName": "VIP Customer", "amount": 2000000 }` (Vượt hạn mức 1 triệu)
 * **Kết quả**: Trả về **400 Bad Request** với lỗi: "Hóa đơn không được vượt quá hạn mức 1,000,000 VNĐ."
 
@@ -139,7 +139,7 @@ Thử gây lỗi để xem cách hệ thống phản ứng:
 Mô phỏng trường hợp mạng lag và người dùng bấm thanh toán nhiều lần:
 
 1. **Gửi request thanh toán lần 1**:
-    * **URL**: `http://localhost:5000/api/v1/payment/pay`
+    * **URL**: `http://localhost:5001/api/v1/payment/pay`
     * **Header**: `X-Idempotency-Key: pay_unique_123`
     * **Body**: `{ "invoiceId": "...", "amount": 1000 }`
     * **Kết quả**: Thành công.

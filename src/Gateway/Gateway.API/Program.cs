@@ -174,13 +174,24 @@ app.UseMiddleware<CorrelationIdMiddleware>();
 app.MapHealthChecks("/health");
 
 
+// 7. CORS must be before Authentication/Authorization and even custom security headers for preflight
+app.UseCors("AllowFrontend");
+
 // 8. Security Headers
 app.Use(async (context, next) =>
 {
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-    context.Response.Headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none';";
+    
+    // Nới lỏng CSP để cho phép connect tới API Gateway và Identity
+    context.Response.Headers["Content-Security-Policy"] = 
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "connect-src 'self' http://localhost:5001 http://localhost:3000; " +
+        "object-src 'none';";
+        
     await next();
 });
 
@@ -194,7 +205,6 @@ app.UseSerilogRequestLogging();
 // Prometheus Metrics Middleware
 app.UseHttpMetrics();
 
-app.UseCors("AllowFrontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();

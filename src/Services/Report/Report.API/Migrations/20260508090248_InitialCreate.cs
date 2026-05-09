@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace Report.API.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
+    [Migration("20260508090248_InitialCreate")]
     public partial class InitialCreate : Migration
     {
         /// <inheritdoc />

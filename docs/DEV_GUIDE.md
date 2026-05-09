@@ -234,5 +234,5 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 ---
 
 > **Tài liệu liên quan**:
-> - [Coding Conventions](file:///d:/Project/bizcore-erp/docs/CODING_CONVENTIONS.md)
-> - [Orchestration Guide](file:///d:/Project/bizcore-erp/docs/ORCHESTRATION_GUIDE.md)
+> - [Coding Conventions](CODING_CONVENTIONS.md)
+> - [Orchestration Guide](ORCHESTRATION_GUIDE.md)

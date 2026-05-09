@@ -478,7 +478,7 @@ Tất cả events/commands đều có `X-Correlation-ID` header được propaga
 
 ```bash
 # 1. Tạo payment
-curl -X POST http://localhost:5000/api/v1/payment/pay \
+curl -X POST http://localhost:5001/api/v1/payment/pay \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: test-key-001" \
   -H "X-Correlation-ID: trace-test-001" \
@@ -491,7 +491,7 @@ curl -X POST http://localhost:5000/api/v1/payment/pay \
 # { "paymentId": "...", "status": "Processing", ... }
 
 # 2. Poll trạng thái (sau 1-2 giây)
-curl http://localhost:5000/api/v1/payment/{paymentId}
+curl http://localhost:5001/api/v1/payment/{paymentId}
 
 # Response: 200 OK
 # { "paymentId": "...", "status": "Completed", ... }
@@ -500,7 +500,7 @@ curl http://localhost:5000/api/v1/payment/{paymentId}
 ### Failure Path - Invoice không tồn tại
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/payment/pay \
+curl -X POST http://localhost:5001/api/v1/payment/pay \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: test-key-002" \
   -d '{
@@ -515,7 +515,7 @@ curl -X POST http://localhost:5000/api/v1/payment/pay \
 ### Failure Path - Amount mismatch
 
 ```bash
-curl -X POST http://localhost:5000/api/v1/payment/pay \
+curl -X POST http://localhost:5001/api/v1/payment/pay \
   -H "Content-Type: application/json" \
   -H "X-Idempotency-Key: test-key-003" \
   -d '{

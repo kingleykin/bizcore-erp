@@ -95,7 +95,7 @@ Each microservice (Gateway, Invoice, Payment, Report) is configured with:
 
 | Service | Metrics URL |
 |---------|-------------|
-| Gateway API | http://localhost:5000/metrics |
+| Gateway API | http://localhost:5001/metrics |
 | Invoice API | http://invoice-api:8080/metrics |
 | Payment API | http://payment-api:8080/metrics |
 | Report API | http://report-api:8080/metrics |

@@ -83,7 +83,7 @@ namespace Identity.API.Infrastructure.Data
 
         public static async Task SeedAsync(IdentityDbContext context, ILogger logger)
         {
-            await context.Database.MigrateAsync();
+            // Migration is already handled in Program.cs via DatabaseExtensions.MigrateDatabaseAsync
 
             // ── 1. Seed Permissions ────────────────────────────────────────────
             var existingCodes = await context.Permissions.Select(p => p.Code).ToListAsync();

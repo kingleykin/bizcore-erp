@@ -418,7 +418,7 @@ WHERE Status = 'Processing'
 
 ```bash
 # Gửi cùng request 2 lần với cùng idempotency key
-curl -X POST http://localhost:5000/api/v1/payment/pay \
+curl -X POST http://localhost:5001/api/v1/payment/pay \
   -H "X-Idempotency-Key: test-001" \
   -d '{"invoiceId": "...", "amount": 1500}'
 
@@ -435,7 +435,7 @@ curl -X POST http://localhost:5000/api/v1/payment/pay \
 docker-compose stop invoice-api
 
 # 2. Initiate payment
-curl -X POST http://localhost:5000/api/v1/payment/pay ...
+curl -X POST http://localhost:5001/api/v1/payment/pay ...
 
 # 3. Check RabbitMQ: invoice-validate queue có message
 # 4. Check logs: thấy retry attempts (5s, 10s, 30s)
@@ -452,13 +452,13 @@ docker-compose start invoice-api
 docker-compose stop invoice-api
 
 # 2. Initiate payment
-curl -X POST http://localhost:5000/api/v1/payment/pay ...
+curl -X POST http://localhost:5001/api/v1/payment/pay ...
 
 # 3. Đợi 60 giây
 sleep 60
 
 # 4. Poll payment status
-curl http://localhost:5000/api/v1/payment/{id}
+curl http://localhost:5001/api/v1/payment/{id}
 
 # Response: status = "Failed", failureReason = "Invoice validation timeout after 60 seconds."
 ```

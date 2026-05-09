@@ -7,8 +7,27 @@ namespace Invoice.API.Infrastructure.Data
     {
         public static async Task SeedAsync(AppDbContext context, ILogger logger)
         {
+            logger.LogInformation("Checking database connection for seeding...");
+            if (!await context.Database.CanConnectAsync())
+            {
+                logger.LogError("Cannot connect to database. Seeding aborted.");
+                return;
+            }
+
+            // Kiểm tra sự tồn tại của bảng Invoices
+            var tableExists = await context.Database
+                .SqlQueryRaw<int>("SELECT COUNT(*) AS [Value] FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = 'Invoices'")
+                .SingleOrDefaultAsync() > 0;
+
+            if (!tableExists)
+            {
+                logger.LogWarning("Table 'Invoices' does not exist yet. Skipping seeding.");
+                return;
+            }
+
             if (!await context.Invoices.AnyAsync())
             {
+                logger.LogInformation("No invoices found. Starting seeding process...");
                 var invoice1 = Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500);
                 invoice1.Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a");
                 
@@ -21,7 +40,7 @@ namespace Invoice.API.Infrastructure.Data
                 context.Invoices.AddRange(invoice1, invoice2, invoice3);
                 await context.SaveChangesAsync();
                 
-                logger.LogInformation("Seeded {Count} invoices.", 3);
+                logger.LogInformation("Successfully seeded initial invoices.");
             }
         }
     }

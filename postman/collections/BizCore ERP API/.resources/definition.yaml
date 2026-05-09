@@ -3,6 +3,6 @@ name: 'BizCore ERP API'
 description: 'Postman collection generated from implemented BizCore ERP API endpoints discovered in the codebase.'
 variables:
   - key: baseUrl
-    value: 'http://localhost:5000'
+    value: 'http://localhost:5001'
   - key: token
     value: ''

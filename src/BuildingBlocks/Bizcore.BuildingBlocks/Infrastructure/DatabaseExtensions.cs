@@ -33,9 +33,12 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     END";
                 command.ExecuteNonQuery();
             }
-            catch
+            catch (Exception ex)
             {
-                // Swallow exception - EF Migrate sẽ thử lại sau đó nếu bước này thất bại
+                // Thay vì swallow, hãy log lỗi để dễ debug
+                Console.WriteLine($"[Critical] PreCreateDatabase failed: {ex.Message}");
+                // Có thể dùng Serilog.Log nếu được configure sớm
+                // Serilog.Log.Error(ex, "PreCreateDatabase failed for connection string");
             }
         }
 
@@ -51,7 +54,24 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             
             try 
             {
-                await context.Database.MigrateAsync();
+                var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
+                var migrations = pendingMigrations.ToList();
+                
+                if (migrations.Any())
+                {
+                    Console.WriteLine($"[Info] Found {migrations.Count} pending migrations for database '{dbName}':");
+                    foreach (var migration in migrations)
+                    {
+                        Console.WriteLine($"[Info]   - Applying migration: {migration}");
+                    }
+                    
+                    await context.Database.MigrateAsync();
+                    Console.WriteLine($"[Info] Successfully applied all migrations for database '{dbName}'.");
+                }
+                else
+                {
+                    Console.WriteLine($"[Info] No pending migrations for database '{dbName}'.");
+                }
             }
             catch (SqlException ex)
             {

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
-const GATEWAY_URL = 'http://localhost:5000';
+const GATEWAY_URL = 'http://localhost:5001';
 
 const OrchestrationFlow = ({ api }) => {
   const [flows, setFlows] = useState([]);
@@ -133,9 +133,22 @@ const IdentityManager = ({ api }) => {
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(false);
 
+  // Modal states
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [selectedRole, setSelectedRole] = useState(null);
+  const [allPermissions, setAllPermissions] = useState([]);
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState([]);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [userForm, setUserForm] = useState({ username: '', email: '', password: '', roleNames: [] });
+
   useEffect(() => {
-    if (activeSubTab === 'users') fetchUsers();
-    else fetchRoles();
+    if (activeSubTab === 'users') {
+      fetchUsers();
+      if (roles.length === 0) fetchRoles();
+    } else {
+      fetchRoles();
+    }
   }, [activeSubTab]);
 
   const fetchUsers = async () => {
@@ -162,6 +175,76 @@ const IdentityManager = ({ api }) => {
     }
   };
 
+  const fetchAllPermissions = async () => {
+    try {
+      const res = await api.get('/api/v1/roles/permissions');
+      setAllPermissions(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách quyền');
+    }
+  };
+
+  const handleCreateRole = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/roles', roleForm);
+      toast.success('Tạo vai trò thành công');
+      setShowRoleModal(false);
+      setRoleForm({ name: '', description: '' });
+      fetchRoles();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Lỗi khi tạo vai trò');
+    }
+  };
+
+  const handleCreateUser = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/users', userForm);
+      toast.success('Thêm người dùng thành công');
+      setShowUserModal(false);
+      setUserForm({ username: '', email: '', password: '', roleNames: [] });
+      fetchUsers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Lỗi khi thêm người dùng');
+    }
+  };
+
+  const toggleUserRole = (roleName) => {
+    setUserForm(prev => ({
+      ...prev,
+      roleNames: prev.roleNames.includes(roleName) 
+        ? prev.roleNames.filter(r => r !== roleName) 
+        : [...prev.roleNames, roleName]
+    }));
+  };
+
+  const openPermissionModal = async (role) => {
+    setSelectedRole(role);
+    setSelectedPermissionIds(role.permissions?.map(p => p.id) || []);
+    if (allPermissions.length === 0) await fetchAllPermissions();
+    setShowPermissionModal(true);
+  };
+
+  const handleSavePermissions = async () => {
+    try {
+      await api.put(`/api/v1/roles/${selectedRole.id}/permissions`, {
+        permissionIds: selectedPermissionIds
+      });
+      toast.success('Cập nhật quyền thành công');
+      setShowPermissionModal(false);
+      fetchRoles();
+    } catch (error) {
+      toast.error('Lỗi khi cập nhật quyền');
+    }
+  };
+
+  const togglePermission = (id) => {
+    setSelectedPermissionIds(prev => 
+      prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="card">
       <div className="tab-header">
@@ -176,7 +259,7 @@ const IdentityManager = ({ api }) => {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-        <button className="btn btn-primary">
+        <button className="btn btn-primary" onClick={() => activeSubTab === 'roles' ? setShowRoleModal(true) : setShowUserModal(true)}>
           <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
           Thêm {activeSubTab === 'users' ? 'Người dùng' : 'Vai trò'}
         </button>
@@ -197,7 +280,7 @@ const IdentityManager = ({ api }) => {
             <tbody>
               {users.map(user => (
                 <tr key={user.id}>
-                  <td>{user.userName}</td>
+                  <td>{user.username}</td>
                   <td>{user.email}</td>
                   <td>
                     {user.roles?.map(r => (
@@ -207,7 +290,9 @@ const IdentityManager = ({ api }) => {
                     ))}
                   </td>
                   <td>
-                    <span className="status-badge status-paid">Active</span>
+                    <span className={`status-badge ${user.isActive ? 'status-paid' : 'status-pending'}`}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
                   </td>
                   <td><button className="btn btn-outline" style={{ padding: '4px 8px' }}>Sửa</button></td>
                 </tr>
@@ -227,20 +312,170 @@ const IdentityManager = ({ api }) => {
             <tbody>
               {roles.map(role => (
                 <tr key={role.id}>
-                  <td style={{ fontWeight: 600 }}>{role.name}</td>
+                  <td style={{ fontWeight: 600 }}>{role.name} {role.isSystem && <span style={{ fontSize: '0.6rem', background: '#334155', padding: '2px 4px', borderRadius: '4px', verticalAlign: 'middle' }}>SYSTEM</span>}</td>
                   <td style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{role.description || 'N/A'}</td>
                   <td>
                     <span className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#94a3b8' }}>
                       {role.permissions?.length || 0} permissions
                     </span>
                   </td>
-                  <td><button className="btn btn-outline" style={{ padding: '4px 8px' }}>Quản lý quyền</button></td>
+                  <td>
+                    <button 
+                      className="btn btn-outline" 
+                      style={{ padding: '4px 8px' }}
+                      onClick={() => openPermissionModal(role)}
+                    >
+                      Quản lý quyền
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </div>
+
+      {/* User Creation Modal */}
+      {showUserModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>Thêm người dùng mới</h2>
+            <form onSubmit={handleCreateUser}>
+              <div className="form-group">
+                <label className="form-label">Tên đăng nhập</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={userForm.username}
+                  onChange={e => setUserForm({...userForm, username: e.target.value})}
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input 
+                  type="email" 
+                  className="form-input" 
+                  value={userForm.email}
+                  onChange={e => setUserForm({...userForm, email: e.target.value})}
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mật khẩu</label>
+                <input 
+                  type="password" 
+                  className="form-input" 
+                  value={userForm.password}
+                  onChange={e => setUserForm({...userForm, password: e.target.value})}
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Vai trò</label>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  {roles.map(role => (
+                    <label key={role.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={userForm.roleNames.includes(role.name)}
+                        onChange={() => toggleUserRole(role.name)}
+                      />
+                      {role.name}
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowUserModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Tạo người dùng</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Role Creation Modal */}
+      {showRoleModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>Thêm vai trò mới</h2>
+            <form onSubmit={handleCreateRole}>
+              <div className="form-group">
+                <label className="form-label">Tên vai trò</label>
+                <input 
+                  type="text" 
+                  className="form-input" 
+                  value={roleForm.name}
+                  onChange={e => setRoleForm({...roleForm, name: e.target.value})}
+                  placeholder="Ví dụ: Accountant, Manager..."
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mô tả</label>
+                <textarea 
+                  className="form-input" 
+                  style={{ minHeight: '80px', paddingTop: '0.5rem' }}
+                  value={roleForm.description}
+                  onChange={e => setRoleForm({...roleForm, description: e.target.value})}
+                  placeholder="Mô tả chức năng của vai trò này"
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowRoleModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Tạo vai trò</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Permission Management Modal */}
+      {showPermissionModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>Quản lý quyền: {selectedRole?.name}</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Chọn các quyền hạn được phép cho vai trò này.</p>
+            
+            <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
+              {/* Group by Scope */}
+              {['Menu', 'Page', 'Action', 'Field'].map(scope => {
+                const perms = allPermissions.filter(p => p.scope === scope);
+                if (perms.length === 0) return null;
+                return (
+                  <div key={scope} style={{ marginBottom: '1.5rem' }}>
+                    <h4 style={{ color: '#38bdf8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '0.25rem' }}>
+                      {scope} Permissions
+                    </h4>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
+                      {perms.map(p => (
+                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={selectedPermissionIds.includes(p.id)}
+                            onChange={() => togglePermission(p.id)}
+                            style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                          />
+                          <div>
+                            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{p.name}</div>
+                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.code}</div>
+                          </div>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowPermissionModal(false)}>Hủy</button>
+              <button type="button" className="btn btn-primary" onClick={handleSavePermissions}>Lưu thay đổi</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -372,7 +607,7 @@ const AuditLogViewer = ({ api }) => {
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [authError, setAuthError] = useState('');
-  const [loginData, setLoginData] = useState({ username: 'admin', password: 'password' });
+  const [loginData, setLoginData] = useState({ username: 'admin', password: 'Admin@123' });
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [invoices, setInvoices] = useState([]);
@@ -530,7 +765,7 @@ function App() {
             </button>
             
             <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#94a3b8' }}>
-              Demo: admin / password
+              Demo: admin / Admin@123
             </div>
           </form>
         </div>
