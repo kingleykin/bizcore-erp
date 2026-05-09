@@ -66,7 +66,7 @@
 ## Xử lý sự cố (Troubleshooting)
 
 ### Lỗi xung đột cổng 5000 trên macOS
-Trên các phiên bản macOS mới (Monterey trở đi), cổng **5001** thường được sử dụng bởi tính năng **AirPlay Receiver**. Nếu bạn không thể truy cập API Gateway hoặc Docker báo lỗi cổng đã bị chiếm dụng, hãy thực hiện:
+Trên các phiên bản macOS mới (Monterey trở đi), cổng **5000** thường được sử dụng bởi tính năng **AirPlay Receiver**. Nếu bạn không thể truy cập API Gateway hoặc Docker báo lỗi cổng đã bị chiếm dụng, hãy thực hiện:
 1. Vào **System Settings** (Cài đặt hệ thống).
 2. Chọn **General** -> **AirDrop & Handoff**.
 3. Tắt **AirPlay Receiver** (Bộ thu AirPlay).
