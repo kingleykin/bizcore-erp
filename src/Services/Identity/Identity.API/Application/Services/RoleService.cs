@@ -142,7 +142,7 @@ namespace Identity.API.Application.Services
         public async Task<IEnumerable<PermissionDto>> GetAllPermissionsAsync()
         {
             var perms = await _db.Permissions.AsNoTracking().ToListAsync();
-            return perms.Select(p => new PermissionDto(p.Id, p.Code, p.Name, p.Scope, p.Description));
+            return perms.Select(p => new PermissionDto(p.Id, p.Code, p.Name, p.Resource, p.Scope, p.Description));
         }
 
         private static RoleDto MapToDto(Role r) => new(
@@ -154,6 +154,7 @@ namespace Identity.API.Application.Services
                 rp.Permission.Id,
                 rp.Permission.Code,
                 rp.Permission.Name,
+                rp.Permission.Resource,
                 rp.Permission.Scope,
                 rp.Permission.Description))
         );

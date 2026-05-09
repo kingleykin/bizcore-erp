@@ -36,9 +36,9 @@ namespace Identity.API.Infrastructure.Data
             new(Permissions.Invoice.CustomerNameEdit,"Sửa tên khách hàng",      "Invoice.CustomerName", PermissionScope.Field),
 
             // Payment
-            new(Permissions.Payment.View,    "Xem danh sách Payment",  "Payment", PermissionScope.Page),
-            new(Permissions.Payment.Create,  "Tạo Payment",            "Payment", PermissionScope.Action),
-            new(Permissions.Payment.Process, "Xử lý/Approve Payment",  "Payment", PermissionScope.Action),
+            new(Permissions.Payment.View,    "Xem danh sách Giao dịch (Payment)", "Payment", PermissionScope.Page),
+            new(Permissions.Payment.Create,  "Thực hiện thanh toán (Pay)",         "Payment", PermissionScope.Action),
+            new(Permissions.Payment.Process, "Xử lý/Approve Giao dịch",           "Payment", PermissionScope.Action),
 
             // Report
             new(Permissions.Report.View,   "Xem báo cáo",    "Report", PermissionScope.Page),

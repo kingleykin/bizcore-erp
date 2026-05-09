@@ -140,6 +140,9 @@ const IdentityManager = ({ api }) => {
   const [allPermissions, setAllPermissions] = useState([]);
   const [selectedPermissionIds, setSelectedPermissionIds] = useState([]);
   const [showUserModal, setShowUserModal] = useState(false);
+  const [showUserRolesModal, setShowUserRolesModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedRoleIds, setSelectedRoleIds] = useState([]);
   const [userForm, setUserForm] = useState({ username: '', email: '', password: '', roleNames: [] });
 
   useEffect(() => {
@@ -157,7 +160,7 @@ const IdentityManager = ({ api }) => {
       const res = await api.get('/api/v1/users');
       setUsers(res.data);
     } catch (error) {
-      toast.error('Lỗi khi tải danh sách người dùng');
+      toast.error('Lỗi khi tải danh sách người dùng: ' + getErrorDetail(error));
     } finally {
       setLoading(false);
     }
@@ -169,7 +172,7 @@ const IdentityManager = ({ api }) => {
       const res = await api.get('/api/v1/roles');
       setRoles(res.data);
     } catch (error) {
-      toast.error('Lỗi khi tải danh sách vai trò');
+      toast.error('Lỗi khi tải danh sách vai trò: ' + getErrorDetail(error));
     } finally {
       setLoading(false);
     }
@@ -180,7 +183,7 @@ const IdentityManager = ({ api }) => {
       const res = await api.get('/api/v1/roles/permissions');
       setAllPermissions(res.data);
     } catch (error) {
-      toast.error('Lỗi khi tải danh sách quyền');
+      toast.error('Lỗi khi tải danh sách quyền: ' + getErrorDetail(error));
     }
   };
 
@@ -193,7 +196,7 @@ const IdentityManager = ({ api }) => {
       setRoleForm({ name: '', description: '' });
       fetchRoles();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Lỗi khi tạo vai trò');
+      toast.error(getErrorDetail(error));
     }
   };
 
@@ -206,7 +209,7 @@ const IdentityManager = ({ api }) => {
       setUserForm({ username: '', email: '', password: '', roleNames: [] });
       fetchUsers();
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Lỗi khi thêm người dùng');
+      toast.error(getErrorDetail(error));
     }
   };
 
@@ -235,13 +238,42 @@ const IdentityManager = ({ api }) => {
       setShowPermissionModal(false);
       fetchRoles();
     } catch (error) {
-      toast.error('Lỗi khi cập nhật quyền');
+      toast.error('Lỗi khi cập nhật quyền: ' + getErrorDetail(error));
     }
   };
 
   const togglePermission = (id) => {
     setSelectedPermissionIds(prev => 
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+    );
+  };
+
+  const openUserRolesModal = (user) => {
+    setSelectedUser(user);
+    // Map current user role names to role IDs
+    const currentRoleIds = roles
+      .filter(r => user.roles?.includes(r.name))
+      .map(r => r.id);
+    setSelectedRoleIds(currentRoleIds);
+    setShowUserRolesModal(true);
+  };
+
+  const handleSaveUserRoles = async () => {
+    try {
+      await api.put(`/api/v1/users/${selectedUser.id}/roles`, {
+        roleIds: selectedRoleIds
+      });
+      toast.success('Cập nhật vai trò người dùng thành công');
+      setShowUserRolesModal(false);
+      fetchUsers();
+    } catch (error) {
+      toast.error('Lỗi khi cập nhật vai trò: ' + getErrorDetail(error));
+    }
+  };
+
+  const toggleRoleAssignment = (roleId) => {
+    setSelectedRoleIds(prev => 
+      prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
     );
   };
 
@@ -294,7 +326,15 @@ const IdentityManager = ({ api }) => {
                       {user.isActive ? 'Active' : 'Inactive'}
                     </span>
                   </td>
-                  <td><button className="btn btn-outline" style={{ padding: '4px 8px' }}>Sửa</button></td>
+                  <td>
+                    <button 
+                      className="btn btn-outline" 
+                      style={{ padding: '4px 8px' }}
+                      onClick={() => openUserRolesModal(user)}
+                    >
+                      Phân quyền
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -439,31 +479,75 @@ const IdentityManager = ({ api }) => {
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Chọn các quyền hạn được phép cho vai trò này.</p>
             
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
-              {/* Group by Scope */}
-              {['Menu', 'Page', 'Action', 'Field'].map(scope => {
-                const perms = allPermissions.filter(p => p.scope === scope);
-                if (perms.length === 0) return null;
+              {/* Group by Resource */}
+              {Array.from(new Set(allPermissions.map(p => p.resource))).sort().map(resource => {
+                const resourcePerms = allPermissions.filter(p => p.resource === resource);
                 return (
-                  <div key={scope} style={{ marginBottom: '1.5rem' }}>
-                    <h4 style={{ color: '#38bdf8', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem', borderBottom: '1px solid rgba(56, 189, 248, 0.2)', paddingBottom: '0.25rem' }}>
-                      {scope} Permissions
-                    </h4>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.5rem' }}>
-                      {perms.map(p => (
-                        <label key={p.id} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', borderRadius: '0.5rem', cursor: 'pointer', background: 'rgba(255,255,255,0.02)' }}>
-                          <input 
-                            type="checkbox" 
-                            checked={selectedPermissionIds.includes(p.id)}
-                            onChange={() => togglePermission(p.id)}
-                            style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
-                          />
-                          <div>
-                            <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{p.name}</div>
-                            <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{p.code}</div>
+                  <div key={resource} style={{ 
+                    marginBottom: '2rem', 
+                    background: 'rgba(255,255,255,0.02)', 
+                    padding: '1rem', 
+                    borderRadius: '0.75rem',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }}>
+                    <h3 style={{ 
+                      color: '#38bdf8', 
+                      fontSize: '1rem', 
+                      marginBottom: '1rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem'
+                    }}>
+                      <div style={{ width: '4px', height: '16px', background: '#38bdf8', borderRadius: '2px' }}></div>
+                      {resource} Module
+                    </h3>
+
+                    {/* Sub-group by Scope */}
+                    {['Menu', 'Page', 'Action', 'Field'].map(scope => {
+                      const scopePerms = resourcePerms.filter(p => p.scope === scope);
+                      if (scopePerms.length === 0) return null;
+                      return (
+                        <div key={scope} style={{ marginBottom: '1rem', marginLeft: '1rem' }}>
+                          <h4 style={{ 
+                            color: '#94a3b8', 
+                            fontSize: '0.7rem', 
+                            textTransform: 'uppercase', 
+                            letterSpacing: '0.05em', 
+                            marginBottom: '0.5rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.5rem'
+                          }}>
+                            {scope} Permissions
+                          </h4>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.4rem' }}>
+                            {scopePerms.map(p => (
+                              <label key={p.id} style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '0.75rem', 
+                                padding: '0.6rem', 
+                                borderRadius: '0.5rem', 
+                                cursor: 'pointer', 
+                                background: 'rgba(255,255,255,0.03)',
+                                transition: 'all 0.2s'
+                              }} className="permission-item-hover">
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedPermissionIds.includes(p.id)}
+                                  onChange={() => togglePermission(p.id)}
+                                  style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                                />
+                                <div>
+                                  <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{p.name}</div>
+                                  <div style={{ fontSize: '0.7rem', color: '#64748b', fontFamily: 'monospace' }}>{p.code}</div>
+                                </div>
+                              </label>
+                            ))}
                           </div>
-                        </label>
-                      ))}
-                    </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -472,6 +556,49 @@ const IdentityManager = ({ api }) => {
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
               <button type="button" className="btn btn-outline" onClick={() => setShowPermissionModal(false)}>Hủy</button>
               <button type="button" className="btn btn-primary" onClick={handleSavePermissions}>Lưu thay đổi</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* User Roles Management Modal */}
+      {showUserRolesModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '500px' }}>
+            <h2 style={{ marginBottom: '0.5rem' }}>Phân vai trò: {selectedUser?.username}</h2>
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Chọn các vai trò áp dụng cho người dùng này.</p>
+            
+            <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '1.5rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+                {roles.map(role => (
+                  <label key={role.id} style={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '0.75rem', 
+                    padding: '0.75rem', 
+                    borderRadius: '0.5rem', 
+                    cursor: 'pointer', 
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)'
+                  }}>
+                    <input 
+                      type="checkbox" 
+                      checked={selectedRoleIds.includes(role.id)}
+                      onChange={() => toggleRoleAssignment(role.id)}
+                      style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
+                    />
+                    <div>
+                      <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{role.name}</div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{role.description}</div>
+                    </div>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', paddingTop: '1rem', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowUserRolesModal(false)}>Hủy</button>
+              <button type="button" className="btn btn-primary" onClick={handleSaveUserRoles}>Lưu thay đổi</button>
             </div>
           </div>
         </div>
@@ -497,7 +624,7 @@ const AuditLogViewer = ({ api }) => {
       const res = await api.get('/api/v1/audit', { params: filters });
       setLogs(res.data.items || []);
     } catch (error) {
-      toast.error('Lỗi khi tải nhật ký Audit');
+      toast.error('Lỗi khi tải nhật ký Audit: ' + getErrorDetail(error));
     } finally {
       setLoading(false);
     }
@@ -628,6 +755,20 @@ function App() {
     }
   });
 
+  const getErrorDetail = (error) => {
+    if (error.response) {
+      const data = error.response.data;
+      if (typeof data === 'string') return data;
+      if (data.errors) {
+        // Handle FluentValidation errors (can be object or array)
+        if (Array.isArray(data.errors)) return data.errors.join(', ');
+        return Object.values(data.errors).flat().join(', ');
+      }
+      return data.message || data.error || data.title || JSON.stringify(data);
+    }
+    return error.message || 'Lỗi không xác định';
+  };
+
   useEffect(() => {
     if (token) {
       fetchData();
@@ -693,14 +834,7 @@ function App() {
       toast.success('Hóa đơn đã được tạo thành công');
     } catch (error) {
       console.error('Error creating invoice:', error);
-      const serverMessage =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.response?.data?.Message ||
-        (Array.isArray(error.response?.data?.errors)
-          ? error.response.data.errors.join(', ')
-          : null);
-      toast.error(serverMessage || 'Lỗi khi tạo hóa đơn');
+      toast.error('Lỗi khi tạo hóa đơn: ' + getErrorDetail(error));
     }
   };
 
@@ -712,7 +846,8 @@ function App() {
       
       await api.post('/api/v1/payment/pay', {
         invoiceId,
-        amount
+        amount,
+        paymentMethod: 'CreditCard' // Default method for demo
       }, {
         headers: {
           'X-Idempotency-Key': idempotencyKey
@@ -722,7 +857,7 @@ function App() {
       toast.success('Thanh toán hoàn tất!', { id: toastId });
     } catch (error) {
       console.error('Error processing payment:', error);
-      toast.error('Thanh toán thất bại', { id: toastId });
+      toast.error('Thanh toán thất bại: ' + getErrorDetail(error), { id: toastId });
     }
   };
 

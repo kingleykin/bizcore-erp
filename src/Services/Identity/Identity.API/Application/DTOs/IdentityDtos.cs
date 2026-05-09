@@ -19,7 +19,7 @@ namespace Identity.API.Application.DTOs
     public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
 
     // ── User ──────────────────────────────────────────────────────────────────
-    public record CreateUserRequest(string Username, string Email, string Password);
+    public record CreateUserRequest(string Username, string Email, string Password, IEnumerable<string>? RoleNames = null);
 
     public record UpdateUserRequest(string Email);
 
@@ -52,7 +52,7 @@ namespace Identity.API.Application.DTOs
     );
 
     // ── Permission ────────────────────────────────────────────────────────────
-    public record PermissionDto(Guid Id, string Code, string Name, string Scope, string? Description);
+    public record PermissionDto(Guid Id, string Code, string Name, string Resource, string Scope, string? Description);
 
 
     // ── Validators ────────────────────────────────────────────────────────────

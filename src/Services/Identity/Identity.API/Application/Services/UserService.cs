@@ -67,6 +67,21 @@ namespace Identity.API.Application.Services
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("Created user '{Username}' (Id: {Id}).", user.Username, user.Id);
+            
+            // Assign roles if provided
+            if (request.RoleNames != null && request.RoleNames.Any())
+            {
+                var roleIds = await _db.Roles
+                    .Where(r => request.RoleNames.Contains(r.Name))
+                    .Select(r => r.Id)
+                    .ToListAsync();
+                
+                if (roleIds.Any())
+                {
+                    await AssignRolesAsync(user.Id, new AssignRolesRequest(roleIds));
+                }
+            }
+
             return await GetByIdAsync(user.Id);
         }
 
