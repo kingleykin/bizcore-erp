@@ -1,6 +1,7 @@
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
 using Microsoft.AspNetCore.Authorization;
@@ -105,6 +106,7 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<InvoiceCreatedOrchestrationConsumer>();
     x.AddConsumer<PaymentCompletedOrchestrationConsumer>();
     x.AddConsumer<PaymentCompensationRequestedOrchestrationConsumer>();
+    x.AddConsumer<RolePermissionsChangedConsumer>();
 
     // Saga orchestrator
     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>()
@@ -164,6 +166,11 @@ builder.Services.AddMassTransit(x =>
         {
             e.Durable = true;
             e.ConfigureConsumer<PaymentCompensationRequestedOrchestrationConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("orchestration-permission-updates", e =>
+        {
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
     });
 });

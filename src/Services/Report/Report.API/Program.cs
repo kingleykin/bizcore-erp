@@ -11,6 +11,7 @@ using MassTransit;
 using Prometheus;
 using StackExchange.Redis;
 using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 
@@ -97,6 +98,7 @@ builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<Report.API.Application.Consumers.InvoiceCreatedConsumer>();
     x.AddConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>();
+    x.AddConsumer<RolePermissionsChangedConsumer>();
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
@@ -122,6 +124,11 @@ builder.Services.AddMassTransit(x =>
         cfg.ReceiveEndpoint("report-payment-completed", e =>
         {
             e.ConfigureConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("report-permission-updates", e =>
+        {
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
     });
 });

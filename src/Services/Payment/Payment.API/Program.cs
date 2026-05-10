@@ -3,6 +3,7 @@ using Payment.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Payment.API.Application.Consumers;
+using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using Asp.Versioning;
@@ -119,6 +120,7 @@ builder.Services.AddMassTransit(x =>
     // Legacy consumers (giữ lại cho backward compatibility)
     x.AddConsumer<PaymentCompensationRequestedConsumer>();
     x.AddConsumer<InvoiceCreatedConsumer>();
+    x.AddConsumer<RolePermissionsChangedConsumer>();
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
@@ -176,6 +178,11 @@ builder.Services.AddMassTransit(x =>
         {
             e.Durable = true;
             e.ConfigureConsumer<InvoiceCreatedConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("payment-permission-updates", e =>
+        {
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
     });
 });

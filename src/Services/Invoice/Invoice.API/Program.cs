@@ -4,6 +4,7 @@ using Invoice.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
 using Invoice.API.Application.Consumers;
+using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Serilog;
 using Serilog.Sinks.Grafana.Loki;
 using FluentValidation.AspNetCore;
@@ -126,6 +127,7 @@ builder.Services.AddMassTransit(x =>
 
     // Legacy Request-Reply consumer (giữ lại tạm để không break existing tests)
     x.AddConsumer<ApplyPaymentToInvoiceConsumer>();
+    x.AddConsumer<RolePermissionsChangedConsumer>();
 
     x.AddEntityFrameworkOutbox<AppDbContext>(o =>
     {
@@ -173,6 +175,11 @@ builder.Services.AddMassTransit(x =>
         {
             e.Durable = true;
             e.ConfigureConsumer<PaymentCompletedConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("invoice-permission-updates", e =>
+        {
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
     });
 });

@@ -11,9 +11,10 @@
 * **Caching**: **Redis** (Lưu trữ user permissions để tối ưu hiệu năng)
 * **Công nghệ cốt lõi**:
   * **JWT (JSON Web Token)**: Cấp phát Access Token và Refresh Token. Claim `permission` chứa các code dạng PascalCase (ví dụ: `Invoice.View`).
-  * **Dynamic Policy Provider**: Tự động đánh giá quyền tại runtime không cần khai báo static policies.
+  * **Dynamic Policy Provider**: Sử dụng `IAuthorizationPolicyProvider` tùy chỉnh để tự động tạo Policy từ chuỗi Permission Name nhận được từ Attribute `[RequirePermission]`.
+  * **Permission Handler**: Đánh giá quyền dựa trên mô hình lai: Redis (Real-time) -> JWT Claims (Fallback).
   * **BCrypt**: Băm mật khẩu bảo mật.
-  * **MassTransit (RabbitMQ)**: Publish Audit Events và Permission Change Events.
+  * **MassTransit (RabbitMQ)**: Publish Audit Events và `IRolePermissionsChangedEvent` để đồng bộ trạng thái cache toàn hệ thống.
 
 ## 🔑 Các tính năng chính (Key Features)
 
@@ -122,10 +123,13 @@ sequenceDiagram
 
 ## 🛡️ Tích hợp Cache & Audit
 
-* **Redis Cache**: Mọi request kiểm tra quyền sẽ truy vấn Redis trước khi fallback về SQL Server. Mặc định TTL là 5 phút.
+* **Redis Cache**: Mọi request kiểm tra quyền sẽ truy vấn Redis trước khi fallback về SQL Server hoặc JWT. Mặc định TTL là 5 phút. Key format: `user_permissions:{userId}`.
 
 * **Audit Integration**: Ghi log mọi thay đổi Role/Permission với mức độ **Security**.
-* **Permission Changed Event**: Khi một Role bị thay đổi permission, một event được publish để tất cả microservices liên quan invalidate cache local.
+* **Permission Changed Event**: Khi một Role bị thay đổi permission qua `RoleService.AssignPermissionsAsync`:
+    1. Identity xóa cache Redis của tất cả người dùng thuộc Role đó.
+    2. Publish `IRolePermissionsChangedEvent`.
+    3. Các Microservice nhận event có thể thực hiện xóa cache local (nếu có) để đảm bảo tính nhất quán tức thì.
 
 ---
 *Tài liệu cập nhật ngày: 08/05/2026 sau khi hoàn thành Phase 3: Real-time Cache Invalidation & Security Audit.*

@@ -8,6 +8,7 @@ using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Middlewares;
 using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Microsoft.AspNetCore.Authorization;
 using Hangfire;
 using Hangfire.SqlServer;
@@ -86,6 +87,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddMassTransit(x =>
 {
     x.AddConsumer<AuditEventConsumer>();
+    x.AddConsumer<RolePermissionsChangedConsumer>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
@@ -113,6 +115,11 @@ builder.Services.AddMassTransit(x =>
                 TimeSpan.FromSeconds(120)));
 
             e.ConfigureConsumer<AuditEventConsumer>(context);
+        });
+
+        cfg.ReceiveEndpoint("audit-permission-updates", e =>
+        {
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
     });
 });

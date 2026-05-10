@@ -140,10 +140,23 @@ Chúng ta sử dụng **MassTransit** với **RabbitMQ**. Để đảm bảo tí
 - Khi bạn gọi `_publishEndpoint.Publish`, message sẽ được lưu vào bảng `OutboxMessages` trong cùng transaction với dữ liệu nghiệp vụ.
 - Một background worker sẽ quét và gửi message đi thực tế.
 
-### 4.3. Dynamic Authorization
-Hệ thống Identity cung cấp cơ chế phân quyền dựa trên **Permissions**.
-- Sử dụng attribute: `[HasPermission(Permissions.Invoices.Create)]` trên Controller action.
-- Quyền được lưu trữ và cache trong `IPermissionCache` (BuildingBlocks).
+### 4.3. Xác thực & Phân quyền động (Auth & Dynamic AuthZ)
+Hệ thống sử dụng mô hình **Centralized Identity + Distributed Authorization** dựa trên mã quyền (Permission Codes).
+
+- **Authentication**: Thực hiện qua JWT Token do `Identity.API` cấp. Token chứa các claims `permission`.
+- **Authorization**: Sử dụng hằng số từ `Bizcore.BuildingBlocks.Permissions`.
+- **Attribute**: Sử dụng `[RequirePermission(Permissions.Invoice.Create)]` trên Controller action.
+- **Cơ chế**: Hệ thống dùng `DynamicAuthorizationPolicyProvider` để tự động tạo Policy và `PermissionAuthorizationHandler` để kiểm tra quyền từ **Redis Cache** (ưu tiên) hoặc **JWT Claims** (fallback).
+
+#### 🛠️ Cách thêm Role & Permission mới
+1. **Định nghĩa**: Thêm hằng số mã quyền vào `Bizcore.BuildingBlocks.Permissions`.
+2. **Seeder**: Khai báo quyền mới trong `DbSeeder.cs` của `Identity.API`.
+3. **Gán quyền**: Gán quyền cho Role qua UI quản trị hoặc API `/api/v1/roles/{id}/permissions`.
+
+#### 🔍 Hướng dẫn Debug
+- **JWT**: Dùng [jwt.io](https://jwt.io) kiểm tra claim `permission`.
+- **Redis**: Kiểm tra key `user_permissions:{userId}` bằng Redis Insight.
+- **Log**: Bật log `Debug` cho namespace `Bizcore.BuildingBlocks.Authorization` để xem chi tiết quá trình đánh giá quyền.
 
 ### 4.4. Audit & Reversal (Khôi phục dữ liệu)
 Hệ thống cho phép khôi phục giá trị cũ của các trường thông qua `RestoreInvoiceFieldCommand`.
