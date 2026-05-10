@@ -200,10 +200,10 @@ If conventions are unclear or seem inconsistent:
 
 ## 🎓 Related Documents
 
-- **[PROJECT_INDEX.md](./PROJECT_INDEX.md)** - Project overview and architecture
-- **[PROJECT_STRUCTURE.md](./PROJECT%20STRUCTURE.md)** - Detailed project organization
-- **[TRANSACTION_MANAGEMENT_DESIGN.md](./TRANSACTION_MANAGEMENT_DESIGN.md)** - Transaction patterns
-- **[IDEMPOTENCY_DESIGN.md](./IDEMPOTENCY_DESIGN.md)** - Idempotency patterns
+- **[PROJECT_INDEX.md](../02-project-overview/PROJECT_INDEX.md)** - Project overview and architecture
+- **[PROJECT_STRUCTURE.md](../02-project-overview/PROJECT_STRUCTURE.md)** - Detailed project organization
+- **[TRANSACTION_MANAGEMENT_DESIGN.md](../05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md)** - Transaction patterns
+- **[IDEMPOTENCY_DESIGN.md](../03-architecture/IDEMPOTENCY_DESIGN.md)** - Idempotency patterns
 
 ---
 

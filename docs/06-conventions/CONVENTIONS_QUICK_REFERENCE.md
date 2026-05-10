@@ -391,5 +391,5 @@ if (invoice.Amount > 1_000_000)
 
 ## 📖 Full Documentation
 
-Refer to [CODING_CONVENTIONS.md](./CODING_CONVENTIONS.md) for complete guidelines.
+Refer to [CODING_CONVENTIONS.md](CODING_CONVENTIONS.md) for complete guidelines.
 

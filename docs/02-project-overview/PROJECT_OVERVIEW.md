@@ -28,7 +28,7 @@ bizcore-erp/
 
 ## 🧱 Kiến trúc Kỹ thuật
 
-* **Microservices**: Các service core (Identity, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](ORCHESTRATION_GUIDE.md).
+* **Microservices**: Các service core (Identity, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](../03-architecture/ORCHESTRATION_GUIDE.md).
 * **API Gateway**: YARP (Yet Another Reverse Proxy) port 5001.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
@@ -231,7 +231,7 @@ Hệ thống tích hợp đầy đủ monitoring stack:
 | **Grafana** | 3001 | Visualization & Dashboards |
 | **Promtail** | N/A | Log shipping agent |
 
-**Xem chi tiết**: Tham khảo [MONITORING_GUIDE.md](MONITORING_GUIDE.md)
+**Xem chi tiết**: Tham khảo [MONITORING_GUIDE.md](../07-operations/MONITORING_GUIDE.md)
 
 ---
 *Cập nhật lần cuối: 07/05/2026 - Nâng cấp hệ thống bảo mật Enterprise và Identity Service Production-Ready.*

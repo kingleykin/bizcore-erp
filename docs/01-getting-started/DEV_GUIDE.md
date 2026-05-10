@@ -247,5 +247,5 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 ---
 
 > **Tài liệu liên quan**:
-> - [Coding Conventions](CODING_CONVENTIONS.md)
-> - [Orchestration Guide](ORCHESTRATION_GUIDE.md)
+> - [Coding Conventions](../06-conventions/CODING_CONVENTIONS.md)
+> - [Orchestration Guide](../03-architecture/ORCHESTRATION_GUIDE.md)
