@@ -11,7 +11,10 @@ Giải pháp này nâng cấp hệ thống phân quyền từ RBAC tĩnh sang **
 | **Phase 1** | Mở rộng Schema, Navigation Entity, Seeder metadata | ✅ Hoàn thành |
 | **Phase 2** | Dynamic Policy Provider, Redis Cache, Me Endpoints | ✅ Hoàn thành |
 | **Phase 3** | Invalidate Cache qua Event, Audit Permission changes | ✅ Hoàn thành |
-| **Phase 4** | Field-level masking, Data-level query filters | 📅 Kế hoạch |
+| **Phase 4** | Field-level masking, Data-level query filters | 🚧 Foundation Ready / 📅 Planned |
+
+> [!NOTE]
+> **Foundation status**: Hạ tầng metadata (Scopes, Constants, Seeder) cho Field và Data level đã hoàn thành. Các permission như `Invoice.Amount.View` đã được định nghĩa. Tuy nhiên, logic thực thi tự động (masking trong API/UI và global query filters) hiện vẫn đang trong giai đoạn lập kế hoạch.
 
 ---
 
