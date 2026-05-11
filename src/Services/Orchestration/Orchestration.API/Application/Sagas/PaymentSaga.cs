@@ -1,6 +1,7 @@
 using Bizcore.BuildingBlocks.Contracts;
 using MassTransit;
 using Orchestration.API.Domain.Entities;
+using Bizcore.BuildingBlocks.Messaging;
 
 namespace Orchestration.API.Application.Sagas
 {
@@ -56,7 +57,7 @@ namespace Orchestration.API.Application.Sagas
                     {
                         PaymentId = ctx.Saga.PaymentId
                     }))
-                    .SendAsync(new Uri("queue:invoice-validate"), ctx => ctx.Init<IValidateInvoiceCommand>(new
+                    .SendAsync(ctx => ctx.Init<IValidateInvoiceCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId,
@@ -69,7 +70,7 @@ namespace Orchestration.API.Application.Sagas
                 When(InvoiceValidated)
                     .Then(ctx => ctx.Saga.UpdatedAt = DateTime.UtcNow)
                     .Unschedule(ValidationTimeout)
-                    .SendAsync(new Uri("queue:payment-confirm"), ctx => ctx.Init<IConfirmPaymentCommand>(new
+                    .SendAsync(ctx => ctx.Init<IConfirmPaymentCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId
@@ -84,7 +85,7 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     })
                     .Unschedule(ValidationTimeout)
-                    .SendAsync(new Uri("queue:payment-reject"), ctx => ctx.Init<IRejectPaymentCommand>(new
+                    .SendAsync(ctx => ctx.Init<IRejectPaymentCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId,
@@ -99,7 +100,7 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.FailureReason = "Invoice validation timeout after 60 seconds.";
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     })
-                    .SendAsync(new Uri("queue:payment-reject"), ctx => ctx.Init<IRejectPaymentCommand>(new
+                    .SendAsync(ctx => ctx.Init<IRejectPaymentCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId,

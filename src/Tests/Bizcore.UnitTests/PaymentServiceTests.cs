@@ -10,6 +10,9 @@ using Payment.API.Domain.Entities;
 using Payment.API.Infrastructure.Data;
 using PaymentEntity = Payment.API.Domain.Entities.Payment;
 using PaymentInvoiceEntity = Payment.API.Domain.Entities.Invoice;
+using Microsoft.AspNetCore.SignalR;
+using Payment.API.Application.Hubs;
+using Microsoft.Extensions.Logging;
 
 namespace Bizcore.UnitTests;
 
@@ -228,9 +231,16 @@ public class PaymentServiceTests
         command.SetupGet(c => c.PaymentId).Returns(payment.Id);
         command.SetupGet(c => c.InvoiceId).Returns(payment.InvoiceId);
 
+        var hubContextMock = new Mock<IHubContext<PaymentHub>>();
+        var hubClientsMock = new Mock<IHubClients>();
+        var clientProxyMock = new Mock<IClientProxy>();
+        hubContextMock.SetupGet(h => h.Clients).Returns(hubClientsMock.Object);
+        hubClientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(clientProxyMock.Object);
+
         var consumer = new ConfirmPaymentConsumer(
             context,
             publishMock.Object,
+            hubContextMock.Object,
             NullLogger<ConfirmPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);
@@ -263,9 +273,12 @@ public class PaymentServiceTests
         command.SetupGet(c => c.PaymentId).Returns(payment.Id);
         command.SetupGet(c => c.InvoiceId).Returns(payment.InvoiceId);
 
+        var hubContextMock = new Mock<IHubContext<PaymentHub>>();
+
         var consumer = new ConfirmPaymentConsumer(
             context,
             publishMock.Object,
+            hubContextMock.Object,
             NullLogger<ConfirmPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);
@@ -297,9 +310,16 @@ public class PaymentServiceTests
         command.SetupGet(c => c.InvoiceId).Returns(payment.InvoiceId);
         command.SetupGet(c => c.Reason).Returns("Invoice validation failed.");
 
+        var hubContextMock = new Mock<IHubContext<PaymentHub>>();
+        var hubClientsMock = new Mock<IHubClients>();
+        var clientProxyMock = new Mock<IClientProxy>();
+        hubContextMock.SetupGet(h => h.Clients).Returns(hubClientsMock.Object);
+        hubClientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(clientProxyMock.Object);
+
         var consumer = new RejectPaymentConsumer(
             context,
             publishMock.Object,
+            hubContextMock.Object,
             NullLogger<RejectPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);
@@ -338,9 +358,12 @@ public class PaymentServiceTests
         command.SetupGet(c => c.InvoiceId).Returns(payment.InvoiceId);
         command.SetupGet(c => c.Reason).Returns("Duplicate failure.");
 
+        var hubContextMock = new Mock<IHubContext<PaymentHub>>();
+
         var consumer = new RejectPaymentConsumer(
             context,
             publishMock.Object,
+            hubContextMock.Object,
             NullLogger<RejectPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);

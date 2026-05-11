@@ -28,12 +28,17 @@ Các tài liệu chuyên sâu về thiết kế hệ thống và các pattern á
 
 ### ⚙️ 04. Chi tiết Microservices (Services)
 Tài liệu riêng biệt cho từng service.
+- [Admin Service (Organization & Master Data)](04-services/admin-service.md)
+- [Accounting Service (Core Engine & Batch)](04-services/accounting-service.md)
 - [Audit Service](04-services/audit-service.md)
 - [Identity Service](04-services/identity-service.md)
-- [Invoice Service](04-services/invoice-service.md)
-- [Payment Service](04-services/payment-service.md)
+- [Invoice Service (AR/AP Sub-ledger)](04-services/invoice-service.md)
+- [Payment Service (Treasury Sub-ledger)](04-services/payment-service.md)
 - [Report Service](04-services/report-service.md)
 - [Orchestration Service](04-services/orchestration-service.md)
+
+### 🖥️ 04.1. Giao diện Người dùng (UI/UX)
+- [Phân bổ UI/UX cho Kiến trúc Microservices](03-architecture/UIUX_ARCHITECTURE_MAPPING.md)
 
 ### 🛡️ 05. Quản lý Giao dịch & Dữ liệu (Transactions)
 Đảm bảo tính toàn vẹn dữ liệu trong hệ thống phân tán.

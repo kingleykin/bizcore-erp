@@ -1,9 +1,9 @@
 using System.Security.Claims;
 using Bizcore.BuildingBlocks.Authorization;
 using FluentAssertions;
-using Identity.API.Controllers;
-using Identity.API.Domain.Entities;
-using Identity.API.Infrastructure.Data;
+using Admin.API.Controllers;
+using Admin.API.Domain.Entities;
+using Admin.API.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -14,18 +14,18 @@ namespace Bizcore.UnitTests
 {
     public class MeControllerTests : IDisposable
     {
-        private readonly IdentityDbContext _db;
+        private readonly AdminDbContext _db;
         private readonly Mock<IPermissionCache> _cacheMock;
         private readonly Mock<ILogger<MeController>> _loggerMock;
         private readonly MeController _controller;
 
         public MeControllerTests()
         {
-            var options = new DbContextOptionsBuilder<IdentityDbContext>()
+            var options = new DbContextOptionsBuilder<AdminDbContext>()
                 .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
                 .Options;
             
-            _db = new IdentityDbContext(options);
+            _db = new AdminDbContext(options);
             _cacheMock = new Mock<IPermissionCache>();
             _loggerMock = new Mock<ILogger<MeController>>();
             
@@ -65,7 +65,7 @@ namespace Bizcore.UnitTests
 
             // Assert
             var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-            var dto = okResult.Value.As<Identity.API.Application.DTOs.UserPermissionsDto>();
+            var dto = okResult.Value.As<Admin.API.Application.DTOs.UserPermissionsDto>();
             dto.Permissions.Should().BeEquivalentTo(cachedPermissions);
             dto.UserId.Should().Be(userId);
         }
@@ -102,7 +102,7 @@ namespace Bizcore.UnitTests
 
             // Assert
             var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-            var dto = okResult.Value.As<Identity.API.Application.DTOs.UserPermissionsDto>();
+            var dto = okResult.Value.As<Admin.API.Application.DTOs.UserPermissionsDto>();
             dto.Permissions.Should().Contain("Invoice.Create");
             
             _cacheMock.Verify(x => x.SetAsync(userId, It.IsAny<string[]>(), It.IsAny<CancellationToken>()), Times.Once);

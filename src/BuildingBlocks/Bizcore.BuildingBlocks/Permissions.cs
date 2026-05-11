@@ -83,6 +83,14 @@ namespace Bizcore.BuildingBlocks
                 public const string ManagePermissions = "Identity.Roles.ManagePermissions";
             }
         }
+
+        // ── Admin — Organization & System ────────────────────────────────────────
+        public static class Admin
+        {
+            public const string OrgView    = "Admin.OrgView";
+            public const string SysAdmin   = "Admin.SysAdmin";
+            public const string SystemView = "Admin.SystemView";
+        }
     }
 
     /// <summary>

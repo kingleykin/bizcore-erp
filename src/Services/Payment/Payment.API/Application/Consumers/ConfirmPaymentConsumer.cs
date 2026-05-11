@@ -1,6 +1,8 @@
 using Bizcore.BuildingBlocks.Contracts;
 using MassTransit;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.SignalR;
+using Payment.API.Application.Hubs;
 using Payment.API.Domain.Entities;
 using Payment.API.Infrastructure.Data;
 
@@ -15,15 +17,18 @@ namespace Payment.API.Application.Consumers
     {
         private readonly AppDbContext _context;
         private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IHubContext<PaymentHub> _hubContext;
         private readonly ILogger<ConfirmPaymentConsumer> _logger;
 
         public ConfirmPaymentConsumer(
             AppDbContext context,
             IPublishEndpoint publishEndpoint,
+            IHubContext<PaymentHub> hubContext,
             ILogger<ConfirmPaymentConsumer> logger)
         {
             _context = context;
             _publishEndpoint = publishEndpoint;
+            _hubContext = hubContext;
             _logger = logger;
         }
 
@@ -74,6 +79,14 @@ namespace Payment.API.Application.Consumers
                 PaymentId = payment.Id,
                 InvoiceId = payment.InvoiceId,
                 Amount = payment.Amount,
+                PaymentDate = payment.PaymentDate
+            });
+
+            // SignalR Push Notification (UX Enhancement Layer)
+            await _hubContext.Clients.Group(payment.Id.ToString()).SendAsync("PaymentStatusUpdated", new 
+            {
+                PaymentId = payment.Id,
+                Status = "Completed",
                 PaymentDate = payment.PaymentDate
             });
         }

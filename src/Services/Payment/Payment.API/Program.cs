@@ -2,6 +2,8 @@ using Payment.API.Application.Services;
 using Payment.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
+using MassTransit.QuartzIntegration;
+using Quartz;
 using Payment.API.Application.Consumers;
 using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Serilog;
@@ -13,6 +15,7 @@ using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Authorization;
 using Bizcore.BuildingBlocks.Behaviors;
+using Bizcore.BuildingBlocks.Messaging;
 using Microsoft.AspNetCore.Authorization;
 using Prometheus;
 using StackExchange.Redis;
@@ -56,10 +59,25 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-admin",
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5)
+        };
+
+        // Support for SignalR authentication via query string
+        options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                var path = context.HttpContext.Request.Path;
+                if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/hubs/payment"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
         };
     });
 
@@ -91,6 +109,10 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+// Configure SignalR with Redis Backplane
+builder.Services.AddSignalR()
+       .AddStackExchangeRedis(redisConnection);
+
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
@@ -113,26 +135,23 @@ builder.Services.AddMediatR(cfg =>
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
-    // Consumers cho Saga orchestrator commands
-    x.AddConsumer<ConfirmPaymentConsumer>();
-    x.AddConsumer<RejectPaymentConsumer>();
+    // Automated registration of all Consumers in the assembly
+    x.AddConsumers(typeof(Program).Assembly);
+    
+    // Register shared consumers from BuildingBlocks
+    x.AddConsumers(typeof(RolePermissionsChangedConsumer).Assembly);
 
-    // Legacy consumers (giữ lại cho backward compatibility)
-    x.AddConsumer<PaymentCompensationRequestedConsumer>();
-    x.AddConsumer<InvoiceCreatedConsumer>();
-    x.AddConsumer<RolePermissionsChangedConsumer>();
+    x.AddQuartz();
+    x.AddQuartzConsumers();
 
-    x.AddEntityFrameworkOutbox<AppDbContext>(o =>
-    {
-        o.UseSqlServer();
-        o.UseBusOutbox();
-    });
+    // Outbox & Inbox Configuration
+    x.AddBusinessOutbox<AppDbContext>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.UseCorrelationId(context);
+        cfg.ConfigureBusinessBus(context);
 
-        // Message retry policy: 3 lần, mỗi lần cách 5 giây
+        // Message retry policy
         cfg.UseMessageRetry(r => r.Intervals(
             TimeSpan.FromSeconds(5),
             TimeSpan.FromSeconds(10),
@@ -145,45 +164,23 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
-        // Saga orchestrator commands
-        cfg.ReceiveEndpoint("payment-confirm", e =>
+        // Centralized Payment Service Endpoint
+        cfg.ReceiveEndpoint(QueueNames.PaymentService, e =>
         {
-            // Queue durability + dead letter
-            e.Durable = true;
-            e.AutoDelete = false;
-            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
-            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            e.ApplyBusinessEndpointSettings();
             
+            // Register all consumers for this service
             e.ConfigureConsumer<ConfirmPaymentConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("payment-reject", e =>
-        {
-            e.Durable = true;
-            e.AutoDelete = false;
-            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
-            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
-            
             e.ConfigureConsumer<RejectPaymentConsumer>(context);
-        });
-
-        // Legacy endpoints
-        cfg.ReceiveEndpoint("payment-compensation-requested", e =>
-        {
-            e.Durable = true;
             e.ConfigureConsumer<PaymentCompensationRequestedConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("payment-invoice-created", e =>
-        {
-            e.Durable = true;
             e.ConfigureConsumer<InvoiceCreatedConsumer>(context);
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
+
+            // Enable Inbox (Deduplication) for this service endpoint
+            e.UseEntityFrameworkOutbox<AppDbContext>(context);
         });
 
-        cfg.ReceiveEndpoint("payment-permission-updates", e =>
-        {
-            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
-        });
+        cfg.ConfigureEndpoints(context);
     });
 });
 
@@ -220,6 +217,7 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<Payment.API.Application.Hubs.PaymentHub>("/hubs/payment");
 
 // Database Initialization & Seeding
 try

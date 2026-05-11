@@ -12,11 +12,12 @@ bizcore-erp/
 │   ├── Gateway/
 │   │   └── Gateway.API/ (YARP Gateway)
 │   ├── Services/
-│   │   ├── Identity/ (Xác thực, phân quyền Dynamic, JWT, Redis)
-│   │   ├── Invoice/ (Quản lý hóa đơn)
-│   │   ├── Payment/ (Xử lý thanh toán)
-│   │   ├── Report/  (Tổng hợp báo cáo, Redis)
-│   │   ├── Audit/   (Centralized Audit Service, Immutable log, Hash chain)
+│   │   ├── Admin/       (Identity, Org Master Data, Global Settings)
+│   │   ├── Accounting/  (ACC Core & Batch, Ledger, Posting Engine)
+│   │   ├── Invoice/     (Quản lý hóa đơn - Phân hệ AR/AP)
+│   │   ├── Payment/     (Xử lý thanh toán - Phân hệ Treasury)
+│   │   ├── Report/      (Tổng hợp báo cáo, Redis)
+│   │   ├── Audit/       (Centralized Audit Service, Immutable log, Hash chain)
 │   │   └── Orchestration/ (Theo dõi luồng giao dịch qua event)
 │   ├── BuildingBlocks/
 │   │   └── Bizcore.BuildingBlocks/ (Shared Library: Contracts, Events)
@@ -28,7 +29,7 @@ bizcore-erp/
 
 ## 🧱 Kiến trúc Kỹ thuật
 
-* **Microservices**: Các service core (Identity, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](../03-architecture/ORCHESTRATION_GUIDE.md).
+* **Microservices**: Các service core (Admin, Accounting, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](../03-architecture/ORCHESTRATION_GUIDE.md).
 * **API Gateway**: YARP (Yet Another Reverse Proxy) port 5001.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
@@ -119,11 +120,11 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 | Service | Method | Endpoint | Quyền (Permission Code) | Mô tả |
 | :--- | :--- | :--- | :--- | :--- |
-| **Identity** | POST | `/api/v1/auth/login` | Công khai | Đăng nhập |
-| **Identity** | GET | `/api/v1/me/permissions`| [Authorize] | Lấy quyền User hiện tại |
-| **Identity** | GET | `/api/v1/me/navigation` | [Authorize] | Lấy menu động theo quyền |
-| **Identity** | GET | `/api/v1/users` | `Identity.Users.View` | Danh sách người dùng |
-| **Identity** | GET | `/api/v1/roles` | `Identity.Roles.View` | Danh sách Roles & Permissions |
+| **Admin** | POST | `/api/v1/auth/login` | Công khai | Đăng nhập |
+| **Admin** | GET | `/api/v1/me/permissions`| [Authorize] | Lấy quyền User hiện tại |
+| **Admin** | GET | `/api/v1/org/legal-entities`| `Admin.Org.View` | Lấy danh sách pháp nhân |
+| **Admin** | GET | `/api/v1/users` | `Admin.Users.View` | Danh sách người dùng |
+| **Accounting**| POST | `/api/v1/journals` | `Acc.Journal.Create`| Lập bút toán thủ công |
 | **Invoice** | GET | `/invoice` | `Invoice.View` | Xem danh sách hóa đơn |
 | **Invoice** | POST | `/invoice` | `Invoice.Create` | Tạo hóa đơn mới |
 | **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán (Idempotent) |
@@ -174,9 +175,10 @@ Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá tr�
 | `/report/{**catch-all}` | `http://report-api:8080` | RateLimit, Auth |
 | `/audit/{**catch-all}` | `http://audit-api:8080` | RateLimit, Auth |
 | `/orchestration/{**catch-all}` | `http://orchestration-api:8080` | RateLimit, Auth |
-| `/auth/{**catch-all}` | `http://identity-api:8080` | RateLimit, Anonymous |
-| `/users/{**catch-all}` | `http://identity-api:8080` | RateLimit, Auth |
-| `/roles/{**catch-all}` | `http://identity-api:8080` | RateLimit, Auth |
+| `/auth/{**catch-all}` | `http://admin-api:8080` | RateLimit, Anonymous |
+| `/users/{**catch-all}` | `http://admin-api:8080` | RateLimit, Auth |
+| `/org/{**catch-all}`   | `http://admin-api:8080` | RateLimit, Auth |
+| `/acc/{**catch-all}`   | `http://accounting-api:8080` | RateLimit, Auth |
 
 ---
 

@@ -33,10 +33,12 @@ bizcore-erp/
 ├── src/
 │   ├── Gateway/Gateway.API        # YARP Gateway, xử lý routing, auth tập trung
 │   ├── Services/
-│   │   ├── Identity               # Identity Service (JWT, RBAC, Authentication)
-│   │   ├── Invoice                # Quản lý Hóa đơn
-│   │   ├── Payment                # Xử lý Thanh toán
-│   │   ├── Report                 # Báo cáo tổng hợp
+│   │   ├── Admin                  # Admin Service (Identity, Org Master Data, Global Settings)
+│   │   ├── Accounting             # ACC Core & ACC Batch (Ledger, Posting Rule, Period Close)
+│   │   ├── Invoice                # Quản lý Hóa đơn (AR/AP Sub-ledger)
+│   │   ├── Payment                # Xử lý Thanh toán (Treasury Sub-ledger)
+│   │   ├── Inventory              # Quản lý Kho (INV Sub-ledger)
+│   │   ├── Report                 # Báo cáo tổng hợp (CQRS/Materialized Views)
 │   │   ├── Audit                  # Hệ thống Audit tập trung (Immutable, Hash chain)
 │   │   └── Orchestration          # Theo dõi luồng sự kiện phân tán (Read-side)
 │   ├── BuildingBlocks/

@@ -10,7 +10,7 @@ namespace Bizcore.BuildingBlocks.Authorization
     /// Mỗi microservice đăng ký handler này; permission list được load từ JWT claims
     /// (trong chế độ JWT-claims) hoặc từ PermissionCache (nếu dùng dynamic lookup).
     /// 
-    /// Hiện tại: đọc claim "permission" từ JWT (generated bởi Identity.API).
+    /// Hiện tại: đọc claim "permission" từ JWT (generated bởi Admin.API).
     /// Tương lai: swap sang IPermissionCache khi các service chuyển sang cache lookup.
     /// </summary>
     public class PermissionAuthorizationHandler

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Orchestration.API.Domain.Entities;
+using MassTransit;
 
 namespace Orchestration.API.Infrastructure.Data;
 
@@ -45,5 +46,10 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.PaymentId);
             e.HasIndex(x => x.InvoiceId);
         });
+
+        // MassTransit Outbox Mappings
+        modelBuilder.AddInboxStateEntity();
+        modelBuilder.AddOutboxMessageEntity();
+        modelBuilder.AddOutboxStateEntity();
     }
 }

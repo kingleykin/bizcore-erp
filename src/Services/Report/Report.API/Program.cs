@@ -12,6 +12,9 @@ using Prometheus;
 using StackExchange.Redis;
 using Bizcore.BuildingBlocks.Authorization;
 using Bizcore.BuildingBlocks.Authorization.Consumers;
+using Bizcore.BuildingBlocks.Messaging;
+using MassTransit.QuartzIntegration;
+using Quartz;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
 
@@ -49,7 +52,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-admin",
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5) // Allow small time differences between containers
@@ -96,19 +99,19 @@ DatabaseExtensions.PreCreateDatabase(builder.Configuration.GetConnectionString("
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<Report.API.Application.Consumers.InvoiceCreatedConsumer>();
-    x.AddConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>();
-    x.AddConsumer<RolePermissionsChangedConsumer>();
+    // Automated registration
+    x.AddConsumers(typeof(Program).Assembly);
+    x.AddConsumers(typeof(RolePermissionsChangedConsumer).Assembly);
 
-    x.AddEntityFrameworkOutbox<AppDbContext>(o =>
-    {
-        o.UseSqlServer();
-        o.UseBusOutbox();
-    });
+    x.AddQuartz();
+    x.AddQuartzConsumers();
+
+    // Outbox & Inbox Configuration
+    x.AddBusinessOutbox<AppDbContext>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.UseCorrelationId(context);
+        cfg.ConfigureBusinessBus(context);
 
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
@@ -116,20 +119,27 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
         });
 
-        cfg.ReceiveEndpoint("report-invoice-created", e =>
+        // Report Service Queue (Consolidated)
+        cfg.ReceiveEndpoint(QueueNames.ReportService, e =>
         {
+            e.ApplyBusinessEndpointSettings();
+            
+            // Register consumers
             e.ConfigureConsumer<Report.API.Application.Consumers.InvoiceCreatedConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("report-payment-completed", e =>
-        {
             e.ConfigureConsumer<Report.API.Application.Consumers.PaymentCompletedConsumer>(context);
+
+            // Enable Inbox (Deduplication)
+            e.UseEntityFrameworkOutbox<AppDbContext>(context);
         });
 
+        // Permission Updates (Shared)
         cfg.ReceiveEndpoint("report-permission-updates", e =>
         {
+            e.ApplyBusinessEndpointSettings();
             e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
+
+        cfg.ConfigureEndpoints(context);
     });
 });
 

@@ -23,6 +23,8 @@ import {
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
+import * as signalR from '@microsoft/signalr';
+
 const GATEWAY_URL = 'http://localhost:5001';
 
 const OrchestrationFlow = ({ api }) => {
@@ -839,25 +841,91 @@ function App() {
   };
 
   const handlePay = async (invoiceId, amount) => {
-    const toastId = toast.loading('Đang xử lý thanh toán...');
+    const toastId = toast.loading('Đang xử lý thanh toán (Async)...');
     try {
-      // Generate a simple idempotency key for the demo
+      // 1. Submit Request with Idempotency Key
       const idempotencyKey = `pay_${invoiceId}_${new Date().getTime()}`;
       
-      await api.post('/api/v1/payment/pay', {
+      const res = await api.post('/api/v1/payment/pay', {
         invoiceId,
         amount,
-        paymentMethod: 'CreditCard' // Default method for demo
+        paymentMethod: 'CreditCard'
       }, {
         headers: {
           'X-Idempotency-Key': idempotencyKey
         }
       });
+      
+      const { paymentId } = res.data;
+
+      // 2. Thiết lập SignalR
+      const connection = new signalR.HubConnectionBuilder()
+        .withUrl(`${GATEWAY_URL}/hubs/payment?access_token=${token}`)
+        .withAutomaticReconnect()
+        .build();
+
+      let isResolved = false;
+
+      await new Promise(async (resolve, reject) => {
+        // Lắng nghe Push Event (Real-time UX)
+        connection.on("PaymentStatusUpdated", (event) => {
+          if (isResolved) return;
+          isResolved = true;
+          connection.stop();
+          if (event.status === 'Completed') resolve(event);
+          else reject(new Error(event.failureReason || 'Thanh toán thất bại'));
+        });
+
+        try {
+          await connection.start();
+          await connection.invoke("WatchPayment", paymentId);
+        } catch (err) {
+          console.warn("SignalR connection failed, falling back to polling exclusively", err);
+        }
+
+        // 3. Fallback: Polling Loop (Correctness Guarantee)
+        const startTime = Date.now();
+        const maxTimeout = 60000; // 60 seconds
+
+        const pollStatus = async () => {
+          while (!isResolved && Date.now() - startTime < maxTimeout) {
+            try {
+              const statusRes = await api.get(`/api/v1/payment/${paymentId}`);
+              const statusData = statusRes.data;
+              
+              if (statusData.status === 'Completed') {
+                isResolved = true;
+                connection.stop();
+                return resolve(statusData);
+              }
+              if (statusData.status === 'Failed') {
+                isResolved = true;
+                connection.stop();
+                return reject(new Error(statusData.failureReason));
+              }
+              
+              // Exponential backoff wait
+              await new Promise(r => setTimeout(r, (statusData.retryAfter || 2) * 1000));
+            } catch (pollErr) {
+              console.error("Polling error:", pollErr);
+              await new Promise(r => setTimeout(r, 2000));
+            }
+          }
+          
+          if (!isResolved) {
+            connection.stop();
+            reject(new Error("Timeout: Giao dịch đang xử lý quá lâu, vui lòng kiểm tra lại sau."));
+          }
+        };
+
+        pollStatus();
+      });
+
       fetchData();
       toast.success('Thanh toán hoàn tất!', { id: toastId });
     } catch (error) {
       console.error('Error processing payment:', error);
-      toast.error('Thanh toán thất bại: ' + getErrorDetail(error), { id: toastId });
+      toast.error(error.message || ('Thanh toán thất bại: ' + getErrorDetail(error)), { id: toastId });
     }
   };
 

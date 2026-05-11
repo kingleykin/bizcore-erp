@@ -13,6 +13,8 @@ using Microsoft.AspNetCore.Authorization;
 using Hangfire;
 using Hangfire.SqlServer;
 using MassTransit;
+using Bizcore.BuildingBlocks.MassTransit;
+using Bizcore.BuildingBlocks.Messaging;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -65,7 +67,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateIssuerSigningKey = true,
             IssuerSigningKey         = new SymmetricSecurityKey(key),
             ValidateIssuer           = true,
-            ValidIssuer              = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidIssuer              = builder.Configuration["Jwt:Issuer"] ?? "bizcore-admin",
             ValidateAudience         = true,
             ValidAudience            = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew                = TimeSpan.Zero
@@ -86,41 +88,35 @@ builder.Services.AddAuthorization();
 // ── 5. MassTransit — Consumer only (no Outbox on Audit side) ─────────────────
 builder.Services.AddMassTransit(x =>
 {
-    x.AddConsumer<AuditEventConsumer>();
-    x.AddConsumer<RolePermissionsChangedConsumer>();
+    // Automated registration
+    x.AddConsumers(typeof(Program).Assembly);
+    x.AddConsumers(typeof(RolePermissionsChangedConsumer).Assembly);
 
     x.UsingRabbitMq((context, cfg) =>
     {
+        cfg.ConfigureBusinessBus(context);
+
         cfg.Host(builder.Configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
         {
             h.Username(builder.Configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
         });
 
-        cfg.ReceiveEndpoint("audit-events", e =>
+        // Audit Events Service Queue
+        cfg.ReceiveEndpoint(QueueNames.AuditService, e =>
         {
-            e.Durable     = true;
-            e.AutoDelete  = false;
-
-            // Dead Letter Queue — messages that fail all retries go here
-            e.SetQueueArgument("x-dead-letter-exchange", "audit-events_error");
-            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
-
-            // Retry policy: 5 attempts with exponential back-off
-            e.UseMessageRetry(r => r.Intervals(
-                TimeSpan.FromSeconds(5),
-                TimeSpan.FromSeconds(15),
-                TimeSpan.FromSeconds(30),
-                TimeSpan.FromSeconds(60),
-                TimeSpan.FromSeconds(120)));
-
+            e.ApplyBusinessEndpointSettings();
             e.ConfigureConsumer<AuditEventConsumer>(context);
         });
 
+        // Permission Updates (Shared among all services)
         cfg.ReceiveEndpoint("audit-permission-updates", e =>
         {
+            e.ApplyBusinessEndpointSettings();
             e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
         });
+
+        cfg.ConfigureEndpoints(context);
     });
 });
 

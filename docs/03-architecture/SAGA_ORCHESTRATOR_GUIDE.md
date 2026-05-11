@@ -111,7 +111,16 @@ Initial → Validating → Confirmed / Rejected → Final
 
 `Invoice.Status = Paid` chỉ được cập nhật sau khi Payment service đã confirm thành công và publish `IPaymentCompletedEvent`/`IPaymentConfirmedEvent`. Nếu hệ thống chọn cập nhật Invoice trước khi Payment confirmed, saga bắt buộc phải có compensation để revert/adjust invoice khi confirm payment thất bại.
 
-### 5. Saga Orchestrator (tiếp)
+### 5. Đảm bảo độ tin cậy (Reliability)
+
+Tất cả các bước trong Saga đều được bảo vệ bởi **Transactional Outbox**. Điều này có nghĩa là:
+- Khi Saga gửi một Command (ví dụ `IValidateInvoiceCommand`), command đó được lưu vào bảng `OutboxMessage` trong cùng transaction với việc cập nhật `SagaState`.
+- Nếu database commit thành công nhưng RabbitMQ down, message sẽ được đẩy đi ngay khi RabbitMQ hoạt động trở lại.
+- **Saga Repository** được cấu hình dùng `ExistingDbContext<AppDbContext>()` để đảm bảo atomicity tuyệt đối.
+
+---
+
+### 6. Saga Orchestrator (tiếp)
 
 **Happy path - nhận `IInvoiceValidatedEvent`:**
 - Chuyển state → `Confirmed`

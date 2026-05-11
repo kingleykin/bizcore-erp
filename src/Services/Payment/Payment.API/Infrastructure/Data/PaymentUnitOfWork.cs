@@ -10,11 +10,13 @@ namespace Payment.API.Infrastructure.Data;
 public class PaymentUnitOfWork : IUnitOfWork
 {
     private readonly AppDbContext _context;
+    private readonly ILogger<PaymentUnitOfWork> _logger;
     private IDbContextTransaction? _currentTransaction;
 
-    public PaymentUnitOfWork(AppDbContext context)
+    public PaymentUnitOfWork(AppDbContext context, ILogger<PaymentUnitOfWork> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<IDbContextTransaction> BeginTransactionAsync(
@@ -38,8 +40,12 @@ public class PaymentUnitOfWork : IUnitOfWork
 
         try
         {
-            await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogDebug("Committing transaction. SaveChangesAsync starting...");
+            var savedCount = await _context.SaveChangesAsync(cancellationToken);
+            _logger.LogDebug("SaveChangesAsync completed. Records affected: {Count}", savedCount);
+            
             await _currentTransaction.CommitAsync(cancellationToken);
+            _logger.LogDebug("Transaction committed successfully.");
         }
         catch
         {

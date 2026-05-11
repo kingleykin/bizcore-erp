@@ -4,12 +4,16 @@ using Bizcore.BuildingBlocks.Authorization;
 using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Middlewares;
+using Bizcore.BuildingBlocks.Messaging;
 using Microsoft.AspNetCore.Authorization;
 using MassTransit;
+using MassTransit.QuartzIntegration;
+using Quartz;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Orchestration.API.Application.Consumers;
+using Bizcore.BuildingBlocks.Contracts;
 using Orchestration.API.Application.Sagas;
 using Orchestration.API.Application.Services;
 using Orchestration.API.Domain.Entities;
@@ -53,7 +57,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-admin",
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5)
@@ -100,7 +104,20 @@ builder.Services.AddScoped<IProcessOrchestrationService, ProcessOrchestrationSer
 
 builder.Services.AddMassTransit(x =>
 {
-    x.AddDelayedMessageScheduler();
+    // Register shared consumers from BuildingBlocks
+    x.AddConsumers(typeof(RolePermissionsChangedConsumer).Assembly);
+    
+    x.AddQuartz();
+    x.AddQuartzConsumers();
+
+    // Outbox & Inbox Configuration
+    x.AddBusinessOutbox<AppDbContext>();
+
+    // Command Mappings (Sender Topology)
+    // We send commands to Service-Level Exchanges, not directly to Queues
+    x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
+    x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
+    x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
 
     // Legacy event observers (giữ lại cho backward compatibility)
     x.AddConsumer<InvoiceCreatedOrchestrationConsumer>();
@@ -108,22 +125,21 @@ builder.Services.AddMassTransit(x =>
     x.AddConsumer<PaymentCompensationRequestedOrchestrationConsumer>();
     x.AddConsumer<RolePermissionsChangedConsumer>();
 
+
     // Saga orchestrator
     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>()
         .EntityFrameworkRepository(r =>
         {
             r.ConcurrencyMode = ConcurrencyMode.Pessimistic;
-            r.AddDbContext<DbContext, AppDbContext>((provider, builder) =>
-            {
-                builder.UseSqlServer(provider.GetRequiredService<IConfiguration>()
-                    .GetConnectionString("DefaultConnection"));
-            });
+            r.ExistingDbContext<AppDbContext>();
         });
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.UseDelayedMessageScheduler();
-        cfg.UseCorrelationId(context);
+        cfg.ConfigureBusinessBus(context);
+        
+        // Cấu hình Quartz Scheduler thay cho RabbitMQ Plugin
+        cfg.UsePublishMessageScheduler();
 
         // Message retry policy
         cfg.UseMessageRetry(r => r.Intervals(
@@ -138,40 +154,26 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
         });
 
-        // Saga endpoint
-        cfg.ReceiveEndpoint("orchestration-payment-saga", e =>
+        // Centralized Orchestration Service Endpoint
+        cfg.ReceiveEndpoint(QueueNames.OrchestrationService, e =>
         {
-            e.Durable = true;
-            e.AutoDelete = false;
-            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
-            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
+            e.ApplyBusinessEndpointSettings();
             
+            // Register Saga
             e.ConfigureSaga<PaymentSagaState>(context);
-        });
 
-        // Legacy event observer endpoints
-        cfg.ReceiveEndpoint("orchestration-invoice-created", e =>
-        {
-            e.Durable = true;
+            // Register all event consumers for this service
             e.ConfigureConsumer<InvoiceCreatedOrchestrationConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("orchestration-payment-completed", e =>
-        {
-            e.Durable = true;
             e.ConfigureConsumer<PaymentCompletedOrchestrationConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("orchestration-payment-compensation-requested", e =>
-        {
-            e.Durable = true;
             e.ConfigureConsumer<PaymentCompensationRequestedOrchestrationConsumer>(context);
+            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
+
+            // Enable Inbox (Deduplication) for this service endpoint
+            e.UseEntityFrameworkOutbox<AppDbContext>(context);
         });
 
-        cfg.ReceiveEndpoint("orchestration-permission-updates", e =>
-        {
-            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
-        });
+        // Đăng ký Saga và Consumers
+        cfg.ConfigureEndpoints(context);
     });
 });
 

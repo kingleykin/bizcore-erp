@@ -116,7 +116,8 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
         _context.Payments.Add(payment);
 
         // Publish event INSIDE transaction (saved to Outbox)
-        // MassTransit will intercept this and save to OutboxMessage table
+        _logger.LogDebug("Publishing IPaymentInitiatedEvent to Outbox. PaymentId: {PaymentId}", payment.Id);
+
         await _publishEndpoint.Publish<IPaymentInitiatedEvent>(new
         {
             PaymentId = payment.Id,
@@ -125,6 +126,8 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
             IdempotencyKey = request.IdempotencyKey,
             InitiatedAt = payment.PaymentDate
         }, cancellationToken);
+
+        _logger.LogDebug("IPaymentInitiatedEvent publish call completed. Waiting for transaction commit.");
 
         // DO NOT call SaveChangesAsync here!
         // TransactionBehavior's UnitOfWork.CommitAsync will save:

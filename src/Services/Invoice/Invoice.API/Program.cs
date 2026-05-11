@@ -3,6 +3,8 @@ using Invoice.API.Application.Clients;
 using Invoice.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using MassTransit;
+using MassTransit.QuartzIntegration;
+using Quartz;
 using Invoice.API.Application.Consumers;
 using Bizcore.BuildingBlocks.Authorization.Consumers;
 using Serilog;
@@ -14,6 +16,7 @@ using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Behaviors;
 using Bizcore.BuildingBlocks.Authorization;
+using Bizcore.BuildingBlocks.Messaging;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Prometheus;
@@ -54,7 +57,7 @@ builder.Services.AddAuthentication("Bearer")
             ValidateIssuerSigningKey = true,
             IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(key),
             ValidateIssuer = true,
-            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-identity",
+            ValidIssuer = builder.Configuration["Jwt:Issuer"] ?? "bizcore-admin",
             ValidateAudience = true,
             ValidAudience = builder.Configuration["Jwt:Audience"] ?? "bizcore-erp",
             ClockSkew = TimeSpan.FromMinutes(5)
@@ -121,23 +124,21 @@ builder.Services.AddMediatR(cfg =>
 // MassTransit Configuration
 builder.Services.AddMassTransit(x =>
 {
-    // Saga orchestrator command consumer
-    x.AddConsumer<ValidateInvoiceCommandConsumer>();
-    x.AddConsumer<PaymentCompletedConsumer>();
+    // Automated registration of all Consumers and Definitions in the assembly
+    x.AddConsumers(typeof(Program).Assembly);
+    
+    // Register shared consumers from BuildingBlocks
+    x.AddConsumers(typeof(RolePermissionsChangedConsumer).Assembly);
 
-    // Legacy Request-Reply consumer (giữ lại tạm để không break existing tests)
-    x.AddConsumer<ApplyPaymentToInvoiceConsumer>();
-    x.AddConsumer<RolePermissionsChangedConsumer>();
+    x.AddQuartz();
+    x.AddQuartzConsumers();
 
-    x.AddEntityFrameworkOutbox<AppDbContext>(o =>
-    {
-        o.UseSqlServer();
-        o.UseBusOutbox();
-    });
+    // Outbox & Inbox Configuration
+    x.AddBusinessOutbox<AppDbContext>();
 
     x.UsingRabbitMq((context, cfg) =>
     {
-        cfg.UseCorrelationId(context);
+        cfg.ConfigureBusinessBus(context);
 
         // Message retry policy
         cfg.UseMessageRetry(r => r.Intervals(
@@ -152,35 +153,8 @@ builder.Services.AddMassTransit(x =>
             h.Password(builder.Configuration.GetValue<string>("RabbitMQ:Password")?? "guest");
         });
 
-        // Saga orchestrator command endpoint
-        cfg.ReceiveEndpoint("invoice-validate", e =>
-        {
-            e.Durable = true;
-            e.AutoDelete = false;
-            e.SetQueueArgument("x-dead-letter-exchange", $"{e.InputAddress.AbsolutePath}_error");
-            e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds);
-            
-            e.ConfigureConsumer<ValidateInvoiceCommandConsumer>(context);
-        });
-
-        // Legacy Request-Reply endpoint (giữ lại tạm)
-        cfg.ReceiveEndpoint("invoice-apply-payment", e =>
-        {
-            e.Durable = true;
-            e.ConfigureConsumer<ApplyPaymentToInvoiceConsumer>(context);
-        });
-
-        // Luồng Saga - lắng nghe kết quả thanh toán cuối cùng
-        cfg.ReceiveEndpoint("invoice-payment-completed", e =>
-        {
-            e.Durable = true;
-            e.ConfigureConsumer<PaymentCompletedConsumer>(context);
-        });
-
-        cfg.ReceiveEndpoint("invoice-permission-updates", e =>
-        {
-            e.ConfigureConsumer<RolePermissionsChangedConsumer>(context);
-        });
+        // Centralized Invoice Service Endpoint - Now managed via ConsumerDefinitions
+        cfg.ConfigureEndpoints(context);
     });
 });
 

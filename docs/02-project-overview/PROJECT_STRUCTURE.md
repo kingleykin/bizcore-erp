@@ -21,7 +21,7 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 ### 🔹 Macro-level (Kiến trúc tổng thể)
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
-* **Microservices**: Mỗi service (Identity, Invoice, Payment, Report) quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
+* **Microservices**: Mỗi service quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Bao gồm: **Admin** (Master Data, Auth), **Accounting** (Core Ledger & Batch), **Invoice** (AR/AP), **Payment** (Treasury), **Report**. Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices.
   * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA (`AuditEvent`, `PaymentCompletedEvent`...).
   * **Permissions**: Định nghĩa tập trung toàn bộ các hành động (Fine-grained actions) của hệ thống phục vụ Permission-based Authorization.
@@ -33,7 +33,7 @@ Hệ thống áp dụng mô hình bảo mật nhiều lớp:
 
 1. **Edge Security (Gateway)**:
     * **Rate Limiting**: Ngăn chặn spam request ở tầng Gateway.
-    * **Identity Service**: Microservice độc lập chuyên xử lý Authentication (JWT, BCrypt) và phân quyền **Dynamic Authorization** (Roles/Permissions) với Redis Caching.
+    * **Admin Service**: Microservice độc lập chuyên xử lý Authentication (JWT, BCrypt) và phân quyền **Dynamic Authorization** (Roles/Permissions) với Redis Caching.
 2. **Zero Trust (Services)**:
     * Mọi Microservice đều tự thực hiện việc kiểm tra chữ ký của JWT Token (không chỉ tin tưởng Gateway).
     * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Permission cụ thể (ví dụ: `Invoice.Create`). User phải có quyền tương ứng trong Redis Cache hoặc JWT mới có thể thực hiện.
@@ -84,7 +84,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao tách lớp Application?** | Để khi bạn cần chuyển sang Unit Test, bạn chỉ cần test lớp Application Service mà không cần quan tâm đến HTTP Request/Response của Controller. |
 | **Tại sao dùng YARP?** | YARP linh hoạt hơn các Gateway tĩnh, cho phép chúng ta can thiệp vào pipeline (như Transforms, Auth, RateLimit) bằng code C# quen thuộc. |
 | **Tại sao dùng Dynamic Authorization?** | Để tránh tình trạng **Role Explosion**. Permission-based kết hợp Redis giúp phân quyền chi tiết (Granular), hiệu năng cao và có thể thay đổi quyền hạn runtime mà không cần cấp lại JWT. |
-| **Tại sao dùng Logical DB Isolation?** | Việc duy trì nhiều DB vật lý riêng biệt tốn tài nguyên. Dùng chung 1 Server nhưng cấp phát các Logical DB (InvoiceDb, PaymentDb) đảm bảo tính cách ly dữ liệu (Data Isolation) theo đúng chuẩn Microservices nhưng vẫn dễ cấu hình. |
+| **Tại sao dùng Logical DB Isolation?** | Việc duy trì nhiều DB vật lý riêng biệt tốn tài nguyên. Dùng chung 1 Server nhưng cấp phát các Logical DB (AdminDb, InvoiceDb, PaymentDb) đảm bảo tính cách ly dữ liệu (Data Isolation) theo đúng chuẩn Microservices nhưng vẫn dễ cấu hình. |
 | **Tại sao cần BuildingBlocks?** | Trong Microservices, khi Service A gửi message cho Service B, cả hai cần đồng thuận về cấu trúc dữ liệu (Contract). Việc để Contract ở một thư viện dùng chung giúp tránh lỗi sai lệch schema và giảm thiểu code dư thừa (DRY). |
 | **Tại sao dùng RabbitMQ?** | Để thực hiện luồng cập nhật trạng thái Hóa đơn một cách bất đồng bộ. Payment Service không cần biết Invoice Service xử lý thế nào, nó chỉ cần "thông báo" rằng thanh toán đã xong. |
 | **Tại sao tách Validation?** | Tách biệt giữa **Input Validation** (FluentValidation) và **Domain Validation** (Business Rules) giúp mã nguồn sạch hơn, dễ bảo trì và thể hiện tư duy kiến trúc phân lớp chuyên nghiệp. |

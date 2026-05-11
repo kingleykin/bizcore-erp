@@ -109,14 +109,41 @@ e.AutoDelete = false;
 Publish event fail sau khi commit DB → data inconsistency.
 
 ### Giải pháp
-✅ **Entity Framework Outbox** (đã có)
+✅ **Entity Framework Outbox** (Sản xuất thực tế)
 
+Để đạt được độ tin cậy cấp độ production, chúng ta tách biệt 2 giai đoạn:
+
+**1. Giai đoạn đăng ký (Registration):**
+Trong `AddMassTransit(...)`:
 ```csharp
-x.AddEntityFrameworkOutbox<AppDbContext>(o =>
+x.AddBusinessOutbox<AppDbContext>(); 
+```
+*Đăng ký: Inbox, Outbox, Delivery services và Background Dispatcher.*
+
+**2. Giai đoạn Endpoint (Middleware):**
+Trong `ReceiveEndpoint(...)`:
+```csharp
+e.UseEntityFrameworkOutbox<AppDbContext>(context);
+```
+*Đánh chặn message bên trong Consumer để đảm bảo tính Idempotency và Atomicity.*
+
+**Cấu hình tối ưu:**
+```csharp
+x.AddEntityFrameworkOutbox<TDbContext>(o =>
 {
     o.UseSqlServer();
-    o.UseBusOutbox();
+    o.UseBusOutbox(); // Atomicity cho Publish/Send từ Controller/Service
+    o.QueryDelay = TimeSpan.FromSeconds(1); // Tăng tốc độ đẩy message (ERP standard)
 });
+```
+
+**Quan trọng:** `AppDbContext` phải chứa các thực thể của MassTransit:
+```csharp
+protected override void OnModelCreating(ModelBuilder modelBuilder) {
+    modelBuilder.AddInboxStateEntity();
+    modelBuilder.AddOutboxMessageEntity();
+    modelBuilder.AddOutboxStateEntity();
+}
 ```
 
 **Flow:**
@@ -151,6 +178,13 @@ Schedule(() => ValidationTimeout, x => x.ValidationTimeoutTokenId, s =>
     s.Received = r => r.CorrelateById(ctx => ctx.Message.PaymentId);
 });
 ```
+
+✅ **Reliable Persistence**
+Saga repository sử dụng `ExistingDbContext` để dùng chung transaction với business logic:
+```csharp
+r.ExistingDbContext<AppDbContext>();
+```
+*(Tránh sử dụng `AddDbContext<DbContext, AppDbContext>` để không gặp lỗi khởi tạo abstract class).*
 
 **Flow:**
 ```
