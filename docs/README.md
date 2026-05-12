@@ -11,6 +11,7 @@ Chào mừng bạn đến với kho tài liệu kỹ thuật của dự án **Bi
 Hướng dẫn dành cho người mới bắt đầu và thiết lập môi trường.
 
 - [Hướng dẫn Phát triển (DEV_GUIDE)](01-getting-started/DEV_GUIDE.md)
+- [Hướng dẫn Debug (DEBUGGING_GUIDE)](01-getting-started/DEBUGGING_GUIDE.md)
 - [Hướng dẫn Demo hệ thống (DEMO_GUIDE)](01-getting-started/DEMO_GUIDE.md)
 
 ### 🏗️ 02. Tổng quan Dự án (Project Overview)

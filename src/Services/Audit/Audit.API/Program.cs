@@ -39,7 +39,11 @@ try
 catch (Exception ex) { Log.Error(ex, "Error occurred during AuditDb initialization."); throw; }
 
 // Hangfire Recurring Jobs
-RecurringJob.AddOrUpdate<RetentionCleanupJob>("audit-retention-cleanup", j => j.ExecuteAsync(CancellationToken.None), Cron.Daily(2, 0));
-RecurringJob.AddOrUpdate<IntegrityVerificationJob>("audit-integrity-check", j => j.ExecuteAsync(CancellationToken.None), Cron.Weekly(DayOfWeek.Sunday, 3, 0));
+using (var scope = app.Services.CreateScope())
+{
+    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+    recurringJobManager.AddOrUpdate<RetentionCleanupJob>("audit-retention-cleanup", j => j.ExecuteAsync(CancellationToken.None), Cron.Daily(2, 0));
+    recurringJobManager.AddOrUpdate<IntegrityVerificationJob>("audit-integrity-check", j => j.ExecuteAsync(CancellationToken.None), Cron.Weekly(DayOfWeek.Sunday, 3, 0));
+}
 
 app.Run();

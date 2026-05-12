@@ -3,6 +3,7 @@ using Admin.API.Application.Services;
 using Admin.API.Infrastructure.Data;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
+using Bizcore.BuildingBlocks.Messaging;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +37,7 @@ namespace Admin.API
             // 4. MassTransit
             services.AddBizcoreMassTransit<AdminDbContext>(
                 builder.Configuration,
-                "admin-service"); // Admin usually doesn't have consumers yet, but good for outbox
+                QueueNames.AdminService);
         }
     }
 }

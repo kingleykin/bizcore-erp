@@ -2,7 +2,6 @@ using Bizcore.BuildingBlocks.Contracts;
 using FluentAssertions;
 using MassTransit;
 using MassTransit.Testing;
-using Quartz;
 using Microsoft.Extensions.DependencyInjection;
 using Orchestration.API.Application.Sagas;
 using Orchestration.API.Domain.Entities;
@@ -21,7 +20,6 @@ namespace Bizcore.UnitTests
             await using var provider = new ServiceCollection()
                 .AddMassTransitTestHarness(x =>
                 {
-                    x.AddQuartz();
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
@@ -72,7 +70,6 @@ namespace Bizcore.UnitTests
             await using var provider = new ServiceCollection()
                 .AddMassTransitTestHarness(x =>
                 {
-                    x.AddQuartz();
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
@@ -126,7 +123,6 @@ namespace Bizcore.UnitTests
             await using var provider = new ServiceCollection()
                 .AddMassTransitTestHarness(x =>
                 {
-                    x.AddQuartz();
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
@@ -181,7 +177,6 @@ namespace Bizcore.UnitTests
             await using var provider = new ServiceCollection()
                 .AddMassTransitTestHarness(x =>
                 {
-                    x.AddQuartz();
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);

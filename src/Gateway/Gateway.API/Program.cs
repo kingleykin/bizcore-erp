@@ -22,7 +22,17 @@ builder.Services.AddBizcoreAuth(builder.Configuration);
 // Load Service Specific Module
 builder.Services.AddBizcoreModule<GatewayModule>(builder);
 
-// ── 3. App Pipeline ───────────────────────────────────────────────────────────
+// ── 3. YARP Registration (Moved here for better debugging) ────────────────────
+var reverseProxyConfig = builder.Configuration.GetSection("ReverseProxy");
+if (!reverseProxyConfig.Exists())
+{
+    throw new InvalidOperationException("Phần cấu hình 'ReverseProxy' không tìm thấy trong appsettings.json");
+}
+
+builder.Services.AddReverseProxy()
+    .LoadFromConfig(reverseProxyConfig);
+
+// ── 4. App Pipeline ───────────────────────────────────────────────────────────
 var app = builder.Build();
 
 app.UseMiddleware<GlobalExceptionMiddleware>();
@@ -52,7 +62,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 // Map Reverse Proxy
-app.MapReverseProxy().RequireRateLimiting("fixed").RequireAuthorization();
+app.MapReverseProxy().RequireRateLimiting("fixed");
 app.MapMetrics();
 
 app.Run();

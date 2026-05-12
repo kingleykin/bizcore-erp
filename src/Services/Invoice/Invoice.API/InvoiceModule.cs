@@ -2,13 +2,13 @@ using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Behaviors;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
+using Bizcore.BuildingBlocks.Messaging;
 using FluentValidation;
 using FluentValidation.AspNetCore;
 using Invoice.API.Application.Clients;
 using Invoice.API.Application.Services;
 using Invoice.API.Infrastructure.Data;
 using MassTransit;
-using Quartz;
 using Microsoft.EntityFrameworkCore;
 
 namespace Invoice.API
@@ -53,13 +53,8 @@ namespace Invoice.API
 
             // 6. MassTransit
             services.AddBizcoreMassTransit<AppDbContext>(
-                builder.Configuration,
-                "invoice-service",
-                x =>
-                {
-                    x.AddQuartz();
-                    x.AddQuartzConsumers();
-                });
+                builder.Configuration, 
+                QueueNames.InvoiceService);
         }
     }
 }

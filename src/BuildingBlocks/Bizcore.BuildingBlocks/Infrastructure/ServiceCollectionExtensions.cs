@@ -96,6 +96,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
         {
             services.AddHttpContextAccessor();
             services.AddControllers();
+            services.AddHealthChecks();
             return services;
         }
     }

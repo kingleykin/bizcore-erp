@@ -1,4 +1,16 @@
 <Solution>
+  <Project Path="../docker-compose.dcproj">
+    <Build />
+  </Project>
+  <Folder Name="/Solution Items/">
+    <File Path="../docker-compose.yml" />
+    <File Path="../.dockerignore" />
+    <File Path="../otel-collector-config.yml" />
+    <File Path="../prometheus.yml" />
+    <File Path="../run-tests.ps1" />
+    <File Path="../run-tests.sh" />
+    <File Path="../README.md" />
+  </Folder>
   <Folder Name="/BuildingBlocks/">
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks/Bizcore.BuildingBlocks.csproj" />
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks.Grpc/Bizcore.BuildingBlocks.Grpc.csproj" />

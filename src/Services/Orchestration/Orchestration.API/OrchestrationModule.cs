@@ -4,7 +4,6 @@ using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
 using MassTransit;
-using Quartz;
 using Microsoft.EntityFrameworkCore;
 using Orchestration.API.Application.Sagas;
 using Orchestration.API.Application.Services;
@@ -36,9 +35,6 @@ namespace Orchestration.API
                 QueueNames.OrchestrationService,
                 x =>
                 {
-                    x.AddQuartz();
-                    x.AddQuartzConsumers();
-
                     // Saga orchestrator
                     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>()
                         .EntityFrameworkRepository(r =>

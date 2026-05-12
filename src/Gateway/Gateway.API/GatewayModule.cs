@@ -14,7 +14,23 @@ namespace Gateway.API
     {
         public void RegisterServices(IServiceCollection services, WebApplicationBuilder builder)
         {
-            // 1. CORS
+            // 1. Authorization & Policies
+            services.AddAuthorization(options =>
+            {
+                // Định nghĩa policy cho các endpoint công khai (Login, Register)
+                options.AddPolicy("Public", policy => 
+                {
+                    policy.RequireAssertion(_ => true);
+                });
+
+                // Định nghĩa policy cho các endpoint yêu cầu xác thực
+                options.AddPolicy("Secure", policy => 
+                {
+                    policy.RequireAuthenticatedUser();
+                });
+            });
+
+            // 2. CORS
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowFrontend", policy =>
@@ -63,27 +79,6 @@ namespace Gateway.API
                 });
             });
 
-            // 4. YARP
-            services.AddReverseProxy()
-                .LoadFromConfig(builder.Configuration.GetSection("ReverseProxy"))
-                .AddTransforms(transformBuilder =>
-                {
-                    transformBuilder.AddRequestTransform(context =>
-                    {
-                        var correlationId = context.HttpContext.Items["X-Correlation-ID"]?.ToString();
-                        if (!string.IsNullOrEmpty(correlationId))
-                        {
-                            context.ProxyRequest.Headers.Remove("X-Correlation-ID");
-                            context.ProxyRequest.Headers.TryAddWithoutValidation("X-Correlation-ID", correlationId);
-                        }
-                        return ValueTask.CompletedTask;
-                    });
-                    transformBuilder.AddResponseTransform(context =>
-                    {
-                        context.ProxyResponse?.Headers.Remove("X-Correlation-ID");
-                        return ValueTask.CompletedTask;
-                    });
-                });
         }
     }
 }

@@ -22,6 +22,9 @@ var app = builder.Build();
 
 app.UseBizcorePipeline("BizCore Payment API v1");
 
+// SignalR Hub Mapping
+app.MapHub<Payment.API.Application.Hubs.PaymentHub>("/hubs/payment");
+
 // Database Initialization
 await app.Services.MigrateDatabaseAsync<AppDbContext>();
 

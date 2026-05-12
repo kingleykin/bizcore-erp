@@ -2,7 +2,6 @@ using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
 using MassTransit;
-using Quartz;
 using Microsoft.EntityFrameworkCore;
 using Report.API.Application.Services;
 using Report.API.Infrastructure.Data;
@@ -25,12 +24,7 @@ namespace Report.API
             // 3. MassTransit
             services.AddBizcoreMassTransit<AppDbContext>(
                 builder.Configuration,
-                QueueNames.ReportService,
-                x =>
-                {
-                    x.AddQuartz();
-                    x.AddQuartzConsumers();
-                });
+                QueueNames.ReportService);
         }
     }
 }

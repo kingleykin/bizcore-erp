@@ -1,7 +1,6 @@
 using MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
 using Microsoft.EntityFrameworkCore;
-using MassTransit.EntityFrameworkCoreIntegration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -9,75 +8,46 @@ namespace Bizcore.BuildingBlocks.MassTransit;
 
 public static class MassTransitExtensions
 {
-    /// <summary>
-    /// Applies standard enterprise settings to a Business Critical receive endpoint.
-    /// - Durable = true (Messages are persisted to disk)
-    /// - AutoDelete = false (Queue stays even if no consumers)
-    /// - NO TTL (Business data must NOT expire automatically)
-    /// - Shared DLX (bizcore.dlx) with routing key {queue-name}.error
-    /// </summary>
-    public static void ApplyBusinessEndpointSettings(this IRabbitMqReceiveEndpointConfigurator configurator)
+    public static void ApplyBusinessEndpointSettings(this IReceiveEndpointConfigurator configurator)
     {
-        configurator.Durable = true;
-        configurator.AutoDelete = false;
+        configurator.ConfigureConsumeTopology = true;
         
-        // REMOVED Global TTL to prevent data loss in ERP/Accounting flows
-        
-        // Configure Shared Dead Letter Exchange
-        var queueName = configurator.InputAddress.AbsolutePath.Split('/').LastOrDefault();
-        if (!string.IsNullOrEmpty(queueName))
+        if (configurator is IRabbitMqReceiveEndpointConfigurator rmq)
         {
-            configurator.SetQueueArgument("x-dead-letter-exchange", MessagingConstants.SharedDeadLetterExchange);
-            configurator.SetQueueArgument("x-dead-letter-routing-key", $"{queueName}.error");
+            // Durable and AutoDelete are already true/false by default for RabbitMQ.
+            // Explicitly setting them here in a callback can cause "modified after being used" errors.
+            
+            var queueName = rmq.InputAddress.AbsolutePath.Split('/').LastOrDefault();
+            if (!string.IsNullOrEmpty(queueName))
+            {
+                rmq.SetQueueArgument("x-dead-letter-exchange", MessagingConstants.SharedDeadLetterExchange);
+                rmq.SetQueueArgument("x-dead-letter-routing-key", $"{queueName}.error");
+            }
         }
     }
 
-    /// <summary>
-    /// Applies settings for a Retry or Transient queue that DOES require TTL.
-    /// </summary>
-    public static void ApplyRetryEndpointSettings(this IRabbitMqReceiveEndpointConfigurator configurator, int ttlMs = MessagingConstants.RetryTtlMs)
+    public static void ApplyRetryEndpointSettings(this IRabbitMqReceiveEndpointConfigurator rmq, int ttlMs = MessagingConstants.RetryTtlMs)
     {
-        configurator.Durable = true;
-        configurator.AutoDelete = false;
-        configurator.SetQueueArgument("x-message-ttl", ttlMs);
+        rmq.SetQueueArgument("x-message-ttl", ttlMs);
     }
 
-    /// <summary>
-    /// Maps a command to a Service-Level Exchange. 
-    /// This ensures that the Sender only declares an Exchange, 
-    /// while the Receiver owns the Queue and its complex configuration (DLX, TTL, etc).
-    /// </summary>
     public static void MapBusinessCommand<T>(this IBusRegistrationConfigurator configurator, string serviceQueueName) where T : class
     {
-        // We map to "exchange:name" instead of "queue:name" 
-        // to decouple Sender topology from Receiver queue arguments.
         EndpointConvention.Map<T>(new Uri($"exchange:{serviceQueueName}"));
     }
 
-    /// <summary>
-    /// Adds production-grade Entity Framework Outbox & Inbox.
-    /// - Outbox: Guarantees atomicity between DB changes and message publishing.
-    /// - Inbox: Guarantees idempotency (deduplication) of incoming messages.
-    /// </summary>
     public static void AddBusinessOutbox<TDbContext>(this IBusRegistrationConfigurator x) where TDbContext : DbContext
     {
         x.AddEntityFrameworkOutbox<TDbContext>(o =>
         {
             o.UseSqlServer();
-            o.UseBusOutbox(); // Atomicity for Send/Publish from HTTP/Service layer
-            
-            // Tune for higher throughput in ERP flows
+            o.UseBusOutbox();
             o.QueryDelay = TimeSpan.FromSeconds(1);
-
-            // Note: Inbox/Outbox cleanup is enabled by default in MT 8
         });
     }
 
     /// <summary>
-    /// Automates MassTransit registration with standard ERP settings.
-    /// - Convention-based consumer registration.
-    /// - Service-level receive endpoint with Outbox.
-    /// - Automatic endpoint configuration via ConsumerDefinitions.
+    /// Đăng ký MassTransit chuẩn cho Bizcore ERP (Kiến trúc tối ưu hóa).
     /// </summary>
     public static IServiceCollection AddBizcoreMassTransit<TDbContext>(
         this IServiceCollection services, 
@@ -86,19 +56,31 @@ public static class MassTransitExtensions
         Action<IBusRegistrationConfigurator>? extraConfig = null) 
         where TDbContext : DbContext
     {
+        // Capture assembly TRƯỚC KHI vào lambda để tránh quét nhầm MassTransit assembly
+        var callingAssembly = System.Reflection.Assembly.GetCallingAssembly();
+
         services.AddMassTransit(x =>
         {
-            // 1. Convention-based consumer registration (from the calling assembly)
-            x.AddConsumers(System.Reflection.Assembly.GetCallingAssembly());
+            // Sử dụng serviceQueueName làm TIỀN TỐ để phân tách các service trên cùng RabbitMQ broker
+            x.SetEndpointNameFormatter(new KebabCaseEndpointNameFormatter(serviceQueueName, false));
             
-            // Allow extra consumers/sagas
+            x.AddConsumers(callingAssembly);
+            
             extraConfig?.Invoke(x);
-
             x.AddBusinessOutbox<TDbContext>();
+
+            // Áp dụng Infrastructure (Outbox/Settings) cho TẤT CẢ endpoint tự động
+            x.AddConfigureEndpointsCallback((context, name, cfg) =>
+            {
+                cfg.ApplyBusinessEndpointSettings();
+                cfg.UseEntityFrameworkOutbox<TDbContext>(context);
+            });
 
             x.UsingRabbitMq((context, cfg) =>
             {
-                cfg.ConfigureBusinessBus(context);
+                cfg.UseCorrelationId(context);
+                cfg.UseDelayedMessageScheduler();
+
                 var host = configuration.GetValue<string>("RabbitMQ:Host") ?? "localhost";
                 var port = configuration.GetValue<ushort?>("RabbitMQ:Port") ?? 5672;
 
@@ -108,35 +90,12 @@ public static class MassTransitExtensions
                     h.Password(configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
                 });
 
-                // 2. Centralized Service Endpoint with Outbox
-                cfg.ReceiveEndpoint(serviceQueueName, e =>
-                {
-                    e.ApplyBusinessEndpointSettings();
-                    e.ConfigureConsumers(context); // Automatically configures all consumers for this endpoint
-                    e.UseEntityFrameworkOutbox<TDbContext>(context);
-                });
-
+                // Tự động cấu hình toàn bộ Consumers và Sagas
+                // Giải pháp tối ưu: Không cấu hình ReceiveEndpoint thủ công để tránh xung đột
                 cfg.ConfigureEndpoints(context);
             });
         });
 
         return services;
-    }
-
-    /// <summary>
-    /// Configures global business topology and observability.
-    /// </summary>
-    public static void ConfigureBusinessBus(this IRabbitMqBusFactoryConfigurator cfg, IBusRegistrationContext context)
-    {
-        // Standardize Correlation and Tracing
-        cfg.UseCorrelationId(context);
-        
-        // Use Quartz for all scheduling/delayed messages
-        cfg.UsePublishMessageScheduler();
-        
-        // Ensure ALL consumers on this bus use the Outbox/Inbox
-        // Note: This applies it globally to all ReceiveEndpoints on this host
-        // cfg.UseEntityFrameworkOutbox<TDbContext>(context); 
-        // ^ This needs a generic type, so we usually call it in the specific Program.cs or via a helper.
     }
 }
