@@ -15,9 +15,6 @@ public class ValidateInvoiceConsumerDefinition : ConsumerDefinition<ValidateInvo
 
     protected override void ConfigureConsumer(IReceiveEndpointConfigurator endpointConfigurator, IConsumerConfigurator<ValidateInvoiceCommandConsumer> consumerConfigurator, IRegistrationContext context)
     {
-        // Enable Inbox (Deduplication) for this consumer
-        endpointConfigurator.UseEntityFrameworkOutbox<AppDbContext>(context);
-
         if (endpointConfigurator is IRabbitMqReceiveEndpointConfigurator rabbitMq)
         {
             rabbitMq.ApplyBusinessEndpointSettings();

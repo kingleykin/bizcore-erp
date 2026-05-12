@@ -37,8 +37,10 @@ namespace Gateway.API
                 {
                     policy.WithOrigins("http://localhost:5173", "http://localhost:3000")
                           .AllowAnyHeader()
-                          .AllowAnyMethod();
+                          .AllowAnyMethod()
+                          .AllowCredentials();
                 });
+
             });
 
             // 2. Rate Limiting
