@@ -19,6 +19,7 @@ Client → POST /payment/pay
 ```
 
 **Vấn đề:**
+
 - Tight coupling: Payment phụ thuộc trực tiếp vào Invoice
 - Blocking: Client chờ đến khi Invoice xử lý xong
 - Single point of failure: Invoice down → Payment API bị block
@@ -48,6 +49,7 @@ Client → POST /payment/pay
 ```
 
 **Ưu điểm:**
+
 - Loose coupling: Services giao tiếp qua events/commands
 - Non-blocking: Client nhận response ngay, không chờ validation
 - Resilient: Invoice down không ảnh hưởng đến Payment API
@@ -73,6 +75,7 @@ Body:
 ```
 
 **Response: 202 Accepted**
+
 ```json
 {
   "paymentId": "9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f",
@@ -90,11 +93,13 @@ Body:
 ### 3. Saga Orchestrator
 
 **State Machine:**
+
 ```
 Initial → Validating → Confirmed / Rejected → Final
 ```
 
 **Saga nhận `IPaymentInitiatedEvent`:**
+
 - Tạo saga instance với `CorrelationId = PaymentId`
 - Chuyển state → `Validating`
 - Send `IValidateInvoiceCommand` → `invoice-validate` queue
@@ -102,6 +107,7 @@ Initial → Validating → Confirmed / Rejected → Final
 ### 4. Invoice service
 
 **Consumer nhận `IValidateInvoiceCommand`:**
+
 - Validate invoice (tồn tại, status, amount match)
 - Nếu OK:
   - Không cập nhật `Invoice.Status = Paid` ở bước validate
@@ -114,6 +120,7 @@ Initial → Validating → Confirmed / Rejected → Final
 ### 5. Đảm bảo độ tin cậy (Reliability)
 
 Tất cả các bước trong Saga đều được bảo vệ bởi **Transactional Outbox**. Điều này có nghĩa là:
+
 - Khi Saga gửi một Command (ví dụ `IValidateInvoiceCommand`), command đó được lưu vào bảng `OutboxMessage` trong cùng transaction với việc cập nhật `SagaState`.
 - Nếu database commit thành công nhưng RabbitMQ down, message sẽ được đẩy đi ngay khi RabbitMQ hoạt động trở lại.
 - **Saga Repository** được cấu hình dùng `ExistingDbContext<AppDbContext>()` để đảm bảo atomicity tuyệt đối.
@@ -123,14 +130,17 @@ Tất cả các bước trong Saga đều được bảo vệ bởi **Transactio
 ### 6. Saga Orchestrator (tiếp)
 
 **Happy path - nhận `IInvoiceValidatedEvent`:**
+
 - Chuyển state → `Confirmed`
 - Send `IConfirmPaymentCommand` → `payment-confirm` queue
 
 **Failure path - nhận `IInvoiceValidationFailedEvent`:**
+
 - Chuyển state → `Rejected`
 - Send `IRejectPaymentCommand` → `payment-reject` queue
 
 ### 6. Payment service (finalize)
+
 Có — **nếu không thiết kế guardrail**, bạn sẽ dính đúng 2 vấn đề đó:
 
 1. client retry/polling quá nhiều → quá tải
@@ -144,9 +154,9 @@ Nhưng đây là bài toán quen thuộc của distributed system, có cách kh�
 
 ## ❗ Nguy cơ
 
-* Client retry liên tục (timeout → retry)
-* API bị spam
-* Có thể tạo duplicate request
+- Client retry liên tục (timeout → retry)
+- API bị spam
+- Có thể tạo duplicate request
 
 ---
 
@@ -210,10 +220,10 @@ GET /payment/{id} mỗi 1s
 
 Nguyên nhân có thể:
 
-* Consumer crash
-* Message không được ack
-* Queue misconfig
-* Network issue
+- Consumer crash
+- Message không được ack
+- Queue misconfig
+- Network issue
 
 ---
 
@@ -223,8 +233,8 @@ Nguyên nhân có thể:
 
 👉 Khi publish event:
 
-* Lưu DB
-* Sau đó mới gửi message
+- Lưu DB
+- Sau đó mới gửi message
 
 ---
 
@@ -240,8 +250,8 @@ cfg.UseEntityFrameworkOutbox<AppDbContext>();
 
 Trong RabbitMQ:
 
-* Queue durable
-* Message persistent
+- Queue durable
+- Message persistent
 
 ---
 
@@ -253,8 +263,8 @@ cfg.UseMessageRetry(r => r.Interval(3, TimeSpan.FromSeconds(5)));
 
 👉 Nếu fail:
 
-* Đẩy vào DLQ
-* Không mất message
+- Đẩy vào DLQ
+- Không mất message
 
 ---
 
@@ -283,7 +293,7 @@ scan payment:
 
 # 🎯 3. Kiến trúc chống “Processing mãi”
 
-## Flow chuẩn:
+## Flow chuẩn
 
 ```text id="r1w2hj"
 Payment → Processing
@@ -336,10 +346,10 @@ Reconciliation job (fallback)
 
 👉 Có — và đã có pattern chuẩn:
 
-* ✔ Outbox
-* ✔ Retry
-* ✔ Timeout
-* ✔ Reconciliation
+- ✔ Outbox
+- ✔ Retry
+- ✔ Timeout
+- ✔ Reconciliation
 
 ---
 
@@ -351,18 +361,20 @@ Reconciliation job (fallback)
 
 Nếu bạn muốn, tôi có thể:
 
-* Viết luôn config MassTransit chuẩn (Outbox + Retry + DLQ)
-* Hoặc code job xử lý “Processing stuck”
-* Hoặc vẽ flow failure handling để bạn demo cực mạnh
+- Viết luôn config MassTransit chuẩn (Outbox + Retry + DLQ)
+- Hoặc code job xử lý “Processing stuck”
+- Hoặc vẽ flow failure handling để bạn demo cực mạnh
 
 Chỉ cần nói, tôi giúp bạn biến hệ thống này thành “đủ chuẩn production mindset”.
 
 **ConfirmPaymentConsumer nhận `IConfirmPaymentCommand`:**
+
 - Cập nhật `Payment.Status = Completed`
 - Publish `IPaymentConfirmedEvent` (để Saga finalize)
 - Publish `IPaymentCompletedEvent` (cho Invoice mark paid và Report projection)
 
 **RejectPaymentConsumer nhận `IRejectPaymentCommand`:**
+
 - Cập nhật `Payment.Status = Failed`, `FailureReason = reason`
 - Publish `IPaymentRejectedEvent` (để Saga finalize)
 
@@ -373,6 +385,7 @@ GET /api/v1/payment/{paymentId}
 ```
 
 **Response khi đang xử lý:**
+
 ```json
 {
   "paymentId": "9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f",
@@ -385,6 +398,7 @@ GET /api/v1/payment/{paymentId}
 ```
 
 **Response khi thành công:**
+
 ```json
 {
   "paymentId": "9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f",
@@ -397,6 +411,7 @@ GET /api/v1/payment/{paymentId}
 ```
 
 **Response khi thất bại:**
+
 ```json
 {
   "paymentId": "9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f",
@@ -447,16 +462,19 @@ GET /api/v1/payment/{paymentId}
 ## RabbitMQ Queues
 
 ### Payment Service
+
 - `payment-confirm` - nhận `IConfirmPaymentCommand` từ Saga
 - `payment-reject` - nhận `IRejectPaymentCommand` từ Saga
 - `payment-compensation-requested` - legacy compensation
 - `payment-invoice-created` - sync invoice read model
 
 ### Invoice Service
+
 - `invoice-validate` - nhận `IValidateInvoiceCommand` từ Saga
 - `invoice-apply-payment` - legacy Request-Reply endpoint (giữ lại cho tests)
 
 ### Orchestration Service
+
 - `orchestration-payment-saga` - Saga state machine endpoint
 - `orchestration-invoice-created` - legacy event observer
 - `orchestration-payment-completed` - legacy event observer
@@ -467,12 +485,14 @@ GET /api/v1/payment/{paymentId}
 ## Tracing với CorrelationId
 
 Tất cả events/commands đều có `X-Correlation-ID` header được propagate tự động qua:
+
 - `CorrelationIdMiddleware` (HTTP → HttpContext.Items)
 - `CorrelationIdSendFilter` (HttpContext → MassTransit SendContext)
 - `CorrelationIdPublishFilter` (HttpContext → MassTransit PublishContext)
 - `CorrelationIdConsumeFilter` (MassTransit headers → Serilog LogContext)
 
 **Query logs trong Grafana Loki:**
+
 ```logql
 {service="payment-api"} | json | CorrelationId="trace-abc-456"
 {service="invoice-api"} | json | CorrelationId="trace-abc-456"
@@ -543,6 +563,7 @@ curl -X POST http://localhost:5001/api/v1/payment/pay \
 ### Backward Compatibility
 
 Hệ thống giữ lại các endpoints/consumers cũ để không break existing tests:
+
 - `ApplyPaymentToInvoiceConsumer` (Invoice service) - vẫn hoạt động cho Request-Reply
 - `IApplyPaymentToInvoiceRequest/Response` contracts - vẫn tồn tại
 
@@ -562,6 +583,7 @@ Hệ thống giữ lại các endpoints/consumers cũ để không break existin
 ### Saga State
 
 Query saga state trong database:
+
 ```sql
 SELECT 
     CorrelationId,
@@ -591,11 +613,13 @@ ORDER BY CreatedAt DESC;
 ### Payment stuck ở Processing
 
 **Nguyên nhân:**
+
 - Invoice service down
 - RabbitMQ connection issue
 - Saga orchestrator down
 
 **Giải pháp:**
+
 1. Check logs với CorrelationId
 2. Check RabbitMQ queues: `invoice-validate` có message pending không?
 3. Check saga state trong database
@@ -604,10 +628,12 @@ ORDER BY CreatedAt DESC;
 ### Invoice đã Paid nhưng Payment vẫn Processing
 
 **Nguyên nhân:**
+
 - `IInvoiceValidatedEvent` không được publish
 - Saga không nhận được event
 
 **Giải pháp:**
+
 1. Check Invoice service logs
 2. Check RabbitMQ: `orchestration-payment-saga` queue có message không?
 3. Manually publish `IInvoiceValidatedEvent` để trigger saga
@@ -615,10 +641,12 @@ ORDER BY CreatedAt DESC;
 ### Saga bị duplicate
 
 **Nguyên nhân:**
+
 - `IPaymentInitiatedEvent` được publish 2 lần
 - Idempotency key không hoạt động
 
 **Giải pháp:**
+
 1. Check Payment service logs: có duplicate request không?
 2. Check saga state: có 2 saga với cùng PaymentId không?
 3. Manually finalize saga thừa

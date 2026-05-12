@@ -72,6 +72,53 @@ public static class MassTransitExtensions
     }
 
     /// <summary>
+    /// Automates MassTransit registration with standard ERP settings.
+    /// - Convention-based consumer registration.
+    /// - Service-level receive endpoint with Outbox.
+    /// - Automatic endpoint configuration via ConsumerDefinitions.
+    /// </summary>
+    public static IServiceCollection AddBizcoreMassTransit<TDbContext>(
+        this IServiceCollection services, 
+        IConfiguration configuration,
+        string serviceQueueName,
+        Action<IBusRegistrationConfigurator>? extraConfig = null) 
+        where TDbContext : DbContext
+    {
+        services.AddMassTransit(x =>
+        {
+            // 1. Convention-based consumer registration (from the calling assembly)
+            x.AddConsumers(System.Reflection.Assembly.GetCallingAssembly());
+            
+            // Allow extra consumers/sagas
+            extraConfig?.Invoke(x);
+
+            x.AddBusinessOutbox<TDbContext>();
+
+            x.UsingRabbitMq((context, cfg) =>
+            {
+                cfg.ConfigureBusinessBus(context);
+                cfg.Host(configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
+                {
+                    h.Username(configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
+                    h.Password(configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");
+                });
+
+                // 2. Centralized Service Endpoint with Outbox
+                cfg.ReceiveEndpoint(serviceQueueName, e =>
+                {
+                    e.ApplyBusinessEndpointSettings();
+                    e.ConfigureConsumers(context); // Automatically configures all consumers for this endpoint
+                    e.UseEntityFrameworkOutbox<TDbContext>(context);
+                });
+
+                cfg.ConfigureEndpoints(context);
+            });
+        });
+
+        return services;
+    }
+
+    /// <summary>
     /// Configures global business topology and observability.
     /// </summary>
     public static void ConfigureBusinessBus(this IRabbitMqBusFactoryConfigurator cfg, IBusRegistrationContext context)

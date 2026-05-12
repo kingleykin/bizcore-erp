@@ -10,8 +10,10 @@ Chào mừng bạn đến với tài liệu hướng dẫn phát triển của *
 2. [Cấu trúc Project](#2-cấu-trúc-project)
 3. [Quy trình phát triển tính năng mới](#3-quy-trình-phát-triển-tính-năng-mới)
 4. [Các Pattern cốt lõi & Building Blocks](#4-các-pattern-cốt-lõi--building-blocks)
-5. [Hướng dẫn riêng cho từng Service](#5-hướng-dẫn-riêng-cho-từng-service)
-6. [Checklist tạo Service mới](#6-checklist-tạo-service-mới)
+    - [4.5. Giao tiếp gRPC (Synchronous Communication)](#45-giao-tiếp-grpc-synchronous-communication)
+5. [Điều phối Saga (Orchestration)](#5-điều-phối-saga-orchestration)
+6. [Hướng dẫn riêng cho từng Service](#6-hướng-dẫn-riêng-cho-từng-service)
+7. [Checklist tạo Service mới](#7-checklist-tạo-service-mới)
 
 ---
 
@@ -66,6 +68,7 @@ Invoice.API/
 Giả sử bạn cần thêm tính năng "Tạo Hóa đơn mới" vào `Invoice.API`:
 
 ### Bước 1: Định nghĩa Domain Entity
+
 Tạo entity trong `Domain/Entities/`. Sử dụng **Factory Method** thay vì public constructor để đảm bảo tính toàn vẹn.
 
 ```csharp
@@ -84,6 +87,7 @@ public class Invoice
 ```
 
 ### Bước 2: Tạo Command & Handler
+
 Tạo Command (DTO) và Handler trong `Application/Commands/`.
 > **Lưu ý**: Handler KHÔNG gọi `SaveChangesAsync()`. Việc này được `TransactionBehavior` tự động xử lý.
 
@@ -109,12 +113,15 @@ public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand,
 ```
 
 ### Bước 3: Cấu hình DB & Migrations
+
 Nếu có thay đổi schema, hãy tạo migration:
+
 ```powershell
 dotnet ef migrations add InitialCreate --project src/Services/Invoice/Invoice.API
 ```
 
 ### Bước 4: Viết Controller
+
 Exposure endpoint trong `Controllers/`.
 
 ```csharp
@@ -131,16 +138,21 @@ public async Task<ActionResult<InvoiceDto>> Create([FromBody] CreateInvoiceComma
 ## 4. 🧩 Các Pattern cốt lõi & Building Blocks
 
 ### 4.1. Quản lý Giao dịch (Transaction & Unit of Work)
+
 Hệ thống sử dụng `TransactionBehavior` để tự động bao bọc các `Command` (kết thúc bằng từ "Command") trong một Transaction.
+
 - **Quy tắc**: Mọi thay đổi dữ liệu phải qua `IUnitOfWork`.
 - **Thực thi**: `TransactionBehavior` sẽ gọi `UnitOfWork.CommitAsync()` sau khi Handler chạy thành công.
 
 ### 4.2. Messaging & Outbox Pattern
+
 Chúng ta sử dụng **MassTransit** với **RabbitMQ**. Để đảm bảo tính nhất quán giữa Database và Message, Outbox Pattern được kích hoạt mặc định.
+
 - Khi bạn gọi `_publishEndpoint.Publish`, message sẽ được lưu vào bảng `OutboxMessages` trong cùng transaction với dữ liệu nghiệp vụ.
 - Một background worker sẽ quét và gửi message đi thực tế.
 
 ### 4.3. Xác thực & Phân quyền động (Auth & Dynamic AuthZ)
+
 Hệ thống sử dụng mô hình **Centralized Identity + Distributed Authorization** dựa trên mã quyền (Permission Codes).
 
 - **Authentication**: Thực hiện qua JWT Token do `Identity.API` cấp. Token chứa các claims `permission`.
@@ -149,19 +161,82 @@ Hệ thống sử dụng mô hình **Centralized Identity + Distributed Authoriz
 - **Cơ chế**: Hệ thống dùng `DynamicAuthorizationPolicyProvider` để tự động tạo Policy và `PermissionAuthorizationHandler` để kiểm tra quyền từ **Redis Cache** (ưu tiên) hoặc **JWT Claims** (fallback).
 
 #### 🛠️ Cách thêm Role & Permission mới
+
 1. **Định nghĩa**: Thêm hằng số mã quyền vào `Bizcore.BuildingBlocks.Permissions`.
 2. **Seeder**: Khai báo quyền mới trong `DbSeeder.cs` của `Identity.API`.
 3. **Gán quyền**: Gán quyền cho Role qua UI quản trị hoặc API `/api/v1/roles/{id}/permissions`.
 
 #### 🔍 Hướng dẫn Debug
+
 - **JWT**: Dùng [jwt.io](https://jwt.io) kiểm tra claim `permission`.
 - **Redis**: Kiểm tra key `user_permissions:{userId}` bằng Redis Insight.
 - **Log**: Bật log `Debug` cho namespace `Bizcore.BuildingBlocks.Authorization` để xem chi tiết quá trình đánh giá quyền.
 
 ### 4.4. Audit & Reversal (Khôi phục dữ liệu)
+
 Hệ thống cho phép khôi phục giá trị cũ của các trường thông qua `RestoreInvoiceFieldCommand`.
+
 - **Domain Guard**: Phải kiểm tra logic nghiệp vụ trong Entity trước khi khôi phục (ví dụ: không cho phép khôi phục nếu hóa đơn đã bị hủy).
 - **Concurrency**: Luôn sử dụng `RowVersion` (Timestamp) để tránh ghi đè dữ liệu cũ.
+
+### 4.6. Module Pattern & Clean Program.cs
+
+Để giữ cho `Program.cs` sạch và dễ bảo trì, chúng ta đóng gói logic đăng ký dịch vụ vào một lớp `Module` kế thừa từ `IServiceModule`.
+
+**Quy trình đăng ký:**
+
+1. Tạo lớp `MyServiceModule.cs` trong project API.
+2. Triển khai phương thức `RegisterServices`.
+3. Sử dụng `builder.Services.AddBizcoreModule<MyServiceModule>(builder)` trong `Program.cs`.
+
+**Ví dụ Program.cs chuẩn:**
+
+```csharp
+var builder = WebApplication.CreateBuilder(args);
+
+// 1. Host Extensions
+builder.Host.AddBizcoreLogging("My.API");
+
+// 2. Service Registrations (Centralized)
+builder.Services.AddBizcoreTelemetry("My.API");
+builder.Services.AddBizcoreInfrastructure();
+builder.Services.AddBizcoreAuth(builder.Configuration);
+builder.Services.AddBizcoreVersioning();
+builder.Services.AddBizcoreSwagger("My API", "Description");
+
+// 3. Load Module nghiệp vụ
+builder.Services.AddBizcoreModule<MyServiceModule>(builder);
+
+var app = builder.Build();
+app.UseBizcorePipeline("My API v1");
+app.Run();
+```
+
+---
+
+### 4.7. Giao tiếp gRPC (Synchronous Communication)
+
+Hệ thống sử dụng **gRPC** cho các truy vấn dữ liệu tức thời (Query/Read-only) giữa các microservices để đảm bảo hiệu năng cao và kiểu dữ liệu chặt chẽ.
+
+**Các quy tắc bắt buộc:**
+
+1. **Query-only**: Chỉ dùng gRPC để đọc dữ liệu. **KHÔNG** dùng gRPC để thực hiện lệnh (Command) làm thay đổi trạng thái (hãy dùng RabbitMQ).
+2. **Resilience Pipeline**: Mỗi gRPC client khi đăng ký phải được gắn Resilience Pipeline (Retry, Circuit Breaker, Timeout). Sử dụng tiện ích `AddBizcoreGrpcClient` trong `BuildingBlocks`.
+3. **Service Abstraction**: Tuyệt đối không inject trực tiếp `GrpcClient` vào Business Service. Hãy bọc nó qua một Proxy Service (ví dụ: `AuditClientService`).
+4. **Error Mapping**: Sử dụng `GrpcErrorMapper` để chuyển đổi `RpcException` thành Domain Exception.
+5. **Query vs Command**: Chỉ dùng gRPC cho Query. Mọi Command thay đổi dữ liệu phải đi qua RabbitMQ (Async).
+6. **Quy tắc 2-Hops**: Một yêu cầu đồng bộ không được vượt quá 2 bước nhảy gRPC. Nếu chuỗi dài hơn, hãy sử dụng Cache hoặc Async Events.
+
+**Cách đăng ký gRPC Client trong Module.cs:**
+
+```csharp
+services.AddBizcoreGrpcClient<AuditGrpc.AuditGrpcClient>(
+    builder.Configuration, 
+    "Audit" // Phải khớp với key trong appsettings.json
+);
+```
+
+> 🔍 Xem chi tiết tại: [Hướng dẫn gRPC](../06-communication/GRPC_GUIDE.md)
 
 ---
 
@@ -170,7 +245,9 @@ Hệ thống cho phép khôi phục giá trị cũ của các trường thông q
 Khi một quy trình nghiệp vụ kéo dài qua nhiều service (ví dụ: Thanh toán -> Duyệt hóa đơn -> Trừ tiền -> Gửi Email), chúng ta sử dụng **Orchestration.API** với **MassTransit State Machine Saga**.
 
 ### Khi nào cần cập nhật Orchestration.API?
+
 Bạn cần can thiệp vào đây khi:
+
 - Thêm một bước mới vào quy trình (ví dụ: thêm bước "Gửi Email thông báo").
 - Thay đổi thứ tự các bước.
 - Thêm logic xử lý lỗi/bồi hoàn (Compensating Transactions).
@@ -179,11 +256,14 @@ Bạn cần can thiệp vào đây khi:
 
 1. **Định nghĩa Event/Command**: Trong `BuildingBlocks.Contracts`, thêm interface cho Command mới (ví dụ: `ISendEmailCommand`) và Event kết thúc (ví dụ: `IEmailSentEvent`).
 2. **Khai báo trong Saga**: Mở `PaymentSaga.cs`, khai báo Event và State mới (nếu cần).
+
    ```csharp
    public Event<IEmailSentEvent> EmailSent { get; private set; }
    public State SendingEmail { get; private set; }
    ```
+
 3. **Cập nhật State Machine**: Thay vì `Finalize()` ngay sau khi `PaymentConfirmed`, bạn chuyển sang state mới và gửi command.
+
    ```csharp
    During(Confirmed,
        When(PaymentConfirmed)
@@ -196,6 +276,7 @@ Bạn cần can thiệp vào đây khi:
            .Finalize()
    );
    ```
+
 4. **Xử lý Timeout**: Luôn thêm `Schedule` để tránh Saga bị treo nếu service bên thứ 3 (Email) không phản hồi.
 
 ### Cách tạo một Luồng điều phối (Saga) hoàn toàn mới
@@ -209,11 +290,14 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
    - Cấu hình mapping trong `OnModelCreating` (đặc biệt là `CorrelationId`).
 4. **Đăng ký trong `Program.cs`**:
    - Thêm vào phần `AddMassTransit`:
+
      ```csharp
      x.AddSagaStateMachine<InventorySaga, InventorySagaState>()
          .EntityFrameworkRepository(r => { ... });
      ```
+
    - Cấu hình Receive Endpoint:
+
      ```csharp
      cfg.ReceiveEndpoint("orchestration-inventory-saga", e =>
      {
@@ -233,19 +317,22 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 
 ---
 
-## 6. ✅ Checklist tạo Service mới
+## 7. ✅ Checklist tạo Service mới
 
-1. [ ] Tạo Project Web API (.NET 8).
-2. [ ] Add reference tới `Bizcore.BuildingBlocks`.
-3. [ ] Cấu hình `Program.cs` (DI, Swagger, MassTransit, Authentication).
-4. [ ] Tạo `AppDbContext` kế thừa từ kiến trúc của BuildingBlocks.
-5. [ ] Implement `IUnitOfWork` cho service đó.
-6. [ ] Cấu hình `appsettings.json` (ConnectionStrings, RabbitMQ, IdentityServer).
-7. [ ] Tạo Migration đầu tiên.
-8. [ ] Viết HealthCheck.
+1. [ ] Tạo project ASP.NET Core Web API mới.
+2. [ ] Reference project `Bizcore.BuildingBlocks`.
+3. [ ] Tạo lớp `ServiceModule` và implement `IServiceModule`.
+4. [ ] Di chuyển logic đăng ký DB, DI, MassTransit vào `Module`.
+5. [ ] Làm sạch `Program.cs` theo template chuẩn (Xem mục 4.6).
+6. [ ] Thêm cấu hình logging, RabbitMQ, Redis vào `appsettings.json`.
+7. [ ] Đăng ký service mới vào Gateway (YARP) `appsettings.json`.
+8. [ ] Thêm service vào `docker-compose.yml`.
+9. [ ] Định nghĩa các Permission mới trong `BuildingBlocks` và Seeder.
 
 ---
 
 > **Tài liệu liên quan**:
+>
 > - [Coding Conventions](../06-conventions/CODING_CONVENTIONS.md)
 > - [Orchestration Guide](../03-architecture/ORCHESTRATION_GUIDE.md)
+> - [gRPC Guide](../06-communication/GRPC_GUIDE.md)

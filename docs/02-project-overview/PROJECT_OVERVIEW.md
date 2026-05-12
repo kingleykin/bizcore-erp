@@ -34,23 +34,27 @@ bizcore-erp/
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
-* **Logging & Observability**:
-  * **Serilog + Loki**: Ghi log tập trung và lưu trữ logs có cấu trúc trong Loki.
-  * **Prometheus**: Thu thập metrics từ tất cả các microservices (HTTP request latency, count, size).
-  * **Grafana**: Trực quan hóa logs và metrics từ Loki và Prometheus trên các dashboard chuyên nghiệp.
-  * **Correlation ID**: Tự động gán và truyền ID (`X-Correlation-ID`) qua toàn bộ các service để truy vết (Distributed Tracing).
-  * **Promtail**: Đơn vị log shipping để đẩy logs từ containers lên Loki.
+  * **Logging & Observability**:
+    * **LGTM Stack**: Tích hợp toàn diện Loki (Logs), Grafana (Dashboard), Tempo (Traces) và Prometheus (Metrics).
+    * **Serilog + Loki**: Ghi log tập trung và lưu trữ logs có cấu trúc trong Loki.
+    * **Prometheus**: Thu thập metrics từ tất cả các microservices (HTTP request latency, count, size).
+    * **Grafana**: Trực quan hóa logs và metrics từ Loki và Prometheus trên các dashboard chuyên nghiệp.
+    * **Promtail**: Đơn vị log shipping để đẩy logs từ containers lên Loki.
+    * **OpenTelemetry**: Chuẩn hóa distributed tracing xuyên suốt HTTP -> gRPC -> RabbitMQ -> SQL.
+    * **Correlation ID**: Tự động gán và truyền ID (`X-Correlation-ID`) qua toàn bộ các service để truy vết.
 * **Validation**:
   * **FluentValidation**: Kiểm tra tính đúng đắn của dữ liệu đầu vào (format, độ dài, khoảng giá trị) ngay tại tầng API.
   * **Domain Validation**: Kiểm tra các quy tắc nghiệp vụ chuyên sâu (Business Rules) ngay tại tầng Domain, đảm bảo tính toàn vẹn của dữ liệu trong mọi tình huống.
 * **Security & Compliance (Audit)**:
+
   ### 4. Centralized Audit & Data Correction (Reversal)
+
   **Vấn đề:** Thay vì lưu Snapshot trực tiếp tại Data Database gây phình to database và khó truy vết chéo, dự án áp dụng Centralized Audit. Cùng với đó, hệ thống cần hỗ trợ Admin sửa lỗi nhập liệu (Reversal) một cách an toàn mà không ảnh hưởng tính nhất quán tài chính.
-  **Giải pháp:** 
-  - Hybrid Audit: Sử dụng cả Application Layer (Business Events) và EF Core `SaveChangesInterceptor` để publish `AuditEvent` qua RabbitMQ tới `Audit.API`.
-  - Integrity Check: Áp dụng Hash chain (SHA-256) và chế độ Append-Only để đảm bảo tính bất biến của lịch sử.
-  - **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`RowVersion`) để tránh Stale Data.
-  - Compliance: Che giấu (mask) các trường nhạy cảm bằng `SensitiveFieldMasker`.
+  **Giải pháp:**
+  * Audit: Sử dụng cả Application Layer (Business Events) để publish `AuditEvent` qua RabbitMQ tới `Audit.API`.
+  * Integrity Check: Áp dụng Hash chain (SHA-256) và chế độ Append-Only để đảm bảo tính bất biến của lịch sử.
+  * **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`RowVersion`) để tránh Stale Data.
+  * Compliance: Che giấu (mask) các trường nhạy cảm bằng `SensitiveFieldMasker`.
   **Tech Stack:** Event-Driven, EF Core Interceptor, SHA-256, Dynamic Reversal Policy.
 * **Resilience & Operability**:
   * **Global Exception Handling**: Chuẩn hóa phản hồi lỗi toàn hệ thống kèm theo TraceId.
@@ -60,8 +64,10 @@ bizcore-erp/
 * **API Versioning**: Hỗ trợ nhiều phiên bản API song song (ví dụ: `/api/v1/invoice`).
 * **Resilience & Reliability**:
   * **Polly**: Triển khai Retry và Circuit Breaker tại Gateway để bảo vệ hệ thống khỏi các lỗi tạm thời hoặc quá tải.
-  * **Idempotency**: Đảm bảo các giao dịch (như Thanh toán) không bị thực hiện lặp lại khi Client gửi trùng request thông qua `X-Idempotency-Key`.
+    * **Idempotency**: Đảm bảo các giao dịch (như Thanh toán) không bị thực hiện lặp lại khi Client gửi trùng request thông qua `X-Idempotency-Key`.
   * **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính nhất quán dữ liệu (Eventual Consistency) giữa Database và Message Broker, ngăn chặn việc mất Event khi DB lưu thành công nhưng RabbitMQ lỗi.
+  * **Module Pattern (Clean Program.cs)**: Đóng gói logic đăng ký DI vào lớp `Module` riêng, giúp `Program.cs` cực kỳ gọn nhẹ.
+  * **gRPC (Synchronous Query)**: Sử dụng gRPC cho truy vấn dữ liệu tức thời giữa các microservices với hiệu năng cao.
 
 ## 🔗 Luồng nghiệp vụ (Flow)
 
@@ -133,19 +139,21 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | **Orchestration** | GET | `/orchestration/flows`| `Orchestration.View`| Giám sát luồng giao dịch |
 
 ### 4. Audit Service (`Audit.API`) - Cổng: `5006`
+
 *Service thu thập log kiểm toán tập trung từ các nguồn.*
 
-- `GET /api/v1/audit` - Truy vấn danh sách Audit log (Có phân trang, filter theo Entity, Actor, Date).
-- `GET /api/v1/audit/{id}` - Chi tiết 1 bản ghi Audit (Xem Before/After Json).
-- `GET /api/v1/audit/verify-integrity` - Xác minh tính toàn vẹn của chuỗi Hash chain.
-- `PATCH /api/v1/audit/{id}/mark-reversed` - (Internal) Đánh dấu Audit Entry đã được reverse.
+* `GET /api/v1/audit` - Truy vấn danh sách Audit log (Có phân trang, filter theo Entity, Actor, Date).
+* `GET /api/v1/audit/{id}` - Chi tiết 1 bản ghi Audit (Xem Before/After Json).
+* `GET /api/v1/audit/verify-integrity` - Xác minh tính toàn vẹn của chuỗi Hash chain.
+* `PATCH /api/v1/audit/{id}/mark-reversed` - (Internal) Đánh dấu Audit Entry đã được reverse.
 
 ### 5. Orchestration Service (`Orchestration.API`) - Cổng: `5007`
+
 *Service theo dõi vòng đời giao dịch.*
 
-- `GET /api/v1/orchestration/flows` - Danh sách các quy trình giao dịch (Process Flows).
-- `GET /api/v1/orchestration/flows/{id}` - Chi tiết luồng giao dịch, bao gồm danh sách các bước (`FlowSteps`) đã thực hiện.
-- `POST /api/v1/orchestration/flows/replay/{id}` - Kích hoạt lại toàn bộ giao dịch (Event Sourcing Replay).
+* `GET /api/v1/orchestration/flows` - Danh sách các quy trình giao dịch (Process Flows).
+* `GET /api/v1/orchestration/flows/{id}` - Chi tiết luồng giao dịch, bao gồm danh sách các bước (`FlowSteps`) đã thực hiện.
+* `POST /api/v1/orchestration/flows/replay/{id}` - Kích hoạt lại toàn bộ giao dịch (Event Sourcing Replay).
 
 ---
 
@@ -153,16 +161,16 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 Hệ thống sử dụng cơ chế **Dynamic Authorization** với Redis Cache:
 
-- 1. **Resource Format**: PascalCase dot-notation (ví dụ: `Invoice.View`, `Payment.Create`).
-- 2. **Scopes**: Menu, Action, Field (Enterprise).
-- 3. **Real-time Invalidation**: Thay đổi quyền trong Role sẽ có hiệu lực ngay lập tức cho toàn bộ User thuộc Role đó nhờ cơ chế xóa cache qua Event Bus.
+* 1. **Resource Format**: PascalCase dot-notation (ví dụ: `Invoice.View`, `Payment.Create`).
+* 1. **Scopes**: Menu, Action, Field (Enterprise).
+* 1. **Real-time Invalidation**: Thay đổi quyền trong Role sẽ có hiệu lực ngay lập tức cho toàn bộ User thuộc Role đó nhờ cơ chế xóa cache qua Event Bus.
 
 ## 🛠️ Data Correction (Reversal) Endpoints
 
 Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá trình Audit-Assisted Recovery:
 
-- `GET /api/v1/invoice/{id}/restore-suggestion?auditEntryId={auditId}` - Sinh Diff (Before vs Current) gợi ý các trường có thể khôi phục.
-- `POST /api/v1/invoice/{id}/restore-field` - Thực thi khôi phục một trường cụ thể (`CustomerName`) về giá trị cũ, sinh AuditEntry mới ghi nhận Reversal. Yêu cầu lý do (Reason).
+* `GET /api/v1/invoice/{id}/restore-suggestion?auditEntryId={auditId}` - Sinh Diff (Before vs Current) gợi ý các trường có thể khôi phục.
+* `POST /api/v1/invoice/{id}/restore-field` - Thực thi khôi phục một trường cụ thể (`CustomerName`) về giá trị cũ, sinh AuditEntry mới ghi nhận Reversal. Yêu cầu lý do (Reason).
 
 ---
 

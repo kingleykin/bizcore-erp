@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/BuildingBlocks/">
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks/Bizcore.BuildingBlocks.csproj" />
+    <Project Path="BuildingBlocks/Bizcore.BuildingBlocks.Grpc/Bizcore.BuildingBlocks.Grpc.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Bizcore.UnitTests/Bizcore.UnitTests.csproj" />

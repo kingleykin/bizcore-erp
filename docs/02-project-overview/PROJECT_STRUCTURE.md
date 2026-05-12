@@ -22,9 +22,11 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
 * **Microservices**: Mỗi service quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Bao gồm: **Admin** (Master Data, Auth), **Accounting** (Core Ledger & Batch), **Invoice** (AR/AP), **Payment** (Treasury), **Report**. Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
-* **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần có thể tái sử dụng giữa các Microservices.
-  * **Contracts**: Định nghĩa Event interfaces cho giao tiếp EDA (`AuditEvent`, `PaymentCompletedEvent`...).
-  * **Permissions**: Định nghĩa tập trung toàn bộ các hành động (Fine-grained actions) của hệ thống phục vụ Permission-based Authorization.
+* **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần tái sử dụng.
+  * **Contracts**: Định nghĩa Event/Command interfaces.
+  * **Permissions**: Định nghĩa tập trung toàn bộ các hành động.
+  * **Infrastructure**: Chứa các Extension Methods cho `Program.cs` và `IServiceModule`.
+* **gRPC**: Cung cấp giao tiếp đồng bộ hiệu năng cao cho các truy vấn Read-only.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
 
 ### 🔹 Security Architecture (Kiến trúc Bảo mật)
@@ -63,12 +65,13 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 * **Gateway Routing**: Điều phối thông minh các request dựa trên Prefix URL.
 * **Logical DB Isolation**: Mặc dù sử dụng chung một SQL Server Engine để tiết kiệm tài nguyên, nhưng mỗi Microservice kết nối đến một logical Database riêng biệt (IdentityDb, InvoiceDb...). Điều này chuẩn bị sẵn sàng cho việc tách DB vật lý.
 * **DI (Dependency Injection)**: Toàn bộ Services được đăng ký trong DI Container để đảm bảo tính Loose Coupling (kết nối lỏng lẻo).
-* **Observability**: Tích hợp **Serilog + Loki** cho log aggregation, **Prometheus** cho metrics collection, **Grafana** cho visualization, và **Correlation ID** đồng nhất. Cho phép theo dõi hành trình của một request xuyên suốt các microservices, phân tích performance, và tìm root cause nhanh chóng.
+* **Observability**: Tích hợp **LGTM Stack** (Loki, Grafana, Tempo, Prometheus) kết hợp với **OTEL Collector**. Cho phép theo dõi hành trình của một request xuyên suốt các microservices, phân tích performance, và tìm root cause nhanh chóng qua Distributed Tracing.
 * **Operability**: Hệ thống cung cấp các endpoint `/health` theo chuẩn Cloud-native, giúp các công cụ điều phối (Docker, K8s) nhận biết tình trạng sức khỏe của service.
 * **Resilience**: Áp dụng **Global Exception Middleware** để đảm bảo hệ thống không bao giờ bị "sập" và luôn trả về phản hồi có cấu trúc cho người dùng.
 * **Hardening**: Cấu hình Security Headers và giới hạn kích thước Payload để bảo vệ các service.
 * **Business Compensation**: Nếu luồng bất đồng bộ liên service lỗi nghiệp vụ, hệ thống dùng event compensation để đưa trạng thái thanh toán về `Reversed` thay vì rollback transaction xuyên service.
-* **Compliance & Security**: Áp dụng **Centralized Audit** bằng cách đẩy `AuditEvent` qua RabbitMQ thay vì lưu trực tiếp vào từng service DB. Điều này giúp Audit Log là append-only, chống xóa/sửa và được bảo vệ bằng cơ chế Hash chain (tamper-detection).
+* **Compliance & Security**: Áp dụng **Centralized Audit**.
+* **Module Pattern**: Sử dụng `IServiceModule` để tách biệt cấu hình host (`Program.cs`) khỏi đăng ký dịch vụ (`Module.cs`), giúp codebase sạch và dễ scale theo module.
 
 ---
 

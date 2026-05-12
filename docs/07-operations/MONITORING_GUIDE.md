@@ -1,330 +1,127 @@
-# BizCore ERP Monitoring Stack Integration
+# Hướng dẫn Giám sát & Truy vết (Monitoring & Observability)
 
-## Overview
+Tài liệu này hướng dẫn cách sử dụng bộ công cụ giám sát (Grafana, Loki, Prometheus, OpenTelemetry) trong hệ thống Bizcore ERP để theo dõi sức khỏe và debug lỗi.
 
-The BizCore ERP project now includes a complete monitoring and logging stack with the following components:
+---
 
-- **Loki**: Log aggregation system for centralized log collection
-- **Promtail**: Log shipping agent that forwards logs to Loki
-- **Prometheus**: Metrics collection and time-series database
-- **Grafana**: Visualization platform for logs and metrics
+## 1. Tổng quan Kiến trúc Giám sát
 
-## Architecture
+Hệ thống áp dụng mô hình **LGTM Stack** (Loki, Grafana, Tempo, Prometheus) kết hợp với **OpenTelemetry**:
 
-```
-┌──────────────────────────────────────────────────────────┐
-│                    Microservices                          │
-│  ┌─────────────────────────────────────────────────────┐ │
-│  │ Gateway API │ Invoice API │ Payment API │ Report API │ │
-│  │     Logs + Metrics Export                           │ │
-│  └────────────────┬──────────────────┬─────────────────┘ │
-└───────────────────┼──────────────────┼──────────────────┘
-                    │                  │
-            ┌───────▼────────┐    ┌────▼────────┐
-            │   Loki (3100)  │    │ Prometheus  │
-            │   Promtail     │    │   (9090)    │
-            └────────┬───────┘    └────┬────────┘
-                     │                 │
-                     └─────────┬───────┘
-                               │
-                        ┌──────▼──────┐
-                        │  Grafana    │
-                        │  (3000)     │
-                        └─────────────┘
-```
+```mermaid
+graph TD
+    subgraph "Microservices"
+        API[ASP.NET Core APIs]
+        MT[MassTransit / RabbitMQ]
+        EF[Entity Framework Core]
+    end
 
-## Container Services
+    subgraph "Data Collection"
+        OTEL[OTEL Collector]
+        PT[Promtail]
+    end
 
-### 1. **Loki**
-- **Port**: 3100
-- **Function**: Centralized log aggregation
-- **Configuration**: Uses default Loki configuration
+    subgraph "Storage & Backend"
+        LOKI[(Grafana Loki)]
+        PROM[(Prometheus)]
+        TEMPO[(Grafana Tempo)]
+    end
 
-### 2. **Promtail**
-- **Function**: Log shipping agent
-- **Configuration**: `promtail-config.yml`
-- **Destination**: Sends logs to Loki
+    subgraph "Visualization"
+        GRAF[Grafana Dashboard]
+    end
 
-### 3. **Prometheus**
-- **Port**: 9090
-- **Function**: Metrics collection
-- **Configuration**: `prometheus.yml`
-- **Scrape Jobs**: Configured for all microservices
+    API -- Logs --> PT
+    MT -- Logs --> PT
+    PT -- Push --> LOKI
 
-### 4. **Grafana**
-- **Port**: 3001
-- **Default Credentials**: admin/admin
-- **Function**: Visualization of logs and metrics
+    API -- Metrics --> PROM
+    
+    API -- Traces --> OTEL
+    MT -- Traces --> OTEL
+    EF -- Traces --> OTEL
+    
+    OTEL -- Traces --> TEMPO
 
-## Accessing the Monitoring Stack
-
-### Grafana Dashboard
-- **URL**: `http://localhost:3001`
-- **Default Username**: admin
-- **Default Password**: admin
-
-### Prometheus Metrics
-- **URL**: `http://localhost:9090`
-- **Targets**: http://localhost:9090/targets
-
-### Loki Logs
-- **API Endpoint**: `http://localhost:3100`
-- **Access through Grafana** for visualization
-
-## Microservices Integration
-
-### Enabled Features Per Service
-
-Each microservice (Gateway, Invoice, Payment, Report) is configured with:
-
-1. **Serilog with Loki Sink**
-   - Console output for local development
-   - Loki HTTP endpoint for centralized logging
-   - Service and job labels for filtering
-
-2. **Prometheus Metrics Endpoint**
-   - Available at `/metrics` endpoint on each service
-   - HTTP request metrics (latency, count, size)
-   - Exposed port 8080 internally
-
-3. **Environment Configuration**
-   - `Loki__Url`: Automatically set to `http://loki:3100`
-   - Fallback to default if not configured
-
-### Service Metrics Endpoints
-
-| Service | Metrics URL |
-|---------|-------------|
-| Gateway API | http://localhost:5001/metrics |
-| Invoice API | http://invoice-api:8080/metrics |
-| Payment API | http://payment-api:8080/metrics |
-| Report API | http://report-api:8080/metrics |
-
-## NuGet Packages Added
-
-```xml
-<!-- Serilog Loki Integration -->
-<PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="8.3.0" />
-
-<!-- Prometheus Metrics -->
-<PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
+    LOKI --> GRAF
+    PROM --> GRAF
+    TEMPO --> GRAF
 ```
 
-## Configuration Files
+*   **Logs (Loki)**: Thu thập log có cấu trúc từ Serilog.
+*   **Metrics (Prometheus)**: Thu thập chỉ số hiệu năng (Latency, Error Rate, CPU/RAM).
+*   **Traces (OpenTelemetry)**: Truy vết luồng request xuyên suốt các Microservices.
+*   **Visualization (Grafana)**: Nơi hiển thị tất cả dữ liệu trên.
 
-### 1. prometheus.yml
-Located at: `./prometheus.yml`
+---
 
-Configures scrape jobs for:
-- Gateway API
-- Invoice API
-- Payment API
-- Report API
+## 2. Truy cập các Công cụ
 
-### 2. promtail-config.yml
-Located at: `./promtail-config.yml`
+| Công cụ | URL mặc định | Tài khoản |
+| :--- | :--- | :--- |
+| **Grafana** | `http://localhost:3001` | `admin` / `admin` |
+| **Prometheus** | `http://localhost:9090` | Không có |
+| **RabbitMQ UI** | `http://localhost:15672`| `guest` / `guest` |
+| **Loki API** | `http://localhost:3100` | Không có |
 
-Configured to:
-- Use Docker service discovery (`docker_sd_configs`) to automatically detect containers
-- Apply relabeling rules to extract service names from container names
-- Remove `bizcore-` prefix for cleaner service labels
-- Result: logs are labeled with `service=invoice-api`, `service=payment-api`, etc.
+---
 
-## Docker Compose Integration
+## 3. Hướng dẫn sử dụng Grafana
 
-All services are configured with:
-- `Loki__Url` environment variable
-- Dependency on `loki` service
-- Service-specific labels for log filtering
+### 3.1. Cấu hình Data Sources (Lần đầu setup)
 
-## Getting Started with Monitoring
+Nếu Grafana chưa có dữ liệu, hãy thêm các nguồn sau:
 
-### 1. Start the Stack
-```bash
-docker-compose up -d
+1.  **Prometheus**: URL `http://prometheus:9090`
+2.  **Loki**: URL `http://loki:3100`
+3.  **Tempo**: URL `http://tempo:3200`
+
+### 3.2. Import Dashboards chuẩn
+
+Để theo dõi nhanh, hãy Import các Dashboard sau (Dùng ID):
+
+*   **ASP.NET Core Monitoring**: ID `19004` (Hiển thị Request/s, Error rate, GC).
+*   **Docker Container Stats**: ID `14527` (Hiển thị tài nguyên CPU/RAM của từng container).
+*   **Logs Centralized**: Tạo Dashboard mới với panel **Logs**, chọn source **Loki**.
+
+---
+
+## 4. Kỹ thuật Debug với Correlation ID
+
+Đây là kỹ thuật quan trọng nhất để tìm lỗi trong Microservices.
+
+1.  **Tìm lỗi**: Khi API trả về lỗi hoặc bạn thấy log `Error` trong Grafana/Loki.
+2.  **Lấy ID**: Copy giá trị `CorrelationId` (thường nằm trong log hoặc header `X-Correlation-ID`).
+3.  **Truy vết toàn diện**: 
+    *   Vào Grafana -> Explore -> Chọn Loki.
+    *   Query: `{service=~".+"} |= "MÃ_CORRELATION_ID"`
+    *   Bạn sẽ thấy toàn bộ log của các service liên quan đến request đó theo đúng trình tự thời gian.
+
+---
+
+## 5. Các chỉ số quan trọng cần theo dõi
+
+*   **HTTP 5xx Rate**: Nếu chỉ số này tăng đột biến, hệ thống đang gặp lỗi nghiêm trọng.
+*   **Request Latency (p95)**: Nếu > 2s, người dùng sẽ cảm thấy hệ thống chậm. Cần kiểm tra SQL hoặc gRPC timeout.
+*   **RabbitMQ Queue Length**: Nếu queue bị dồn ứ (Ready messages tăng), các Consumer đang xử lý quá chậm hoặc bị treo.
+*   **Circuit Breaker State**: Theo dõi xem có service nào đang ở trạng thái `Open` (Ngắt mạch) không.
+
+---
+
+## 6. Cấu hình trong Code (Dành cho Dev)
+
+Mọi service mới tạo phải sử dụng các Extension Methods sau trong `Program.cs`:
+
+```csharp
+// 1. Logging (Loki + Console)
+builder.Host.AddBizcoreLogging("My.API");
+
+// 2. Metrics & Tracing (OpenTelemetry)
+builder.Services.AddBizcoreTelemetry("My.API");
+
+// 3. Pipeline (Expose /metrics endpoint)
+app.UseBizcorePipeline("My API v1");
 ```
 
-### 2. Restart Promtail (Important!)
-```bash
-# After starting the stack, restart Promtail to apply new config
-docker-compose restart promtail
-```
-
-### 3. Verify Services
-```bash
-# Check if services are running
-docker-compose ps
-
-# Verify Loki is accepting logs
-curl -v http://localhost:3100/api/prom/labels
-
-# Check Promtail targets (should show service labels)
-curl http://localhost:3100/api/prom/label/service/values
-```
-
-### 3. Test Log Filtering in Grafana
-
-After restarting Promtail, you should see logs with proper service labels:
-
-**By Service:**
-```
-{service="invoice-api"}
-{service="payment-api"}
-{service="gateway-api"}
-{service="report-api"}
-```
-
-**By Job:**
-```
-{job="invoice-api"}
-{job="payment-api"}
-```
-
-**Combined with Log Level:**
-```
-{service="payment-api"} |= "error"
-```
-
-### 3. Access Grafana
-- Open browser to http://localhost:3001
-- Login with admin/admin
-
-### 4. Add Data Sources
-
-#### Add Prometheus Data Source
-1. Go to Configuration > Data Sources
-2. Click "Add data source"
-3. Select "Prometheus"
-4. URL: `http://prometheus:9090`
-5. Click "Save & test"
-
-#### Add Loki Data Source
-1. Go to Configuration > Data Sources
-2. Click "Add data source"
-3. Select "Loki"
-4. URL: `http://loki:3100`
-5. Click "Save & test"
-
-### 5. Import Dashboards
-
-Sample queries for Grafana:
-
-**Metrics Query (Prometheus)**:
-```
-rate(http_requests_received_total[5m])
-```
-
-**Logs Query (Loki)**:
-```
-{job="invoice-api"} | json | line_format "{{.message}}"
-```
-
-## Log Filtering in Grafana
-
-### By Service
-```
-{service="invoice-api"}
-{service="payment-api"}
-{service="gateway-api"}
-{service="report-api"}
-```
-
-### By Job
-```
-{job="invoice-api"}
-{job="payment-api"}
-```
-
-### By Log Level
-```
-{service="payment-api"} |= "error"
-```
-
-### Combined Filters
-```
-{service="gateway-api", job="gateway-api"} |= "request"
-```
-
-### Advanced Queries
-```
-{service=~".*-api"} |= "error" | json
-```
-
-**Note**: The `service` label is automatically extracted from container names (e.g., `bizcore-invoice-api` → `service=invoice-api`)
-
-## Troubleshooting
-
-### Logs Not Appearing in Loki
-
-1. Check if Loki is running:
-   ```bash
-   docker logs loki
-   ```
-
-2. Verify microservice can reach Loki:
-   ```bash
-   docker exec <service-container> curl http://loki:3100/api/prom/labels
-   ```
-
-3. Check service logs:
-   ```bash
-   docker logs <service-container>
-   ```
-
-4. **Important**: Restart Promtail after config changes:
-   ```bash
-   docker-compose restart promtail
-   ```
-
-5. Verify Promtail is discovering services:
-   ```bash
-   curl http://localhost:3100/api/prom/label/service/values
-   ```
-   Should return: `["gateway-api", "invoice-api", "payment-api", "report-api"]`
-
-### Prometheus Not Scraping Metrics
-
-1. Verify targets in Prometheus UI: http://localhost:9090/targets
-2. Check if services are exposing `/metrics` endpoint
-3. Verify service discovery/DNS resolution between containers
-
-### Grafana Data Source Connection Issues
-
-1. Ensure containers are on same Docker network
-2. Use service names (loki, prometheus) not localhost
-3. Check container logs for connection errors
-
-## Performance Considerations
-
-- **Loki**: Stores logs efficiently with compression
-- **Prometheus**: Retention set based on disk space
-- **Promtail**: Minimal resource usage, parallel log processing
-- **Grafana**: Lightweight visualization layer
-
-## Security Notes
-
-### Default Credentials ⚠️
-The default Grafana password (`admin/admin`) should be changed in production.
-
-### Network Access
-- Services communicate via Docker internal network
-- External access through mapped ports
-
-### Data Retention
-- Configure Prometheus retention in `prometheus.yml`
-- Configure Loki retention via environment variables
-
-## Next Steps
-
-1. Create custom dashboards for business metrics
-2. Set up alerting rules in Prometheus
-3. Configure log retention policies
-4. Integrate with your incident management system
-
-## Useful Resources
-
-- [Grafana Documentation](https://grafana.com/docs/)
-- [Prometheus Documentation](https://prometheus.io/docs/)
-- [Loki Documentation](https://grafana.com/docs/loki/latest/)
-- [Serilog Loki Integration](https://github.com/JosephWoodward/Serilog-Sinks-Grafana-Loki)
-- [prometheus-net Documentation](https://github.com/prometheus-net/prometheus-net)
+---
+*Cập nhật lần cuối: 12/05/2026 - Khởi tạo hướng dẫn Monitoring.*

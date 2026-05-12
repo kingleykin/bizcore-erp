@@ -140,16 +140,17 @@ Một sai lầm phổ biến khi thiết kế ERP là cố gắng biến hệ th
 
 **Ví dụ bài toán:** Giám đốc muốn biết *Chi phí nhân viên (6421)* và *Chi phí vật liệu (6422)* của riêng **Phòng Marketing** và **Phòng Sales** trong **Dự án Triển lãm**.
 
-* **Cách làm cũ (Segmented COA - Phình to tài khoản)**:
+- **Cách làm cũ (Segmented COA - Phình to tài khoản)**:
   Kế toán phải tạo ra một ma trận tài khoản: `6421-MKT-TRIENLAM`, `6421-SALES-TRIENLAM`, `6422-MKT-TRIENLAM`, `6422-SALES-TRIENLAM`... Nếu có 10 loại chi phí, 5 phòng ban, 20 dự án, hệ thống sẽ sinh ra **1.000 tài khoản con**! Sổ cái sẽ biến thành một "bãi rác" dữ liệu cực kỳ khó bảo trì.
 
-* **Cách làm Enterprise (Dùng Dimension)**:
+- **Cách làm Enterprise (Dùng Dimension)**:
   Hệ thống tài khoản vẫn giữ nguyên bản chất tự nhiên (Natural Account) với số lượng tài khoản cốt lõi không đổi (6421 đến 6428). Khi hạch toán chi phí nhân viên MKT cho dự án Triển lãm, nhân viên chỉ cần định khoản vào đúng bản chất chi phí và gắn các thẻ Dimension:
   - Tài khoản: `6421` (Bản chất chi phí - WHAT)
   - Dimension `COST_CENTER`: `MKT` (Chi cho ai - WHO)
   - Dimension `PROJECT`: `TRIENLAM` (Chi ở đâu - WHERE)
 
 **Lợi ích kiến trúc mang lại:**
+
 1. **Sổ cái Lean (Gọn nhẹ)**: Bảng AccountChart luôn sạch sẽ và ổn định.
 2. **Khả năng mở rộng vô hạn**: Khi có dự án mới, chỉ việc cấu hình thêm 1 mã vào bảng `DimensionValue` mà không cần đụng chạm gì đến cấu trúc Tài khoản.
 3. **Báo cáo Pivot đa chiều**: Các thẻ (Tags) hoạt động độc lập. `ACC Report Service` có thể dễ dàng group dữ liệu để trả lời: "Tổng chi phí dự án Triển lãm là bao nhiêu?" (Bỏ qua phòng ban) hoặc "Phòng MKT tiêu tổng cộng bao nhiêu tiền?" (Bỏ qua dự án).
@@ -694,16 +695,20 @@ Hệ thống được thiết kế để Kế toán Tổng hợp (người dùng
 Thiết kế của ACC Service cho phép nó hoạt động như một **Plug-and-play Engine**, cực kỳ linh hoạt khi tích hợp vào các hệ thống đã có sẵn (Brownfield projects) hoặc các hệ thống ERP đang phát triển.
 
 ### 12.1 Tích hợp "Lắp ghép" (Plug-and-play)
+
 - **Độc lập nghiệp vụ**: ACC Service không can thiệp vào logic của các phân hệ khác (Invoice, Payment, Inventory). Nó chỉ đóng vai trò là "người quan sát" và ghi nhận tác động tài chính.
 - **Không xâm lấn (Non-invasive)**: Các service hiện tại chỉ cần "bắn" một Message chuẩn (`PostJournalCommand`) mà không cần thay đổi cấu trúc Database hay quy trình hiện có.
 
 ### 12.2 Cơ chế Khớp nối mềm (Formula-based Coupling)
+
 - **Zero-knowledge of COA**: Sub-ledgers (Invoice, Payment...) hoàn toàn không cần biết về Hệ thống tài khoản (COA). Chúng chỉ gửi các `FormulaKey` (ví dụ: `SubTotal`, `VATAmount`).
 - **Trung tâm điều khiển hạch toán**: Việc thay đổi tài khoản hạch toán (Nợ/Có) được thực hiện hoàn toàn tại ACC Service thông qua `Rule Engine` mà không cần chỉnh sửa code ở các phân hệ nghiệp vụ.
 
 ### 12.3 Hồi cứu Dữ liệu (Historical Data Retrofitting)
+
 - Hệ thống hỗ trợ import dữ liệu cũ từ các hệ thống legacy. Chỉ cần ánh xạ dữ liệu cũ sang `PostJournalCommand`, ACC Service sẽ tự động xử lý và xây dựng lại toàn bộ sổ cái và bảng cân đối.
 - Cơ chế **Idempotency** đảm bảo quá trình hồi cứu dữ liệu an toàn, không gây trùng lặp bút toán khi chạy lại.
 
 ### 12.4 Độc lập Master Data
+
 - ACC Service chỉ lưu trữ ID tham chiếu của các đối tượng (LegalEntity, Branch, Partner). Điều này cho phép nó dễ dàng tích hợp với bất kỳ hệ thống Master Data hoặc IAM (Identity and Access Management) nào đã có sẵn thông qua cơ chế tham chiếu mềm.

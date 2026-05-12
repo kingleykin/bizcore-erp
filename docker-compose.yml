@@ -66,6 +66,32 @@ services:
     depends_on:
       - loki
 
+  tempo:
+    image: grafana/tempo:latest
+    container_name: tempo
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo-config.yml:/etc/tempo.yaml
+    ports:
+      - "3200:3200" # tempo
+      - "4317:4317" # otlp grpc
+
+  otel-collector:
+    image: otel/opentelemetry-collector:latest
+    container_name: otel-collector
+    command: ["--config=/etc/otel-collector-config.yml"]
+    volumes:
+      - ./otel-collector-config.yml:/etc/otel-collector-config.yml
+    ports:
+      - "1888:1888"   # pprof extension
+      - "8888:8888"   # Prometheus metrics exposed by the collector
+      - "8889:8889"   # Prometheus exporter metrics
+      - "13133:13133" # health_check extension
+      - "4318:4318"   # OTLP http receiver
+      - "55679:55679" # zpages extension
+    depends_on:
+      - tempo
+
   gateway-api:
     image: bizcore-gateway-api
     container_name: bizcore-gateway
@@ -84,6 +110,7 @@ services:
       - ReverseProxy__Clusters__admin-cluster__Destinations__d1__Address=http://admin-api:8080
       - ReverseProxy__Clusters__audit-cluster__Destinations__d1__Address=http://audit-api:8080
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - invoice-api
@@ -105,6 +132,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -123,6 +151,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -142,6 +171,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -162,6 +192,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -182,6 +213,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -202,6 +234,7 @@ services:
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
       - Retention__HotDays=180
     depends_on:

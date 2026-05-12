@@ -40,10 +40,12 @@
 
     <!-- Health Checks -->
     <PackageReference Include="AspNetCore.HealthChecks.SqlServer" Version="9.0.0" />
+    <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\..\BuildingBlocks\Bizcore.BuildingBlocks\Bizcore.BuildingBlocks.csproj" />
+    <ProjectReference Include="..\..\..\BuildingBlocks\Bizcore.BuildingBlocks.Grpc\Bizcore.BuildingBlocks.Grpc.csproj" />
   </ItemGroup>
 
 </Project>

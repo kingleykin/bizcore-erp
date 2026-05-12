@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option csharp_namespace = "Bizcore.BuildingBlocks.Grpc.Protos";
+
+package audit;
+
+import "google/protobuf/timestamp.proto";
+
+service AuditGrpc {
+  rpc GetAuditLogs (GetAuditLogsRequest) returns (GetAuditLogsResponse);
+}
+
+message GetAuditLogsRequest {
+  string resource_id = 1;
+  int32 limit = 2;
+}
+
+message AuditLogModel {
+  string id = 1;
+  string action = 2;
+  string user_id = 3;
+  string resource_name = 4;
+  string resource_id = 5;
+  string details = 6;
+  google.protobuf.timestamp.Timestamp created_at = 7;
+}
+
+message GetAuditLogsResponse {
+  repeated AuditLogModel logs = 1;
+}

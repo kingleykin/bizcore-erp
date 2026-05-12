@@ -14,9 +14,11 @@ Document này mô tả các guardrails đã được implement để đảm bả
 ## 1. Idempotency Protection
 
 ### Vấn đề
+
 Client retry request nhiều lần (network timeout, user click nhiều lần) → tạo duplicate payments.
 
 ### Giải pháp
+
 ✅ **Idempotency Key** (đã implement)
 
 ```csharp
@@ -29,6 +31,7 @@ if (_cache.TryGetValue(idempotencyKey, out Guid existingPaymentId))
 ```
 
 **Cách dùng:**
+
 ```http
 POST /api/v1/payment/pay
 Headers:
@@ -44,9 +47,11 @@ Headers:
 ## 2. Message Retry + Dead Letter Queue
 
 ### Vấn đề
+
 Consumer crash, network issue → message bị mất → saga stuck.
 
 ### Giải pháp
+
 ✅ **Message Retry Policy**
 
 ```csharp
@@ -66,17 +71,20 @@ e.SetQueueArgument("x-message-ttl", (int)TimeSpan.FromDays(7).TotalMilliseconds)
 ```
 
 **Flow:**
+
 ```
 Message → Consumer fail → Retry 1 (5s) → Retry 2 (10s) → Retry 3 (30s) → Dead Letter Queue
 ```
 
 **Dead Letter Queue:**
+
 - `payment-confirm_error`
 - `payment-reject_error`
 - `invoice-validate_error`
 - `orchestration-payment-saga_error`
 
 **Monitoring:**
+
 ```bash
 # Check DLQ trong RabbitMQ Management UI
 http://localhost:15672/#/queues/%2F/payment-confirm_error
@@ -87,9 +95,11 @@ http://localhost:15672/#/queues/%2F/payment-confirm_error
 ## 3. Queue Durability
 
 ### Vấn đề
+
 RabbitMQ restart → messages bị mất.
 
 ### Giải pháp
+
 ✅ **Durable Queues**
 
 ```csharp
@@ -106,28 +116,35 @@ e.AutoDelete = false;
 ## 4. Outbox Pattern
 
 ### Vấn đề
+
 Publish event fail sau khi commit DB → data inconsistency.
 
 ### Giải pháp
+
 ✅ **Entity Framework Outbox** (Sản xuất thực tế)
 
 Để đạt được độ tin cậy cấp độ production, chúng ta tách biệt 2 giai đoạn:
 
 **1. Giai đoạn đăng ký (Registration):**
 Trong `AddMassTransit(...)`:
+
 ```csharp
 x.AddBusinessOutbox<AppDbContext>(); 
 ```
+
 *Đăng ký: Inbox, Outbox, Delivery services và Background Dispatcher.*
 
 **2. Giai đoạn Endpoint (Middleware):**
 Trong `ReceiveEndpoint(...)`:
+
 ```csharp
 e.UseEntityFrameworkOutbox<AppDbContext>(context);
 ```
+
 *Đánh chặn message bên trong Consumer để đảm bảo tính Idempotency và Atomicity.*
 
 **Cấu hình tối ưu:**
+
 ```csharp
 x.AddEntityFrameworkOutbox<TDbContext>(o =>
 {
@@ -138,6 +155,7 @@ x.AddEntityFrameworkOutbox<TDbContext>(o =>
 ```
 
 **Quan trọng:** `AppDbContext` phải chứa các thực thể của MassTransit:
+
 ```csharp
 protected override void OnModelCreating(ModelBuilder modelBuilder) {
     modelBuilder.AddInboxStateEntity();
@@ -147,6 +165,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder) {
 ```
 
 **Flow:**
+
 ```
 1. Begin transaction
 2. Save entity to DB
@@ -156,6 +175,7 @@ protected override void OnModelCreating(ModelBuilder modelBuilder) {
 ```
 
 **Đảm bảo:**
+
 - Atomicity: DB + message cùng transaction
 - Reliability: Message không bị mất khi publish fail
 - Eventual consistency: Message sẽ được gửi eventually
@@ -165,9 +185,11 @@ protected override void OnModelCreating(ModelBuilder modelBuilder) {
 ## 5. Saga Timeout
 
 ### Vấn đề
+
 Invoice service down → saga stuck ở `Validating` state mãi mãi.
 
 ### Giải pháp
+
 ✅ **Saga Timeout Schedule** (60 giây)
 
 ```csharp
@@ -181,12 +203,15 @@ Schedule(() => ValidationTimeout, x => x.ValidationTimeoutTokenId, s =>
 
 ✅ **Reliable Persistence**
 Saga repository sử dụng `ExistingDbContext` để dùng chung transaction với business logic:
+
 ```csharp
 r.ExistingDbContext<AppDbContext>();
 ```
+
 *(Tránh sử dụng `AddDbContext<DbContext, AppDbContext>` để không gặp lỗi khởi tạo abstract class).*
 
 **Flow:**
+
 ```
 Payment Initiated → Schedule timeout (60s)
                  ↓
@@ -198,6 +223,7 @@ Payment Initiated → Schedule timeout (60s)
 ```
 
 **States:**
+
 - `Validating` → `Confirmed` (happy path)
 - `Validating` → `Rejected` (validation failed)
 - `Validating` → `TimedOut` (timeout after 60s)
@@ -207,9 +233,11 @@ Payment Initiated → Schedule timeout (60s)
 ## 6. Client Polling Guidance
 
 ### Vấn đề
+
 Client poll quá nhanh (mỗi 1s) → API overload.
 
 ### Giải pháp
+
 ✅ **TTL + Exponential Backoff**
 
 ```json
@@ -224,12 +252,14 @@ Response:
 ```
 
 **Exponential Backoff:**
+
 - 0-10s: `retryAfter = 2s`
 - 10-30s: `retryAfter = 5s`
 - 30-60s: `retryAfter = 10s`
 - `expiresIn <= 0`: Stop polling
 
 **Client implementation:**
+
 ```typescript
 async function pollPaymentStatus(paymentId: string): Promise<PaymentResult> {
   while (true) {
@@ -255,9 +285,11 @@ async function pollPaymentStatus(paymentId: string): Promise<PaymentResult> {
 ## 7. Reconciliation Job
 
 ### Vấn đề
+
 Saga timeout không fire, event bị mất → payment stuck ở `Processing` mãi.
 
 ### Giải pháp
+
 ✅ **Background Reconciliation Service**
 
 ```csharp
@@ -274,6 +306,7 @@ protected override async Task ExecuteAsync(CancellationToken stoppingToken)
 ```
 
 **Logic:**
+
 ```sql
 SELECT * FROM Payments
 WHERE Status = 'Processing'
@@ -281,6 +314,7 @@ WHERE Status = 'Processing'
 ```
 
 **Action:**
+
 - Mark payment as `Failed`
 - Set `FailureReason = "Payment stuck in Processing state. Auto-failed by reconciliation job."`
 - Log warning với PaymentId, InvoiceId, Age
@@ -294,16 +328,19 @@ WHERE Status = 'Processing'
 ### Metrics cần track
 
 **Payment Service:**
+
 - `payment_processing_duration_seconds` - histogram
 - `payment_status_total{status="Processing|Completed|Failed"}` - counter
 - `payment_reconciliation_auto_failed_total` - counter
 
 **Saga Orchestrator:**
+
 - `saga_state_total{state="Validating|Confirmed|Rejected|TimedOut"}` - counter
 - `saga_timeout_total` - counter
 - `saga_duration_seconds` - histogram
 
 **RabbitMQ:**
+
 - Queue depth: `payment-confirm`, `invoice-validate`, `orchestration-payment-saga`
 - Dead letter queue depth: `*_error` queues
 - Message rate: publish/consume per second
@@ -311,6 +348,7 @@ WHERE Status = 'Processing'
 ### Alerts
 
 **Critical:**
+
 ```yaml
 - alert: PaymentStuckInProcessing
   expr: count(payment_status{status="Processing"}) > 100
@@ -332,6 +370,7 @@ WHERE Status = 'Processing'
 ```
 
 **Warning:**
+
 ```yaml
 - alert: ReconciliationJobAutoFailedPayments
   expr: rate(payment_reconciliation_auto_failed_total[1h]) > 0
@@ -346,27 +385,35 @@ WHERE Status = 'Processing'
 ### Scenario 1: Payment stuck ở Processing
 
 **Symptoms:**
+
 - Client poll mãi không thấy Completed/Failed
 - `expiresIn` đã về 0
 
 **Debug steps:**
+
 1. Check payment trong DB:
+
    ```sql
    SELECT * FROM Payments WHERE Id = '{paymentId}'
    ```
+
 2. Check saga state:
+
    ```sql
    SELECT * FROM PaymentSagaStates WHERE PaymentId = '{paymentId}'
    ```
+
 3. Check RabbitMQ queues:
    - `invoice-validate`: có message pending không?
    - `payment-confirm`: có message pending không?
 4. Check logs với CorrelationId:
+
    ```logql
    {service=~"payment-api|invoice-api|orchestration-api"} | json | CorrelationId="{id}"
    ```
 
 **Resolution:**
+
 - Nếu saga ở `Validating` > 60s → saga timeout sẽ auto reject
 - Nếu saga không tồn tại → manually publish `IPaymentInitiatedEvent`
 - Nếu reconciliation job chưa chạy → đợi 5 phút hoặc manually mark Failed
@@ -374,18 +421,22 @@ WHERE Status = 'Processing'
 ### Scenario 2: Dead Letter Queue có messages
 
 **Symptoms:**
+
 - Alert: `DeadLetterQueueNotEmpty`
 - Messages trong `*_error` queues
 
 **Debug steps:**
+
 1. Check message content trong RabbitMQ Management UI
 2. Check consumer logs để tìm exception
 3. Identify root cause: bug, data issue, external service down
 
 **Resolution:**
+
 - Fix bug/data issue
 - Redeploy consumer
 - Manually reprocess messages từ DLQ:
+
   ```bash
   # Move messages từ DLQ về main queue
   rabbitmqadmin get queue=payment-confirm_error count=100 requeue=true
@@ -394,16 +445,19 @@ WHERE Status = 'Processing'
 ### Scenario 3: Saga timeout rate cao
 
 **Symptoms:**
+
 - Alert: `SagaTimeoutRateHigh`
 - Nhiều payments Failed với reason "timeout"
 
 **Debug steps:**
+
 1. Check Invoice service health: `/health`
 2. Check Invoice service logs: có errors không?
 3. Check RabbitMQ: `invoice-validate` queue có backlog không?
 4. Check network latency giữa services
 
 **Resolution:**
+
 - Scale Invoice service nếu overload
 - Fix bugs trong Invoice consumer
 - Tăng saga timeout nếu cần (hiện tại 60s)
@@ -538,6 +592,7 @@ VALUES (NEWID(), '...', 1500, 0, DATEADD(MINUTE, -10, GETUTCDATE()))
 | ✅ Reconciliation Job | Implemented | Safety net for stuck payments |
 
 **Hệ thống giờ đã production-ready với:**
+
 - ✅ No message loss
 - ✅ No stuck payments
 - ✅ No duplicate payments

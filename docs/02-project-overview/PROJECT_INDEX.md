@@ -17,10 +17,10 @@
 - **API Gateway**: YARP (Yet Another Reverse Proxy).
 - **Message Broker**: RabbitMQ (MassTransit) cho giao tiếp bất đồng bộ và Audit Events.
 - **Database**: SQL Server (Các service dùng chung 1 instance SQL Server nhưng phân tách logical database: IdentityDb, InvoiceDb, AuditDb...).
-- **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), Promtail.
+- **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), **Tempo (Traces)**, **OTEL Collector**.
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**.
+- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**.
 
 ---
 
@@ -52,7 +52,9 @@ bizcore-erp/
 > 1. **Domain Layer**: Chứa Entities, Enums, Interfaces. Không phụ thuộc thư viện ngoài. Chứa Domain Validation.
 > 2. **Application Layer**: Chứa Use Cases (Services/Handlers). Điều phối logic nghiệp vụ.
 > 3. **Infrastructure Layer**: DbContext, Migrations, MassTransit Config, External Clients.
-> 4. **API Layer**: Controllers, Program.cs. Chỉ nhận/trả request, KHÔNG chứa logic nghiệp vụ.
+> 4. **API Layer**: Controllers, **Module.cs**, **Program.cs**. 
+>    - `Program.cs`: Chỉ chứa host setup và nạp Module. 
+>    - `Module.cs`: Đóng gói toàn bộ đăng ký DI của service.
 
 ---
 

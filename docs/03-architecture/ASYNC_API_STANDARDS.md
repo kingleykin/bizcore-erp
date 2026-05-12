@@ -2,7 +2,7 @@
 
 ## Tổng quan Kiến trúc (Fintech-Grade)
 
-Hệ thống Bizcore ERP áp dụng mô hình giao tiếp bất đồng bộ (Asynchronous) cho mọi nghiệp vụ lõi (Payment, Invoice Posting) thông qua **Saga Orchestrator** và **MassTransit**. 
+Hệ thống Bizcore ERP áp dụng mô hình giao tiếp bất đồng bộ (Asynchronous) cho mọi nghiệp vụ lõi (Payment, Invoice Posting) thông qua **Saga Orchestrator** và **MassTransit**.
 
 Để giải quyết bài toán "trải nghiệm đồng bộ (sync UX)" cho người dùng mà không làm nghẽn cổ chai (bottleneck) hệ thống Backend, chúng ta áp dụng mô hình **Async Core + Sync Facade + Event Completion** (Tương tự Stripe, PayPal).
 
@@ -13,17 +13,21 @@ Tuyệt đối KHÔNG cố ép HTTP request chờ (block) Saga hoàn tất.
 ## 3 Lớp Kiến trúc (The 3 Layers)
 
 ### 1. Backend Core (Truth System) - BẮT BUỘC Async
+
 - Sử dụng MassTransit Saga.
 - Sử dụng Outbox pattern để đảm bảo tính nguyên tử (Atomicity).
 - Không tồn tại Request/Response blocking HTTP.
 
 ### 2. API Layer (Sync Facade) - KHÔNG poll DB
+
 - API chỉ làm nhiệm vụ: Nhận request → Check Idempotency → Tạo Transaction Record (Trạng thái `Processing`) → Trả về `202 Accepted`.
 - Trả về `paymentId` kèm `statusUrl` (hoặc cấu hình HATEOAS).
 - Tuyệt đối không giữ HTTP Connection mở, không dùng Task.Delay trong Controller.
 
 ### 3. Client Experience Layer - Trải nghiệm Sync
+
 Trách nhiệm tạo ra "trải nghiệm đồng bộ" thuộc về Client (Frontend/Mobile). Client có 2 lựa chọn:
+
 - **Polling (Default, Safe):** Gọi `GET /payments/{id}` định kỳ dựa trên gợi ý `RetryAfter`.
 - **Push (Advanced UX):** Sử dụng SignalR / WebSocket lắng nghe sự kiện `payment.completed`.
 
@@ -32,11 +36,14 @@ Trách nhiệm tạo ra "trải nghiệm đồng bộ" thuộc về Client (Fron
 ## Flow Giao dịch Chuẩn
 
 ### Step 1: Client Submit
+
 ```http
 POST /api/v1/payment/pay
 X-Idempotency-Key: unique-uuid-123
 ```
+
 **Response: 202 Accepted**
+
 ```json
 {
   "paymentId": "9e8d7c6b...",
@@ -47,11 +54,13 @@ X-Idempotency-Key: unique-uuid-123
 ```
 
 ### Step 2: Saga Xử lý Async
+
 - Transaction được Outbox đẩy lên RabbitMQ.
 - Saga Orchestrator thực hiện các lệnh (Commands) và đợi sự kiện (Events).
 - Backend hoạt động ở mức Maximum Throughput, không bị giới hạn bởi connection pool của IIS/Kestrel.
 
 ### Step 3: Client Cập nhật Trạng thái
+
 Sử dụng một SDK Wrapper ở tầng Frontend để tự động hóa việc polling, biến luồng API phức tạp thành một lệnh gọi duy nhất:
 
 ```typescript
@@ -84,9 +93,11 @@ export async function processPaymentSync(payload: any): Promise<any> {
 ```
 
 ### Step 4: Layer 4 - SignalR UX Acceleration (Optional nhưng được khuyến nghị)
+
 Sử dụng SignalR kết hợp Redis Backplane để push event trực tiếp về UI, loại bỏ độ trễ của polling.
 
 **Client Code (SignalR + Fallback Polling):**
+
 ```typescript
 import * as signalR from "@microsoft/signalr";
 
