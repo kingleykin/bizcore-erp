@@ -99,7 +99,10 @@ public static class MassTransitExtensions
             x.UsingRabbitMq((context, cfg) =>
             {
                 cfg.ConfigureBusinessBus(context);
-                cfg.Host(configuration.GetValue<string>("RabbitMQ:Host"), "/", h =>
+                var host = configuration.GetValue<string>("RabbitMQ:Host") ?? "localhost";
+                var port = configuration.GetValue<ushort?>("RabbitMQ:Port") ?? 5672;
+
+                cfg.Host(host, port, "/", h =>
                 {
                     h.Username(configuration.GetValue<string>("RabbitMQ:Username") ?? "guest");
                     h.Password(configuration.GetValue<string>("RabbitMQ:Password") ?? "guest");

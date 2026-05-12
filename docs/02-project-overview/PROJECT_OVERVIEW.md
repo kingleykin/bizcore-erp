@@ -92,11 +92,11 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 ---
 
-# 📘 2. DOMAIN DESIGN
+## 📘 2. DOMAIN DESIGN
 
-## 📦 Entities
+### 📦 Entities
 
-### Invoice
+#### Invoice
 
 ```json
 {
@@ -108,7 +108,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 }
 ```
 
-### Payment
+#### Payment
 
 ```json
 {
@@ -122,7 +122,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 ---
 
-# 📘 3. API CONTRACT
+## 📘 3. API CONTRACT
 
 | Service | Method | Endpoint | Quyền (Permission Code) | Mô tả |
 | :--- | :--- | :--- | :--- | :--- |
@@ -138,7 +138,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | **Audit** | GET | `/audit` | `Audit.View` | Truy vấn nhật ký |
 | **Orchestration** | GET | `/orchestration/flows`| `Orchestration.View`| Giám sát luồng giao dịch |
 
-### 4. Audit Service (`Audit.API`) - Cổng: `5006`
+### 1. Audit Service (`Audit.API`) - Cổng: `5006`
 
 *Service thu thập log kiểm toán tập trung từ các nguồn.*
 
@@ -147,7 +147,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 * `GET /api/v1/audit/verify-integrity` - Xác minh tính toàn vẹn của chuỗi Hash chain.
 * `PATCH /api/v1/audit/{id}/mark-reversed` - (Internal) Đánh dấu Audit Entry đã được reverse.
 
-### 5. Orchestration Service (`Orchestration.API`) - Cổng: `5007`
+### 2. Orchestration Service (`Orchestration.API`) - Cổng: `5007`
 
 *Service theo dõi vòng đời giao dịch.*
 
@@ -174,7 +174,7 @@ Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá tr�
 
 ---
 
-# 📘 4. GATEWAY ROUTING (YARP)
+## 📘 4. GATEWAY ROUTING (YARP)
 
 | Path | Destination | Policy áp dụng |
 | :--- | :--- | :--- |
@@ -190,15 +190,15 @@ Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá tr�
 
 ---
 
-# 📘 5. DEVELOPMENT CHECKLIST
+## 📘 5. DEVELOPMENT CHECKLIST
 
-## 🟢 Phase 1 & 2: Backend & Infrastructure (Hoàn thành)
+### 🟢 Phase 1 & 2: Backend & Infrastructure (Hoàn thành)
 
 * [x] Khởi tạo Solution và Cấu trúc thư mục chuẩn.
 * [x] Triển khai 5 Microservices (bao gồm Identity & Orchestration) với 4 lớp (Domain, Application, Infra, API).
 * [x] Thiết lập Database Schema & Shared Context.
 
-## 🟡 Phase 3: Integration & UI (Hoàn thành)
+### 🟡 Phase 3: Integration & UI (Hoàn thành)
 
 * [x] Cấu hình YARP Gateway & CORS.
 * [x] Xây dựng WebUI (React/Vite) giao diện Premium.
@@ -210,7 +210,7 @@ Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá tr�
 
 ---
 
-# 🚀 6. HƯỚNG DẪN CHẠY DỰ ÁN
+## 🚀 6. HƯỚNG DẪN CHẠY DỰ ÁN
 
 Hệ thống đã được tối ưu hóa để chạy bằng Docker:
 

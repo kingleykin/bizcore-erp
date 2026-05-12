@@ -25,11 +25,13 @@
 ## 1. 🎯 Giới thiệu chung
 
 ### Đặt tính nhất quán lên hàng đầu
+
 - Tất cả code phải tuân theo quy tắc trong tài liệu này
 - Nếu nghi ngờ, hãy xem code cũ trong cùng service hoặc BuildingBlocks
 - Điều chỉnh style cũ để phù hợp với convention mới khi có cơ hội refactor
 
 ### Công cụ hỗ trợ
+
 - **EditorConfig**: `.editorconfig` định nghĩa indentation, line length, encoding
 - **StyleCop**: `.editorconfig` chứa các rule StyleCop
 - **SonarQube/SonarCloud** (nếu có): Kiểm tra quality gates
@@ -42,6 +44,7 @@
 ### 2.1. PascalCase cho Public Members
 
 **Quy tắc:**
+
 - Classes, Interfaces, Methods, Public Properties: `PascalCase`
 - Enums, Enum Values: `PascalCase`
 - Constants: `SCREAMING_SNAKE_CASE` (hoặc `PascalCase` nếu const static readonly trong class)
@@ -68,6 +71,7 @@ public decimal total_amount { get; set; }  // Không phải PascalCase
 ### 2.2. camelCase cho Private/Local Variables
 
 **Quy tắc:**
+
 - Private fields: `_camelCase` (với underscore prefix)
 - Local variables: `camelCase` (không có underscore)
 - Method parameters: `camelCase`
@@ -92,6 +96,7 @@ public class InvoiceService
 ### 2.3. Interface Naming
 
 **Quy tắc:**
+
 - Tất cả interfaces bắt đầu với `I` prefix
 - Đặt tên theo hành động (Service, Handler, Repository, Client) hoặc chức năng
 
@@ -108,6 +113,7 @@ public interface IIdempotencyService { }
 ### 2.4. Event & Command Naming
 
 **Quy tắc:**
+
 - Events: `{EntityName}{Action}Event` (ví dụ: `InvoiceCreatedEvent`, `PaymentCompletedEvent`)
 - Commands: `{Action}{EntityName}Command` (ví dụ: `CreateInvoiceCommand`, `ValidateInvoiceCommand`)
 - Consumers: `{EventName}Consumer` (ví dụ: `PaymentCompletedConsumer`)
@@ -132,6 +138,7 @@ public class PaymentCompletedConsumer : IConsumer<IPaymentCompletedEvent> { }
 ### 2.5. File Naming
 
 **Quy tắc:**
+
 - File name = Class name (1 class public per file ngoài trường hợp nested classes)
 - Folders theo tầng kiến trúc: `Domain/`, `Application/`, `Infrastructure/`, `Controllers/`, `DTOs/`
 
@@ -165,6 +172,7 @@ Invoice.API/
 ### 2.6. Database Column Naming
 
 **Quy tắc:**
+
 - Column names: `PascalCase` (match Property name)
 - Foreign keys: `{EntityName}Id` (ví dụ: `InvoiceId`, `PaymentId`)
 - Audit columns: `CreatedAt`, `UpdatedAt`, `DeletedAt`, `CreatedBy`, `UpdatedBy`
@@ -236,6 +244,7 @@ Mỗi Microservice được chia thành 4 layer chính:
 ### 3.2. Layer Responsibilities
 
 #### **Domain Layer** (Layer 1)
+
 - ✅ Entities, Aggregates, ValueObjects
 - ✅ Business rules & validations
 - ✅ Domain Exceptions
@@ -244,6 +253,7 @@ Mỗi Microservice được chia thành 4 layer chính:
 - ❌ **KHÔNG** inject DbContext, Logger, HttpClient
 
 #### **Application Layer** (Layer 2)
+
 - ✅ Service classes & handlers
 - ✅ Business logic orchestration
 - ✅ MassTransit consumers
@@ -254,6 +264,7 @@ Mỗi Microservice được chia thành 4 layer chính:
 - ❌ **KHÔNG** dependency trực tiếp vào HTTP context (ngoài IHttpContextAccessor)
 
 #### **Infrastructure Layer** (Layer 3)
+
 - ✅ DbContext, EF Core configuration
 - ✅ Migrations
 - ✅ Repository implementations
@@ -264,6 +275,7 @@ Mỗi Microservice được chia thành 4 layer chính:
 - ❌ **KHÔNG** HTTP concerns
 
 #### **API Layer** (Layer 4)
+
 - ✅ Controllers & REST endpoints
 - ✅ Request/Response mapping
 - ✅ Authorization checks
@@ -279,7 +291,9 @@ Mỗi Microservice được chia thành 4 layer chính:
 ### 4.1. General Principles
 
 #### 🚫 **KHÔNG** viết logic nghiệp vụ ở Controllers
+
 **SAI:**
+
 ```csharp
 [HttpPost]
 public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest req)
@@ -300,6 +314,7 @@ public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest r
 ```
 
 **ĐÚNG:**
+
 ```csharp
 [HttpPost]
 public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest req)
@@ -312,13 +327,16 @@ public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest r
 ```
 
 #### 🚫 **KHÔNG** gọi HTTP trực tiếp giữa services
+
 **SAI:**
+
 ```csharp
 // ❌ KHÔNG: HTTP call giữa services
 var paymentService = httpClient.GetAsync($"http://payment-service/api/payment/{id}");
 ```
 
 **ĐÚNG:**
+
 ```csharp
 // ✅ Dùng event-driven
 // Invoice service publish: InvoiceCreatedEvent
@@ -334,7 +352,9 @@ public class InvoiceCreatedConsumer : IConsumer<IInvoiceCreatedEvent>
 ```
 
 #### ✅ Domain Layer phải "sạch" (Pure)
+
 **SAI:**
+
 ```csharp
 public class Invoice
 {
@@ -350,6 +370,7 @@ public class Invoice
 ```
 
 **ĐÚNG:**
+
 ```csharp
 public class Invoice
 {
@@ -382,9 +403,11 @@ public class InvoiceService
 ### 4.2. SOLID Principles
 
 #### **S - Single Responsibility**
+
 Mỗi class chỉ có 1 lý do để thay đổi.
 
 **SAI:**
+
 ```csharp
 public class InvoiceService
 {
@@ -397,6 +420,7 @@ public class InvoiceService
 ```
 
 **ĐÚNG:**
+
 ```csharp
 public class InvoiceService { }              // Chỉ tạo invoice
 public class EmailService { }                // Chỉ gửi email
@@ -405,9 +429,11 @@ public class AuditEventConsumer { }          // Chỉ xử lý audit events
 ```
 
 #### **O - Open/Closed**
+
 Code phải mở để mở rộng, đóng để chỉnh sửa.
 
 **ĐÚNG:**
+
 ```csharp
 public interface IReversalPolicy
 {
@@ -427,9 +453,11 @@ public class PaymentReversalPolicy : IReversalPolicy { }
 ```
 
 #### **I - Interface Segregation**
+
 Không ép implement interface quá lớn.
 
 **SAI:**
+
 ```csharp
 // ❌ Interface quá lớn
 public interface IInvoiceService
@@ -446,6 +474,7 @@ public interface IInvoiceService
 ```
 
 **ĐÚNG:**
+
 ```csharp
 // ✅ Tách thành interface nhỏ hơn
 public interface IInvoiceService
@@ -466,9 +495,11 @@ public interface IEmailService
 ```
 
 #### **D - Dependency Inversion**
+
 Depend on abstractions, không concretions.
 
 **ĐÚNG:**
+
 ```csharp
 public class InvoiceService
 {
@@ -626,6 +657,7 @@ app.UseMiddleware<GlobalExceptionMiddleware>();
 ### 5.4. Exception vs Return Value
 
 **Rule of thumb:**
+
 - **Throw exception** khi: Invalid state, precondition violated, unrecoverable error
 - **Return Result/Optional** khi: Expected failure, validation failed, not found
 
@@ -708,6 +740,7 @@ _logger.LogInformation(
 ### 6.2. What to Log
 
 ✅ **Log these:**
+
 - Request start/end with duration
 - Business state changes (Invoice created, Payment completed, etc.)
 - Authorization decisions (Success, Denied, etc.)
@@ -715,6 +748,7 @@ _logger.LogInformation(
 - Errors and exceptions with stack trace
 
 ❌ **DON'T log:**
+
 - Sensitive data (passwords, API keys, SSN, credit cards)
 - PII (Personal Identifiable Information) unless absolutely necessary
 - Extremely verbose debug info in production
@@ -1264,6 +1298,107 @@ public async Task UpdateInvoice_WithValidData_Succeeds()
 }
 ```
 
+### 10.4. Test Reporting & Automation
+
+**Quy tắc:**
+
+- Tất cả Integration Tests phải có khả năng chạy tự động trên CI/CD.
+- Kết quả test **BẮT BUỘC** phải được xuất ra định dạng HTML và XML (Junit).
+- Sử dụng script `run-tests.ps1` (Windows) hoặc `run-tests.sh` (macOS/Linux) tại thư mục gốc để thực thi và tạo báo cáo đồng nhất.
+
+**Cách chạy và xem report:**
+
+```powershell
+# Cho Windows (PowerShell)
+./run-tests.ps1
+
+# Cho macOS/Linux (Bash)
+chmod +x run-tests.sh
+./run-tests.sh
+
+# Xem kết quả:
+# - Report HTML (Human-readable): TestResults/test-report.html
+# - Report XML (CI/CD integration): TestResults/test-report.xml
+# - Coverage (Độ bao phủ code): TestResults/coverage.xml
+```
+
+**Yêu cầu chi tiết đối với Developer:**
+
+#### 1. Quy tắc đặt tên (Naming Convention)
+
+Tuân thủ nghiêm ngặt pattern `{Method}_{Scenario}_{Expected}`.
+
+- **Method**: Tên phương thức hoặc chức năng đang được test.
+- **Scenario**: Điều kiện đầu vào, trạng thái hệ thống hoặc hành vi người dùng.
+- **Expected**: Kết quả kỳ vọng hoặc hành vi mong đợi.
+
+*Ví dụ:*
+
+```csharp
+// ✅ ĐÚNG
+[Fact]
+public async Task Login_WithInvalidCredentials_ShouldReturnUnauthorized() { ... }
+
+[Fact]
+public async Task CreateInvoice_WhenAmountExceedsLimit_ShouldThrowDomainException() { ... }
+
+[Fact]
+public async Task GetById_WhenInvoiceDoesNotExist_ShouldReturnNotFound() { ... }
+```
+
+#### 2. Tính độc lập của Test (Test Independence)
+
+Mỗi test case phải là một đơn vị độc lập hoàn toàn. Không được viết các test case phụ thuộc vào kết quả hoặc dữ liệu của nhau.
+
+*Ví dụ:*
+
+```csharp
+// ❌ SAI: Test Update phụ thuộc vào việc Test Create đã chạy trước đó
+[Fact] public async Task Step1_CreateUser() { ... } 
+[Fact] public async Task Step2_UpdateUser() { ... } // Giả định ID 1 đã tồn tại
+
+// ✅ ĐÚNG: Mỗi test tự chuẩn bị dữ liệu cho chính mình
+[Fact]
+public async Task UpdateUser_WhenUserExists_ShouldUpdateSuccessfully()
+{
+    // Arrange: Tự tạo user mới phục vụ riêng cho test này
+    var user = await CreateTestUserAsync(); 
+    
+    // Act & Assert...
+}
+```
+
+#### 3. Sử dụng FluentAssertions
+
+Ưu tiên sử dụng thư viện `FluentAssertions` để các câu lệnh kiểm tra (Assert) trở nên tự nhiên, dễ đọc như ngôn ngữ nói và cung cấp thông tin lỗi chi tiết khi test fail.
+
+*Ví dụ:*
+
+```csharp
+// ✅ ĐÚNG (Fluent style)
+result.StatusCode.Should().Be(StatusCodes.Status200OK);
+items.Should().NotBeEmpty().And.HaveCount(3);
+user.Email.Should().Match("*@gmail.com");
+
+// ❌ HẠN CHẾ (Classic style)
+Assert.Equal(200, result.StatusCode);
+Assert.True(items.Count == 3);
+```
+
+#### 4. Dọn dẹp môi trường (Database Clean-up)
+
+Để tránh việc dữ liệu "rác" từ lần chạy trước ảnh hưởng đến lần chạy sau, bắt buộc sử dụng `Respawn` trong `ApiTestBase` để reset database về trạng thái ban đầu trước mỗi test case.
+
+*Ví dụ trong Base Class:*
+
+```csharp
+public async Task InitializeAsync()
+{
+    // Reset DB về trạng thái sạch trước khi chạy Act
+    await _respawner.ResetAsync(_connectionString);
+}
+```
+
 ---
 
 ## 11. ✅ Code Review Checklist
@@ -1271,6 +1406,7 @@ public async Task UpdateInvoice_WithValidData_Succeeds()
 Trước khi merge pull request, xác nhận:
 
 ### Architecture & Design
+
 - [ ] Code tuân thủ 4-layer DDD architecture
 - [ ] Không có business logic ở controllers
 - [ ] Domain layer không phụ thuộc framework
@@ -1278,6 +1414,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] SOLID principles được áp dụng
 
 ### Naming Conventions
+
 - [ ] Classes, methods: PascalCase
 - [ ] Private fields: `_camelCase`
 - [ ] Local variables, parameters: `camelCase`
@@ -1286,6 +1423,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] File names match class names
 
 ### Exception Handling
+
 - [ ] Domain exceptions thrown for business violations
 - [ ] Meaningful error messages
 - [ ] No generic `catch (Exception ex)`
@@ -1293,6 +1431,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] Logging includes proper context
 
 ### Database & EF Core
+
 - [ ] Async/await used for all I/O
 - [ ] Method names have `Async` suffix
 - [ ] AsNoTracking() used for read-only queries
@@ -1301,6 +1440,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] No N+1 queries
 
 ### Security
+
 - [ ] Authorization policies explicitly defined
 - [ ] Sensitive data masked in logs
 - [ ] No hardcoded credentials
@@ -1308,6 +1448,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] Output encoded to prevent injection
 
 ### Performance
+
 - [ ] Async/await properly used
 - [ ] Queries are optimized
 - [ ] No unnecessary database calls
@@ -1315,6 +1456,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] Logging is not excessive
 
 ### Testing
+
 - [ ] Unit tests for domain logic
 - [ ] Tests are independent
 - [ ] Proper use of mocks/stubs
@@ -1322,6 +1464,7 @@ Trước khi merge pull request, xác nhận:
 - [ ] Edge cases covered
 
 ### Documentation
+
 - [ ] Complex logic has comments
 - [ ] Public methods have XML docs
 - [ ] Architecture decisions documented
@@ -1536,6 +1679,6 @@ export function InvoiceForm(props) {
 
 ---
 
-**Last Updated**: 2024-05-07  
-**Version**: 1.0  
+**Last Updated**: 2026-05-12  
+**Version**: 1.2 (Added Cross-platform Test Scripts)  
 **Maintained by**: Architecture Team

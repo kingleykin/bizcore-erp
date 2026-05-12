@@ -21,6 +21,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                 // Nếu không có tên DB thì bỏ qua
                 if (string.IsNullOrEmpty(databaseName)) return;
 
+                Console.WriteLine($"[Info] Pre-creating database '{databaseName}' via 'master'...");
                 builder.InitialCatalog = "master";
                 using var connection = new SqlConnection(builder.ConnectionString);
                 connection.Open();
@@ -30,15 +31,15 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '{databaseName}') 
                     BEGIN
                         CREATE DATABASE [{databaseName}];
+                        PRINT 'Database [{databaseName}] created successfully.';
                     END";
                 command.ExecuteNonQuery();
+                Console.WriteLine($"[Info] Database '{databaseName}' is ready.");
             }
             catch (Exception ex)
             {
-                // Thay vì swallow, hãy log lỗi để dễ debug
-                Console.WriteLine($"[Critical] PreCreateDatabase failed: {ex.Message}");
-                // Có thể dùng Serilog.Log nếu được configure sớm
-                // Serilog.Log.Error(ex, "PreCreateDatabase failed for connection string");
+                Console.WriteLine($"[Warning] PreCreateDatabase attempt failed: {ex.Message}");
+                Console.WriteLine($"[Warning] Connection string used (redacted): {new SqlConnectionStringBuilder(connectionString) { Password = "???" }.ConnectionString}");
             }
         }
 

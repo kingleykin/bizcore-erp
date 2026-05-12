@@ -2,6 +2,7 @@ using Admin.API.Domain.Entities;
 using Admin.API.Domain.Entities.Organization;
 using Admin.API.Domain.Entities.Settings;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 namespace Admin.API.Infrastructure.Data
 {
@@ -186,6 +187,10 @@ namespace Admin.API.Infrastructure.Data
                 e.Property(s => s.SettingValue).IsRequired();
                 e.Property(s => s.Description).HasMaxLength(500);
             });
+            // ── MassTransit Outbox ──────────────────────────────────────────────
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
         }
     }
 }

@@ -1,6 +1,5 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
-using Microsoft.Extensions.Configuration;
 
 namespace Admin.API.Infrastructure.Data
 {
@@ -8,18 +7,10 @@ namespace Admin.API.Infrastructure.Data
     {
         public AdminDbContext CreateDbContext(string[] args)
         {
-            var basePath = Directory.GetCurrentDirectory();
-            
-            var configuration = new ConfigurationBuilder()
-                .SetBasePath(basePath)
-                .AddJsonFile("appsettings.json", optional: false)
-                .AddJsonFile("appsettings.Development.json", optional: true)
-                .Build();
-
             var optionsBuilder = new DbContextOptionsBuilder<AdminDbContext>();
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
-
-            optionsBuilder.UseSqlServer(connectionString);
+            
+            // This is only for design time (migrations)
+            optionsBuilder.UseSqlServer("Data Source=localhost;Initial Catalog=AdminDb;Integrated Security=True;TrustServerCertificate=True");
 
             return new AdminDbContext(optionsBuilder.Options);
         }

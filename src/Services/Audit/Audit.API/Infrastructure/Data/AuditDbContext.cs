@@ -1,6 +1,7 @@
 using Audit.API.Domain.Entities;
 using Audit.API.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using MassTransit;
 
 namespace Audit.API.Infrastructure.Data
 {
@@ -91,6 +92,11 @@ namespace Audit.API.Infrastructure.Data
                 e.HasKey(x => x.Id);
                 e.HasIndex(x => new { x.PartitionKey, x.Sequence }).IsUnique();
             });
+
+            // ── MassTransit Outbox ──────────────────────────────────────────────
+            modelBuilder.AddInboxStateEntity();
+            modelBuilder.AddOutboxMessageEntity();
+            modelBuilder.AddOutboxStateEntity();
         }
     }
 }
