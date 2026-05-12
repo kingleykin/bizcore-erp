@@ -14,13 +14,13 @@ namespace Payment.API
             // 1. Database
             var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
             DatabaseExtensions.PreCreateDatabase(connStr);
-            services.AddDbContext<PaymentDbContext>(options => options.UseSqlServer(connStr));
+            services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connStr));
 
             // 2. Business Services
             services.AddScoped<IPaymentService, PaymentService>();
 
             // 3. MassTransit (Using the new convention-based helper)
-            services.AddBizcoreMassTransit<PaymentDbContext>(
+            services.AddBizcoreMassTransit<AppDbContext>(
                 builder.Configuration, 
                 QueueNames.PaymentService);
         }

@@ -46,3 +46,8 @@ try
 catch (Exception ex) { Log.Error(ex, "Error occurred during Admin database initialization."); throw; }
 
 app.Run();
+
+namespace Admin.API
+{
+    public partial class Program { }
+}

@@ -23,6 +23,8 @@ var app = builder.Build();
 app.UseBizcorePipeline("BizCore Payment API v1");
 
 // Database Initialization
-await app.Services.MigrateDatabaseAsync<PaymentDbContext>();
+await app.Services.MigrateDatabaseAsync<AppDbContext>();
 
 app.Run();
+
+public partial class Program { }

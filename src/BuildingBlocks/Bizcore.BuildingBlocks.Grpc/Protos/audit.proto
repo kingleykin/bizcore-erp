@@ -22,7 +22,7 @@ message AuditLogModel {
   string resource_name = 4;
   string resource_id = 5;
   string details = 6;
-  google.protobuf.timestamp.Timestamp created_at = 7;
+  google.protobuf.Timestamp created_at = 7;
 }
 
 message GetAuditLogsResponse {

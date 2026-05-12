@@ -33,3 +33,5 @@ try
 catch (Exception ex) { Log.Error(ex, "Error occurred during Invoice database initialization."); throw; }
 
 app.Run();
+
+public partial class Program { }

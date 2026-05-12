@@ -2,6 +2,8 @@ using MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
 using Microsoft.EntityFrameworkCore;
 using MassTransit.EntityFrameworkCoreIntegration;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Bizcore.BuildingBlocks.MassTransit;
 

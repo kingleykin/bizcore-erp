@@ -4,9 +4,11 @@ using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
 using MassTransit;
+using Quartz;
 using Microsoft.EntityFrameworkCore;
 using Orchestration.API.Application.Sagas;
 using Orchestration.API.Application.Services;
+using Orchestration.API.Domain.Entities;
 using Orchestration.API.Infrastructure.Data;
 
 namespace Orchestration.API

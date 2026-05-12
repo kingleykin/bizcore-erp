@@ -2,7 +2,7 @@ using Audit.API.Application.Jobs;
 using Audit.API.Application.Services;
 using Audit.API.Infrastructure.Data;
 using Audit.API.Infrastructure.Services;
-using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;

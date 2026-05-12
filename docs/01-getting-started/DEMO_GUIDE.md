@@ -170,19 +170,22 @@ Giải thích cách hệ thống đảm bảo Event không bao giờ bị mất:
 
 1. **Trong Grafana**, click **Explore** (ngoài cùng bên trái).
 2. **Chọn datasource**: "Loki" (nếu chưa có, add datasource mới với URL `http://loki:3100`).
-3. **Viết query**: 
-   ```
+3. **Viết query**:
+
+   ```code
    {service="invoice-api"}
-5. **Mô tả**: "Mỗi dòng log chứa structured data, bao gồm timestamp, service, level, và message. Chúng ta có thể filter theo service, environment, hay error level."
+4. **Mô tả**: "Mỗi dòng log chứa structured data, bao gồm timestamp, service, level, và message. Chúng ta có thể filter theo service, environment, hay error level."
 
 ### Bước 3: Kiểm tra Metrics từ Prometheus
 
 1. **Trong Grafana**, click **Explore**.
 2. **Chọn datasource**: "Prometheus" (nếu chưa có, add datasource mới với URL `http://prometheus:9090`).
 3. **Viết query Prometheus**:
-   ```
+
+   ```code
    rate(http_requests_received_total{job="invoice-api"}[5m])
    ```
+
 4. **Kết quả**: Thấy tỷ lệ request đến Invoice API trong 5 phút qua.
 5. **Mô tả**: "Prometheus thu thập metrics HTTP từ mỗi service. Chúng ta có thể query request rate, latency, error rate, và nhiều metrics khác."
 
@@ -191,9 +194,11 @@ Giải thích cách hệ thống đảm bảo Event không bao giờ bị mất:
 1. **Thực hiện một API request** (ví dụ: POST hóa đơn).
 2. **Copy Correlation ID** từ response header: `X-Correlation-ID`.
 3. **Trong Loki query**, thêm filter:
-   ```
+
+   ```code
    {service=~".*-api"} | json | trace_id="<CORRELATION_ID>"
    ```
+
 4. **Kết quả**: Xem tất cả logs từ tất cả services liên quan đến request này.
 5. **Mô tả**: "Correlation ID cho phép chúng ta theo dõi một request xuyên suốt chuỗi microservices. Nó trở nên cực kỳ mạnh mẽ khi hệ thống có 10+ services."
 
@@ -201,14 +206,18 @@ Giải thích cách hệ thống đảm bảo Event không bao giờ bị mất:
 
 1. **Trong Grafana**, click **+** -> **Dashboard**.
 2. **Add Panel** -> **Loki** -> Query:
-   ```
+
+   ```code
    {service="payment-api"} |= "error"
    ```
+
 3. **Đặt tên**: "Payment API Errors".
 4. **Thêm Panel thứ 2** -> **Prometheus** -> Query:
-   ```
+
+   ```code
    rate(http_requests_received_total[5m])
    ```
+
 5. **Đặt tên**: "HTTP Request Rate".
 6. **Lưu Dashboard**: `Ctrl+S`.
 7. **Mô tả**: "Dashboard này giúp chúng ta nhanh chóng phát hiện các sự cố hoặc anomaly. Các KPI chính được trực quan hóa trong một màn hình duy nhất."
@@ -220,11 +229,66 @@ Giải thích cách hệ thống đảm bảo Event không bao giờ bị mất:
 3. **Kết quả**: Xem danh sách tất cả các services mà Prometheus đang scrape metrics từ. Chúng sẽ ở trạng thái "UP" nếu khỏe mạnh.
 4. **Mô tả**: "Prometheus chủ động kéo metrics từ mỗi service qua endpoint `/metrics`. Nếu một service bị down, status sẽ chuyển sang 'DOWN' và chúng ta sẽ được cảnh báo ngay."
 
+### Bước 7: Distributed Tracing với Tempo
+
+1. **Explore -> DataSource: Tempo**.
+2. **Search by Trace ID**: Copy `X-Correlation-ID` từ Response Header và dán vào.
+3. **Kết quả**: Bạn sẽ thấy biểu đồ Waterfall hiển thị chi tiết thời gian xử lý tại từng service: `Gateway -> Invoice -> SQL`.
+4. **Ý nghĩa**: "Tìm ra chính xác điểm nghẽn (bottleneck) trong một chuỗi microservices phức tạp."
+
 ---
 
-## 🔝 11. Điểm nhấn tổng kết
+## 🌐 11. Trình diễn High Availability & Load Balancing
 
-## 🔝 11. Điểm nhấn tổng kết
+Mô phỏng khả năng scale ngang và cân bằng tải của YARP:
+
+1. **Scale ngang**: Chạy lệnh `docker-compose up -d --scale invoice-api=3`.
+2. **Kiểm tra**: Gửi 10 request liên tục tới `GET /invoice`.
+3. **Xem log**: `docker-compose logs -f invoice-api`.
+4. **Kết quả**: Bạn sẽ thấy các request được phân bổ đều cho 3 container khác nhau.
+5. **Ý nghĩa**: "Hệ thống sẵn sàng mở rộng tức thì khi traffic tăng đột biến."
+
+---
+
+## 🔒 12. Trình diễn Centralized Audit & Tamper Detection
+
+Chứng minh tính minh bạch và an toàn của dữ liệu kiểm toán:
+
+1. **Thực hiện thao tác**: Tạo hoặc cập nhật hóa đơn.
+2. **Truy vấn Audit**: `GET http://localhost:5001/audit`.
+3. **Xác minh toàn vẹn**: Gọi endpoint `GET /api/v1/audit/verify-integrity`.
+4. **Kết quả**: Trả về `Success: True`.
+5. **Mô tả**: "Mỗi bản ghi Audit được nối chuỗi Hash (SHA-256). Nếu bất kỳ ai sửa lén Database, chuỗi Hash sẽ bị gãy và hệ thống sẽ phát hiện ngay lập tức."
+
+---
+
+## 🔄 13. Trình diễn Audit-Assisted Recovery (Reversal)
+
+Sửa lỗi nhập liệu một cách chuyên nghiệp:
+
+1. **Admin nhập sai**: Cập nhật tên khách hàng thành "Tên Sai".
+2. **Yêu cầu khôi phục**: Gọi API `GET /api/v1/invoice/{id}/restore-suggestion?auditEntryId={auditId}`.
+3. **Kết quả**: Hệ thống so sánh log và gợi ý: "Bạn có muốn khôi phục 'Tên Sai' về 'Tên Đúng' không?".
+4. **Thực thi**: Gọi API `POST /restore-field`.
+5. **Ý nghĩa**: "Khôi phục dữ liệu an toàn dựa trên lịch sử Audit, không ghi đè Snapshot mù quáng, tuân thủ các ràng buộc nghiệp vụ."
+
+---
+
+## 🛤️ 14. Trình diễn Orchestration Visibility (Timeline)
+
+Theo dõi hành trình của một giao dịch phân tán:
+
+1. **Thực hiện luồng**: Thanh toán hóa đơn.
+2. **Truy cập**: `http://localhost:5001/orchestration/flows`.
+3. **Kết quả**: Xem Timeline chi tiết:
+   * 10:00: Payment Created.
+   * 10:01: Payment Completed.
+   * 10:02: Invoice Status Updated to Paid.
+4. **Ý nghĩa**: "Cung cấp cái nhìn 360 độ về trạng thái của các quy trình nghiệp vụ chạy ngầm."
+
+---
+
+## 🔝 15. Điểm nhấn tổng kết
 
 Khi giới thiệu, hãy nhấn mạnh các điểm sau:
 
@@ -259,7 +323,8 @@ Hệ thống BizCore ERP đã được cấu hình đầy đủ monitoring stack
 ✅ **Promtail**: Log shipping với Docker service discovery
 
 **Query mạnh mẽ**:
-```
+
+```code
 {service="payment-api"} |= "error"
 {service=~".*-api"} | json | trace_id="<CORRELATION_ID>"
 ```

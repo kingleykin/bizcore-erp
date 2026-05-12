@@ -8,6 +8,7 @@ using Invoice.API.Application.Clients;
 using Invoice.API.Application.Services;
 using Invoice.API.Infrastructure.Data;
 using MassTransit;
+using Quartz;
 using Microsoft.EntityFrameworkCore;
 
 namespace Invoice.API

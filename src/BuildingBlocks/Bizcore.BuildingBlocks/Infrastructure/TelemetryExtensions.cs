@@ -21,7 +21,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation()
-                    .AddMassTransitInstrumentation()
+                    .AddSource("MassTransit")
                     .AddGrpcClientInstrumentation()
                     .AddOtlpExporter())
                 .WithMetrics(metrics => metrics

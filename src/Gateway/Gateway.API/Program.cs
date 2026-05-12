@@ -2,6 +2,7 @@ using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.Middlewares;
 using Gateway.API;
 using Prometheus;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -55,3 +56,8 @@ app.MapReverseProxy().RequireRateLimiting("fixed").RequireAuthorization();
 app.MapMetrics();
 
 app.Run();
+
+namespace Gateway.API
+{
+    public partial class Program { }
+}

@@ -12,6 +12,7 @@
 - **Tài liệu chi tiết**: Xem [PROJECT OVERVIEW](PROJECT_OVERVIEW.md)
 
 ### 🛠 Tech Stack & Patterns
+
 - **Backend**: C#, .NET (ASP.NET Core Web API).
 - **Kiến trúc**: Microservices kết hợp Domain-Driven Design (DDD) Lite và Event-Driven Architecture (EDA).
 - **API Gateway**: YARP (Yet Another Reverse Proxy).
@@ -49,11 +50,12 @@ bizcore-erp/
 
 > [!NOTE]
 > **Cấu trúc bên trong mỗi Microservice (4-Layer DDD Lite):**
+>
 > 1. **Domain Layer**: Chứa Entities, Enums, Interfaces. Không phụ thuộc thư viện ngoài. Chứa Domain Validation.
 > 2. **Application Layer**: Chứa Use Cases (Services/Handlers). Điều phối logic nghiệp vụ.
 > 3. **Infrastructure Layer**: DbContext, Migrations, MassTransit Config, External Clients.
-> 4. **API Layer**: Controllers, **Module.cs**, **Program.cs**. 
->    - `Program.cs`: Chỉ chứa host setup và nạp Module. 
+> 4. **API Layer**: Controllers, **Module.cs**, **Program.cs**.
+>    - `Program.cs`: Chỉ chứa host setup và nạp Module.
 >    - `Module.cs`: Đóng gói toàn bộ đăng ký DI của service.
 
 ---
@@ -78,19 +80,25 @@ Hệ thống giao tiếp bất đồng bộ bằng **RabbitMQ** (Event-Driven) �
 Hệ thống áp dụng **3 Transaction Patterns** để đảm bảo tính toàn vẹn dữ liệu:
 
 ### 4.1. Local Transaction Pattern
+
 **Dùng cho:** Nhiều thao tác ghi trên nhiều bảng trong cùng 1 database
+
 - Payment + IdempotencyRecord
 - Invoice + InvoiceLineItems
 - User + UserRole + UserPermission
 
 ### 4.2. Outbox Pattern (MassTransit)
+
 **Dùng cho:** DB write + Message publish (tránh dual write problem)
+
 - Invoice creation + InvoiceCreatedEvent
 - Payment initiation + PaymentInitiatedEvent
 - Status update + AuditEvent
 
 ### 4.3. Partitioned Audit Hash Chain
+
 **Dùng cho:** Bảo vệ Hash Chain khỏi race condition bằng sequence/lock theo partition
+
 - Audit Service - AuditEventConsumer
 
 ### 📚 Tài liệu Transaction Management
@@ -112,17 +120,20 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 
 > [!CAUTION]
 > **Tuân thủ DDD & Clean Architecture**:
+>
 > - **KHÔNG** viết logic nghiệp vụ (business logic) ở tầng API/Controllers.
 > - Giữ tầng Domain "sạch" (pure), không inject DB contexts hay Framework-specific dependencies vào Domain entities.
 > - Validate input format bằng **FluentValidation** (tầng API/App), validate business rules bên trong **Domain Entities**.
 
 > [!WARNING]
 > **Giao tiếp giữa các Services**:
+>
 > - **KHÔNG** gọi HTTP trực tiếp giữa các service (trừ phi thiết kế bắt buộc). Ưu tiên dùng Event (Publish/Subscribe qua MassTransit) đặt trong `Bizcore.BuildingBlocks`.
 > - Khi publish Message/Event, bắt buộc phải cân nhắc tính toàn vẹn bằng cách sử dụng **Outbox Pattern**.
 
 > [!TIP]
 > **Bảo mật & Phân quyền**:
+>
 > - Hệ thống sử dụng **Dynamic Authorization** với **Redis Caching**.
 > - Mọi API endpoint mới (trừ endpoint public/auth) đều phải được gắn `RequirePermission` attribute (ví dụ `[RequirePermission(Permissions.Invoice.Create)]`).
 > - Quyền được phân loại theo: Menu, Page, Action, Field. Định nghĩa tập trung tại `Bizcore.BuildingBlocks`.
@@ -130,18 +141,34 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 
 > [!IMPORTANT]
 > **Xử lý Lỗi (Error Handling) & Observability**:
+>
 > - Luôn throw các Exception cụ thể (`DomainException`, `NotFoundException`, v.v.) thay vì return code trực tiếp, để `Global Exception Handling Middleware` xử lý và chuẩn hóa format.
 > - Mọi request đều có `X-Correlation-ID`. Đảm bảo các tiến trình background (MassTransit consumers) cũng kế thừa và ghi log kèm Correlation ID này để phục vụ distributed tracing.
 
 > [!IMPORTANT]
 > **Đồng bộ hóa (Idempotency & Concurrency)**:
+>
 > - Các endpoint tạo mới/thanh toán phải xử lý Idempotency (kiểm tra `X-Idempotency-Key` từ header) để tránh duplicate data khi retry.
 > - Xử lý event từ RabbitMQ (Consumers) phải là Idempotent (có thể chạy lại an toàn nếu bị retry do lỗi mạng).
 
 > [!IMPORTANT]
 > **Transaction Management (Data Integrity)**:
+>
 > - **Local Transaction**: Sử dụng `DbContext.Database.BeginTransactionAsync()` cho các thao tác ghi nhiều bảng trong cùng 1 database.
 > - **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính atomic giữa DB write và Message publish (tránh dual write problem).
 > - **Partitioned Audit Hash Chain**: Áp dụng cho Audit Service; serialize append theo `PartitionKey`, không dùng global Serializable.
 > - **ExecutionStrategy**: Sử dụng để tự động retry khi gặp transient errors (deadlock, connection timeout).
 > - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](../05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](../05-transactions/TRANSACTION_IMPLEMENTATION_GUIDE.md)
+>
+---
+
+## 6. 🧪 Kiểm thử (Testing Strategy)
+
+Hệ thống áp dụng chiến lược kiểm thử đa tầng:
+
+- **Unit Tests**: Kiểm tra logic nghiệp vụ tại `Bizcore.UnitTests`.
+- **API Tests**: Kiểm tra tích hợp Microservices với real infra (Docker) tại `Bizcore.ApiTests`.
+- **E2E Tests**: Kiểm tra luồng người dùng trên trình duyệt (Playwright) tại `Bizcore.E2ETests`.
+
+> [!TIP]
+> Hướng dẫn chi tiết cách chạy và viết test xem tại: [TESTING_GUIDE.md](../09-testing/TESTING_GUIDE.md)

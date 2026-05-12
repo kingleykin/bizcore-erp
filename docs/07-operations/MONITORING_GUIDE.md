@@ -48,10 +48,10 @@ graph TD
     TEMPO --> GRAF
 ```
 
-*   **Logs (Loki)**: Thu thập log có cấu trúc từ Serilog.
-*   **Metrics (Prometheus)**: Thu thập chỉ số hiệu năng (Latency, Error Rate, CPU/RAM).
-*   **Traces (OpenTelemetry)**: Truy vết luồng request xuyên suốt các Microservices.
-*   **Visualization (Grafana)**: Nơi hiển thị tất cả dữ liệu trên.
+* **Logs (Loki)**: Thu thập log có cấu trúc từ Serilog.
+* **Metrics (Prometheus)**: Thu thập chỉ số hiệu năng (Latency, Error Rate, CPU/RAM).
+* **Traces (OpenTelemetry)**: Truy vết luồng request xuyên suốt các Microservices.
+* **Visualization (Grafana)**: Nơi hiển thị tất cả dữ liệu trên.
 
 ---
 
@@ -61,7 +61,7 @@ graph TD
 | :--- | :--- | :--- |
 | **Grafana** | `http://localhost:3001` | `admin` / `admin` |
 | **Prometheus** | `http://localhost:9090` | Không có |
-| **RabbitMQ UI** | `http://localhost:15672`| `guest` / `guest` |
+| **RabbitMQ UI** | `http://localhost:15672` | `guest` / `guest` |
 | **Loki API** | `http://localhost:3100` | Không có |
 
 ---
@@ -72,17 +72,17 @@ graph TD
 
 Nếu Grafana chưa có dữ liệu, hãy thêm các nguồn sau:
 
-1.  **Prometheus**: URL `http://prometheus:9090`
-2.  **Loki**: URL `http://loki:3100`
-3.  **Tempo**: URL `http://tempo:3200`
+1. **Prometheus**: URL `http://prometheus:9090`
+2. **Loki**: URL `http://loki:3100`
+3. **Tempo**: URL `http://tempo:3200`
 
 ### 3.2. Import Dashboards chuẩn
 
 Để theo dõi nhanh, hãy Import các Dashboard sau (Dùng ID):
 
-*   **ASP.NET Core Monitoring**: ID `19004` (Hiển thị Request/s, Error rate, GC).
-*   **Docker Container Stats**: ID `14527` (Hiển thị tài nguyên CPU/RAM của từng container).
-*   **Logs Centralized**: Tạo Dashboard mới với panel **Logs**, chọn source **Loki**.
+* **ASP.NET Core Monitoring**: ID `19004` (Hiển thị Request/s, Error rate, GC).
+* **Docker Container Stats**: ID `14527` (Hiển thị tài nguyên CPU/RAM của từng container).
+* **Logs Centralized**: Tạo Dashboard mới với panel **Logs**, chọn source **Loki**.
 
 ---
 
@@ -90,21 +90,21 @@ Nếu Grafana chưa có dữ liệu, hãy thêm các nguồn sau:
 
 Đây là kỹ thuật quan trọng nhất để tìm lỗi trong Microservices.
 
-1.  **Tìm lỗi**: Khi API trả về lỗi hoặc bạn thấy log `Error` trong Grafana/Loki.
-2.  **Lấy ID**: Copy giá trị `CorrelationId` (thường nằm trong log hoặc header `X-Correlation-ID`).
-3.  **Truy vết toàn diện**: 
-    *   Vào Grafana -> Explore -> Chọn Loki.
-    *   Query: `{service=~".+"} |= "MÃ_CORRELATION_ID"`
-    *   Bạn sẽ thấy toàn bộ log của các service liên quan đến request đó theo đúng trình tự thời gian.
+1. **Tìm lỗi**: Khi API trả về lỗi hoặc bạn thấy log `Error` trong Grafana/Loki.
+2. **Lấy ID**: Copy giá trị `CorrelationId` (thường nằm trong log hoặc header `X-Correlation-ID`).
+3. **Truy vết toàn diện**:
+    * Vào Grafana -> Explore -> Chọn Loki.
+    * Query: `{service=~".+"} |= "MÃ_CORRELATION_ID"`
+    * Bạn sẽ thấy toàn bộ log của các service liên quan đến request đó theo đúng trình tự thời gian.
 
 ---
 
 ## 5. Các chỉ số quan trọng cần theo dõi
 
-*   **HTTP 5xx Rate**: Nếu chỉ số này tăng đột biến, hệ thống đang gặp lỗi nghiêm trọng.
-*   **Request Latency (p95)**: Nếu > 2s, người dùng sẽ cảm thấy hệ thống chậm. Cần kiểm tra SQL hoặc gRPC timeout.
-*   **RabbitMQ Queue Length**: Nếu queue bị dồn ứ (Ready messages tăng), các Consumer đang xử lý quá chậm hoặc bị treo.
-*   **Circuit Breaker State**: Theo dõi xem có service nào đang ở trạng thái `Open` (Ngắt mạch) không.
+* **HTTP 5xx Rate**: Nếu chỉ số này tăng đột biến, hệ thống đang gặp lỗi nghiêm trọng.
+* **Request Latency (p95)**: Nếu > 2s, người dùng sẽ cảm thấy hệ thống chậm. Cần kiểm tra SQL hoặc gRPC timeout.
+* **RabbitMQ Queue Length**: Nếu queue bị dồn ứ (Ready messages tăng), các Consumer đang xử lý quá chậm hoặc bị treo.
+* **Circuit Breaker State**: Theo dõi xem có service nào đang ở trạng thái `Open` (Ngắt mạch) không.
 
 ---
 
