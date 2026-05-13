@@ -28,14 +28,17 @@ namespace Audit.API.Domain.Entities
         public string? EntityId       { get; private set; }
 
         // ── Action ────────────────────────────────────────────────────────────
-        /// <summary>Structured action: "Invoice.Created", "Auth.Login.Failed", etc.</summary>
+        /// <summary>Structured action: "invoice.created", "identity.auth.login.succeeded", etc.</summary>
         public string  Action         { get; private set; } = null!;
-        public AuditLevel AuditLevel  { get; private set; }
+        public AuditCategory Category { get; private set; }
+        public AuditSeverity Severity { get; private set; }
+        public AuditOutcome  Outcome  { get; private set; }
+        public DataClassification DataClassification { get; private set; }
+        public string? TenantId       { get; private set; }
 
         // ── Change Snapshot ───────────────────────────────────────────────────
         /// <summary>JSON snapshot BEFORE change (sensitive fields masked).</summary>
         public string? BeforeJson     { get; private set; }
-
         /// <summary>JSON snapshot AFTER change (sensitive fields masked).</summary>
         public string? AfterJson      { get; private set; }
 
@@ -70,7 +73,11 @@ namespace Audit.API.Domain.Entities
         public static AuditEntry Create(
             string serviceName,
             string action,
-            AuditLevel auditLevel,
+            AuditCategory category,
+            AuditSeverity severity,
+            AuditOutcome  outcome,
+            DataClassification classification,
+            string? tenantId       = null,
             string? correlationId  = null,
             string? traceId        = null,
             string? spanId         = null,
@@ -90,7 +97,11 @@ namespace Audit.API.Domain.Entities
                 Id              = Guid.NewGuid(),
                 ServiceName     = serviceName,
                 Action          = action,
-                AuditLevel      = auditLevel,
+                Category        = category,
+                Severity        = severity,
+                Outcome         = outcome,
+                DataClassification = classification,
+                TenantId        = tenantId,
                 CorrelationId   = correlationId,
                 TraceId         = traceId,
                 SpanId          = spanId,

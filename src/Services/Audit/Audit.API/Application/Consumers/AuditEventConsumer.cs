@@ -34,17 +34,24 @@ namespace Audit.API.Application.Consumers
             var msg = context.Message;
 
             _logger.LogInformation(
-                "AuditEvent received: [{Level}] {Service} | {Action} | Actor={Actor} | Entity={Type}/{Id}",
-                msg.AuditLevel, msg.ServiceName, msg.Action,
+                "AuditEvent received: [{Category}] {Service} | {Action} | Actor={Actor} | Entity={Type}/{Id}",
+                msg.Category, msg.ServiceName, msg.Action,
                 msg.ActorUsername ?? "system",
                 msg.EntityType, msg.EntityId);
 
-            var level = ParseLevel(msg.AuditLevel);
+            var category = ParseEnum<AuditCategory>(msg.Category, AuditCategory.Business);
+            var severity = ParseEnum<AuditSeverity>(msg.Severity, AuditSeverity.Info);
+            var outcome = ParseEnum<AuditOutcome>(msg.Outcome, AuditOutcome.Success);
+            var classification = ParseEnum<DataClassification>(msg.DataClassification, DataClassification.Internal);
 
             var entry = AuditEntry.Create(
                 serviceName     : msg.ServiceName,
                 action          : msg.Action,
-                auditLevel      : level,
+                category        : category,
+                severity        : severity,
+                outcome         : outcome,
+                classification  : classification,
+                tenantId        : msg.TenantId,
                 correlationId   : msg.CorrelationId,
                 traceId         : msg.TraceId,
                 spanId          : msg.SpanId,
@@ -60,13 +67,10 @@ namespace Audit.API.Application.Consumers
             );
 
             // Wrap hash chain computation and insert in a transaction.
-            // Using ReadCommitted with explicit row-level locking in HashChainService
-            // provides better concurrency than global Serializable.
             await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, context.CancellationToken);
 
             try
             {
-                // Compute hash chain INSIDE the same DbContext scope and transaction
                 await _hashChain.ComputeAndSetHashAsync(entry, context.CancellationToken);
 
                 _db.AuditEntries.Add(entry);
@@ -83,9 +87,9 @@ namespace Audit.API.Application.Consumers
             _logger.LogDebug("AuditEntry {Id} persisted with hash {Hash}.", entry.Id, entry.Hash);
         }
 
-        private static AuditLevel ParseLevel(string? level) =>
-            Enum.TryParse<AuditLevel>(level, ignoreCase: true, out var result)
-                ? result
-                : AuditLevel.Operational;
+        private static T ParseEnum<T>(string? value, T defaultValue) where T : struct, Enum
+        {
+            return Enum.TryParse<T>(value, ignoreCase: true, out var result) ? result : defaultValue;
+        }
     }
 }

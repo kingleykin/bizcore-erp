@@ -14,6 +14,8 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                 var lokiUrl = context.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
                 
                 loggerConfiguration
+                    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
+                    .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
                     .Enrich.FromLogContext()
                     .Enrich.WithProperty("Service", serviceName)
                     .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)

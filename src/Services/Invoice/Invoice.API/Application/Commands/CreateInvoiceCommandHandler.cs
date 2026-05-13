@@ -1,3 +1,4 @@
+using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Contracts;
 using Invoice.API.Domain.Entities;
 using Invoice.API.Infrastructure.Data;
@@ -10,15 +11,18 @@ namespace Invoice.API.Application.Commands
     {
         private readonly AppDbContext _context;
         private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IAuditPublisher _audit;
         private readonly ILogger<CreateInvoiceCommandHandler> _logger;
 
         public CreateInvoiceCommandHandler(
             AppDbContext context,
             IPublishEndpoint publishEndpoint,
+            IAuditPublisher audit,
             ILogger<CreateInvoiceCommandHandler> logger)
         {
             _context = context;
             _publishEndpoint = publishEndpoint;
+            _audit = audit;
             _logger = logger;
         }
 
@@ -38,15 +42,14 @@ namespace Invoice.API.Application.Commands
             }, cancellationToken);
 
             // Publish Explicit Audit Log
-            await _publishEndpoint.Publish(new AuditEvent
-            {
-                Action = "Invoice.Created",
-                AuditLevel = "Financial",
-                ServiceName = "Invoice.API",
-                EntityType = "Invoice",
-                EntityId = invoice.Id.ToString(),
-                AfterJson = System.Text.Json.JsonSerializer.Serialize(new { invoice.Id, invoice.CustomerName, invoice.Amount, invoice.Status })
-            }, cancellationToken);
+            await _audit.PublishAsync(
+                AuditActions.Invoice.Created,
+                entityType: "Invoice",
+                entityId: invoice.Id.ToString(),
+                after: new { invoice.Id, invoice.CustomerName, invoice.Amount, invoice.Status },
+                category: AuditCategory.Financial,
+                classification: DataClassification.Financial,
+                ct: cancellationToken);
 
             // Do NOT call SaveChangesAsync here.
             // TransactionBehavior commits the Invoice and OutboxMessage together.

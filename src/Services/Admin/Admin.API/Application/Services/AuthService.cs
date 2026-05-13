@@ -21,18 +21,18 @@ namespace Admin.API.Application.Services
         private readonly AdminDbContext _db;
         private readonly IConfiguration _config;
         private readonly ILogger<AuthService> _logger;
-        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IAuditPublisher _audit;
 
         public AuthService(
             AdminDbContext db,
             IConfiguration config,
             ILogger<AuthService> logger,
-            IPublishEndpoint publishEndpoint)
+            IAuditPublisher audit)
         {
-            _db              = db;
-            _config          = config;
-            _logger          = logger;
-            _publishEndpoint = publishEndpoint;
+            _db     = db;
+            _config = config;
+            _logger = logger;
+            _audit  = audit;
         }
 
         public async Task<LoginResponse> LoginAsync(LoginRequest request, string? ipAddress = null)
@@ -63,10 +63,15 @@ namespace Admin.API.Application.Services
                 _logger.LogWarning("Login failed: invalid password for '{Username}'. Attempts: {Attempts}",
                     user.Username, user.FailedLoginAttempts);
 
-                await PublishAuditAsync("Auth.Login.Failed", "Security",
-                    actorUsername: request.Username, entityType: "User", entityId: user.Id.ToString(),
-                    afterJson: SensitiveFieldMasker.ToMaskedJson(new { user.Username, user.FailedLoginAttempts }),
-                    ipAddress: ipAddress);
+                await _audit.PublishAsync(
+                    AuditActions.Identity.AuthLoginFailed,
+                    entityType: nameof(User), entityId: user.Id.ToString(),
+                    after: new { user.Username, user.FailedLoginAttempts },
+                    category: AuditCategory.Security,
+                    severity: AuditSeverity.Warning,
+                    outcome: AuditOutcome.Failure,
+                    classification: DataClassification.Credential,
+                    actorUsername: request.Username);
 
                 throw new UnauthorizedException("Invalid username or password.");
             }
@@ -87,11 +92,12 @@ namespace Admin.API.Application.Services
 
             await _db.SaveChangesAsync();
 
-            await PublishAuditAsync("Auth.Login.Success", "Security",
-                actorUserId: user.Id.ToString(), actorUsername: user.Username,
-                entityType: "User", entityId: user.Id.ToString(),
-                afterJson: SensitiveFieldMasker.ToMaskedJson(new { user.Username, Roles = roles }),
-                ipAddress: ipAddress);
+            await _audit.PublishAsync(
+                AuditActions.Identity.AuthLoginSucceeded,
+                entityType: nameof(User), entityId: user.Id.ToString(),
+                after: new { user.Username, Roles = roles },
+                category: AuditCategory.Security,
+                classification: DataClassification.Credential);
 
             _logger.LogInformation("User '{Username}' logged in successfully.", user.Username);
 
@@ -162,9 +168,13 @@ namespace Admin.API.Application.Services
 
             await _db.SaveChangesAsync();
 
-            await PublishAuditAsync("Auth.ChangePassword", "Security",
-                actorUserId: userId.ToString(), entityType: "User", entityId: userId.ToString(),
-                afterJson: SensitiveFieldMasker.ToMaskedJson(new { Event = "PasswordChanged", UserId = userId }));
+            await _audit.PublishAsync(
+                AuditActions.Identity.AuthPasswordChanged,
+                entityType: nameof(User), entityId: userId.ToString(),
+                after: new { Event = "PasswordChanged", UserId = userId },
+                category: AuditCategory.Security,
+                severity: AuditSeverity.Critical,
+                classification: DataClassification.Credential);
 
             _logger.LogInformation("Password changed for user '{UserId}'.", userId);
         }
@@ -216,31 +226,6 @@ namespace Admin.API.Application.Services
             var refreshToken = RefreshToken.Create(userId, tokenStr, expiryDays, ipAddress);
             _db.RefreshTokens.Add(refreshToken);
             return refreshToken;
-        }
-        private async Task PublishAuditAsync(
-            string action, string auditLevel,
-            string? actorUserId = null, string? actorUsername = null,
-            string? entityType = null, string? entityId = null,
-            string? beforeJson = null, string? afterJson = null,
-            string? ipAddress = null)
-        {
-            var activity = Activity.Current;
-            await _publishEndpoint.Publish(new AuditEvent
-            {
-                ServiceName   = "Admin.API",
-                Action        = action,
-                AuditLevel    = auditLevel,
-                ActorUserId   = actorUserId,
-                ActorUsername = actorUsername,
-                EntityType    = entityType,
-                EntityId      = entityId,
-                BeforeJson    = beforeJson,
-                AfterJson     = afterJson,
-                IpAddress     = ipAddress,
-                TraceId       = activity?.TraceId.ToString(),
-                SpanId        = activity?.SpanId.ToString(),
-                OccurredAt    = DateTime.UtcNow
-            });
         }
     }
 }

@@ -31,7 +31,6 @@ namespace Audit.API.Infrastructure.Services
             var partitionKey = string.IsNullOrEmpty(entry.EntityName) ? "Global" : entry.EntityName;
 
             // Fetch head with UPDLOCK and ROWLOCK to ensure serialized append for this partition.
-            // This allows us to use ReadCommitted isolation level safely.
             var head = await _db.AuditHashChainHeads
                 .FromSqlRaw("SELECT * FROM AuditHashChainHeads WITH (UPDLOCK, ROWLOCK) WHERE PartitionKey = {0}", partitionKey)
                 .FirstOrDefaultAsync(ct);
@@ -103,7 +102,11 @@ namespace Audit.API.Infrastructure.Services
                 e.Id,
                 e.ServiceName,
                 e.Action,
-                AuditLevel = e.AuditLevel.ToString(),
+                Category = e.Category.ToString(),
+                Severity = e.Severity.ToString(),
+                Outcome = e.Outcome.ToString(),
+                Classification = e.DataClassification.ToString(),
+                e.TenantId,
                 e.EntityName,
                 e.EntityId,
                 e.PerformedBy,

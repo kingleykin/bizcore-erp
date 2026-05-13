@@ -16,17 +16,20 @@ namespace Admin.API.Application.Services
         private readonly AdminDbContext _db;
         private readonly ILogger<RoleService> _logger;
         private readonly IPermissionCache _cache;
+        private readonly IAuditPublisher _audit;
         private readonly IPublishEndpoint _publishEndpoint;
 
         public RoleService(
             AdminDbContext db, 
             ILogger<RoleService> logger,
             IPermissionCache cache,
+            IAuditPublisher audit,
             IPublishEndpoint publishEndpoint)
         {
             _db = db;
             _logger = logger;
             _cache = cache;
+            _audit = audit;
             _publishEndpoint = publishEndpoint;
         }
 
@@ -132,9 +135,11 @@ namespace Admin.API.Application.Services
             });
 
             // Audit
-            await PublishAuditAsync("Identity.Role.PermissionsAssigned", "Security",
-                entityType: "Role", entityId: role.Id.ToString(),
-                afterJson: SensitiveFieldMasker.ToMaskedJson(new { role.Name, PermissionCount = permissionIds.Count }));
+            await _audit.PublishAsync(
+                AuditActions.Identity.RolePermissionsAssigned,
+                entityType: nameof(Role), entityId: role.Id.ToString(),
+                after: new { role.Name, PermissionCount = permissionIds.Count },
+                category: AuditCategory.Security);
 
             _logger.LogInformation("Assigned {Count} permission(s) to role '{Name}'.", permissionIds.Count, role.Name);
         }
@@ -159,25 +164,5 @@ namespace Admin.API.Application.Services
                 rp.Permission.Description))
         );
 
-        private async Task PublishAuditAsync(
-            string action, string auditLevel,
-            string? entityType = null, string? entityId = null,
-            string? beforeJson = null, string? afterJson = null)
-        {
-            var activity = Activity.Current;
-            await _publishEndpoint.Publish(new AuditEvent
-            {
-                ServiceName = "Admin.API",
-                Action = action,
-                AuditLevel = auditLevel,
-                EntityType = entityType,
-                EntityId = entityId,
-                BeforeJson = beforeJson,
-                AfterJson = afterJson,
-                TraceId = activity?.TraceId.ToString(),
-                SpanId = activity?.SpanId.ToString(),
-                OccurredAt = DateTime.UtcNow
-            });
-        }
     }
 }

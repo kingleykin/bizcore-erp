@@ -6,6 +6,7 @@ using Invoice.API.Infrastructure.Data;
 using MassTransit;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Bizcore.BuildingBlocks.Audit;
 
 namespace Bizcore.UnitTests;
 
@@ -17,15 +18,16 @@ public class RestoreInvoiceFieldCommandHandlerTests
         // Arrange
         var dbName = Guid.NewGuid().ToString();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
-        
+
         var invoice = Invoice.API.Domain.Entities.Invoice.Create("Old Name", 1000);
         context.Invoices.Add(invoice);
         await context.SaveChangesAsync();
 
         var publishEndpointMock = new Mock<IPublishEndpoint>();
         var loggerMock = new Mock<ILogger<RestoreInvoiceFieldCommandHandler>>();
-        
-        var handler = new RestoreInvoiceFieldCommandHandler(context, publishEndpointMock.Object, loggerMock.Object);
+        var auditPublisherMock = new Mock<IAuditPublisher>();
+
+        var handler = new RestoreInvoiceFieldCommandHandler(context, publishEndpointMock.Object, auditPublisherMock.Object, loggerMock.Object);
 
         var actor = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
@@ -47,16 +49,16 @@ public class RestoreInvoiceFieldCommandHandlerTests
 
         // Assert
         result.Success.Should().BeTrue();
-        
+
         // Verify AuditEvent was published
         publishEndpointMock.Verify(p => p.Publish(
-            It.Is<AuditEvent>(e => 
+            It.Is<AuditEvent>(e =>
                 e.ServiceName == "Invoice.API" &&
                 e.Action == "DataReversal.Invoice.CustomerName" &&
                 e.EntityType == "Invoice" &&
                 e.EntityId == invoice.Id.ToString() &&
                 e.ActorUserId == "user-123"
-            ), 
+            ),
             It.IsAny<CancellationToken>()
         ), Times.Once);
 

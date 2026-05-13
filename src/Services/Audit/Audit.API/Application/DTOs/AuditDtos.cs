@@ -11,7 +11,11 @@ namespace Audit.API.Application.DTOs
         string?   EntityName,
         string?   EntityId,
         string    Action,
-        string    AuditLevel,
+        string    Category,
+        string    Severity,
+        string    Outcome,
+        string    DataClassification,
+        string?   TenantId,
         string?   BeforeJson,
         string?   AfterJson,
         string?   PerformedBy,
@@ -30,7 +34,11 @@ namespace Audit.API.Application.DTOs
         public string?    EntityType   { get; init; }
         public string?    EntityId     { get; init; }
         public string?    PerformedBy  { get; init; }
-        public AuditLevel? AuditLevel  { get; init; }
+        public AuditCategory? Category { get; init; }
+        public AuditSeverity? Severity { get; init; }
+        public AuditOutcome? Outcome   { get; init; }
+        public DataClassification? DataClassification { get; init; }
+        public string?    TenantId     { get; init; }
         public DateTime?  DateFrom     { get; init; }
         public DateTime?  DateTo       { get; init; }
         public int        Page         { get; init; } = 1;

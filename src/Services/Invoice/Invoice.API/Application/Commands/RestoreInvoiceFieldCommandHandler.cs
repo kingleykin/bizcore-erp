@@ -15,15 +15,18 @@ namespace Invoice.API.Application.Commands
     {
         private readonly AppDbContext _context;
         private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IAuditPublisher _audit;
         private readonly ILogger<RestoreInvoiceFieldCommandHandler> _logger;
 
         public RestoreInvoiceFieldCommandHandler(
             AppDbContext context,
             IPublishEndpoint publishEndpoint,
+            IAuditPublisher audit,
             ILogger<RestoreInvoiceFieldCommandHandler> logger)
         {
             _context = context;
             _publishEndpoint = publishEndpoint;
+            _audit = audit;
             _logger = logger;
         }
 
@@ -59,24 +62,17 @@ namespace Invoice.API.Application.Commands
             try
             {
                 // 4. Publish AuditEvent ghi nhận hành động Reversal (traceability đầy đủ)
-                // Event này sẽ được ghi vào MassTransit Outbox cùng transaction của DbContext
-                var activity = Activity.Current;
-                await _publishEndpoint.Publish(new AuditEvent
-                {
-                    ServiceName    = "Invoice.API",
-                    Action         = $"DataReversal.Invoice.{request.Field}",
-                    AuditLevel     = "Compliance",
-                    EntityType     = "Invoice",
-                    EntityId       = request.InvoiceId.ToString(),
-                    BeforeJson     = SensitiveFieldMasker.ToMaskedJson(beforeSnapshot),
-                    AfterJson      = SensitiveFieldMasker.ToMaskedJson(new { invoice.CustomerName }),
-                    ActorUserId    = request.Actor.FindFirstValue("sub"),
-                    ActorUsername  = request.Actor.FindFirstValue(System.Security.Claims.ClaimTypes.Name),
-                    CorrelationId  = $"reversal-of-{request.SourceAuditEntryId}",
-                    TraceId        = activity?.TraceId.ToString(),
-                    SpanId         = activity?.SpanId.ToString(),
-                    OccurredAt     = DateTime.UtcNow
-                }, ct);
+                await _audit.PublishAsync(
+                    AuditActions.Invoice.FieldRestored,
+                    entityType: "Invoice",
+                    entityId: request.InvoiceId.ToString(),
+                    before: beforeSnapshot,
+                    after: new { invoice.CustomerName },
+                    category: AuditCategory.Compliance,
+                    severity: AuditSeverity.Warning,
+                    actorUserId: request.Actor.FindFirstValue("sub"),
+                    actorUsername: request.Actor.FindFirstValue(ClaimTypes.Name),
+                    ct: ct);
 
                 _logger.LogInformation("Invoice field '{Field}' restoration prepared for InvoiceId={InvoiceId}", request.Field, request.InvoiceId);
             }

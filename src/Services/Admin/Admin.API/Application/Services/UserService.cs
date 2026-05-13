@@ -16,17 +16,20 @@ namespace Admin.API.Application.Services
         private readonly AdminDbContext _db;
         private readonly ILogger<UserService> _logger;
         private readonly IPermissionCache _cache;
+        private readonly IAuditPublisher _audit;
         private readonly IPublishEndpoint _publishEndpoint;
 
         public UserService(
             AdminDbContext db, 
             ILogger<UserService> logger,
             IPermissionCache cache,
+            IAuditPublisher audit,
             IPublishEndpoint publishEndpoint)
         {
             _db = db;
             _logger = logger;
             _cache = cache;
+            _audit = audit;
             _publishEndpoint = publishEndpoint;
         }
 
@@ -152,9 +155,11 @@ namespace Admin.API.Application.Services
             });
 
             // Audit
-            await PublishAuditAsync("Identity.User.RolesAssigned", "Security",
-                entityType: "User", entityId: userId.ToString(),
-                afterJson: SensitiveFieldMasker.ToMaskedJson(new { userId, RoleCount = roleIds.Count }));
+            await _audit.PublishAsync(
+                AuditActions.Identity.UserRolesAssigned,
+                entityType: nameof(User), entityId: userId.ToString(),
+                after: new { userId, RoleCount = roleIds.Count },
+                category: AuditCategory.Security);
 
             _logger.LogInformation("Assigned {Count} role(s) to user '{Id}'.", roleIds.Count, userId);
         }
@@ -194,25 +199,5 @@ namespace Admin.API.Application.Services
             u.UserRoles.Select(ur => ur.Role.Name)
         );
 
-        private async Task PublishAuditAsync(
-            string action, string auditLevel,
-            string? entityType = null, string? entityId = null,
-            string? beforeJson = null, string? afterJson = null)
-        {
-            var activity = Activity.Current;
-            await _publishEndpoint.Publish(new AuditEvent
-            {
-                ServiceName = "Admin.API",
-                Action = action,
-                AuditLevel = auditLevel,
-                EntityType = entityType,
-                EntityId = entityId,
-                BeforeJson = beforeJson,
-                AfterJson = afterJson,
-                TraceId = activity?.TraceId.ToString(),
-                SpanId = activity?.SpanId.ToString(),
-                OccurredAt = DateTime.UtcNow
-            });
-        }
     }
 }

@@ -26,9 +26,13 @@ namespace Audit.API.Infrastructure.Data
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.ServiceName).HasMaxLength(100).IsRequired();
                 e.Property(x => x.Action).HasMaxLength(300).IsRequired();
-                e.Property(x => x.AuditLevel)
-                    .HasConversion<string>()
-                    .HasMaxLength(30);
+                
+                e.Property(x => x.Category).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.Outcome).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.DataClassification).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.TenantId).HasMaxLength(100);
+
                 e.Property(x => x.CorrelationId).HasMaxLength(100);
                 e.Property(x => x.TraceId).HasMaxLength(64);
                 e.Property(x => x.SpanId).HasMaxLength(32);
@@ -49,9 +53,10 @@ namespace Audit.API.Infrastructure.Data
                 e.HasIndex(x => x.ServiceName);
                 e.HasIndex(x => x.EntityName);
                 e.HasIndex(x => x.Action);
-                e.HasIndex(x => x.AuditLevel);
+                e.HasIndex(x => x.Category);
                 e.HasIndex(x => x.PerformedBy);
                 e.HasIndex(x => x.CorrelationId);
+                e.HasIndex(x => x.TenantId);
             });
 
             // ── ArchiveEntries (Warm Storage) ─────────────────────────────────
@@ -63,9 +68,13 @@ namespace Audit.API.Infrastructure.Data
                 e.Property(x => x.Id).ValueGeneratedNever();
                 e.Property(x => x.ServiceName).HasMaxLength(100).IsRequired();
                 e.Property(x => x.Action).HasMaxLength(300).IsRequired();
-                e.Property(x => x.AuditLevel)
-                    .HasConversion<string>()
-                    .HasMaxLength(30);
+
+                e.Property(x => x.Category).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.Severity).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.Outcome).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.DataClassification).HasConversion<string>().HasMaxLength(30);
+                e.Property(x => x.TenantId).HasMaxLength(100);
+
                 e.Property(x => x.CorrelationId).HasMaxLength(100);
                 e.Property(x => x.TraceId).HasMaxLength(64);
                 e.Property(x => x.SpanId).HasMaxLength(32);

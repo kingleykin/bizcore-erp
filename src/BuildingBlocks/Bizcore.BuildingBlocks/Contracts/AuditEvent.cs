@@ -11,17 +11,27 @@ namespace Bizcore.BuildingBlocks.Contracts
         public string? ActorUsername   { get; init; }
         public string? IpAddress       { get; init; }
         public string? UserAgent       { get; init; }
+        public string? TenantId        { get; init; }
 
         // ── What ──────────────────────────────────────────────────────────────
         /// <summary>
-        /// Structured action name: "Invoice.Created", "Auth.Login.Failed", "Payment.Reversed", etc.
+        /// Standardized action name (lowercase dot notation): "invoice.created", "identity.auth.login.succeeded", etc.
         /// </summary>
         public string Action           { get; init; } = null!;
 
-        /// <summary>Security | Financial | Operational | Compliance</summary>
-        public string AuditLevel       { get; init; } = "Operational";
+        /// <summary>security | business | financial | compliance | system</summary>
+        public string Category         { get; init; } = "business";
 
-        /// <summary>Source microservice: "Invoice.API", "Payment.API", etc.</summary>
+        /// <summary>info | warning | critical</summary>
+        public string Severity         { get; init; } = "info";
+
+        /// <summary>success | failure | denied</summary>
+        public string Outcome          { get; init; } = "success";
+
+        /// <summary>public | internal | pii | financial | credential</summary>
+        public string DataClassification { get; init; } = "internal";
+
+        /// <summary>Source microservice: "Admin.API", "Invoice.API", etc.</summary>
         public string ServiceName      { get; init; } = null!;
 
         public string? EntityType      { get; init; }
@@ -34,6 +44,7 @@ namespace Bizcore.BuildingBlocks.Contracts
         public string? AfterJson       { get; init; }
 
         // ── Why / Trace ───────────────────────────────────────────────────────
+        /// <summary>Business workflow ID (Saga ID, Order ID, etc.)</summary>
         public string? CorrelationId   { get; init; }
 
         /// <summary>OpenTelemetry TraceId from Activity.Current.TraceId.</summary>

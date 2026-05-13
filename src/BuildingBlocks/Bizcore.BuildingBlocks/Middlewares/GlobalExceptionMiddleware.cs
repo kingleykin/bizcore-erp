@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.Text.Json;
 using Bizcore.BuildingBlocks.Exceptions;
 
@@ -55,13 +56,18 @@ namespace Bizcore.BuildingBlocks.Middlewares
 
             _logger.LogError(exception, "Error captured by middleware: {Message}", exception.Message);
 
-            var traceId = context.Items["X-Correlation-ID"]?.ToString() ?? context.TraceIdentifier;
+            var activity = Activity.Current;
+            var traceId = activity?.TraceId.ToString() ?? context.TraceIdentifier;
+            var traceParent = activity?.Id ?? context.TraceIdentifier;
+            var correlationId = context.Items["X-Correlation-ID"]?.ToString();
 
             var response = new
             {
                 Code = type,
                 Message = message,
                 TraceId = traceId,
+                TraceParent = traceParent,
+                CorrelationId = correlationId,
                 Timestamp = DateTime.UtcNow
             };
 

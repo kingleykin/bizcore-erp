@@ -1,4 +1,5 @@
 using Asp.Versioning;
+using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
@@ -7,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StackExchange.Redis;
+using System.Diagnostics;
 using System.Text;
 
 namespace Bizcore.BuildingBlocks.Infrastructure
@@ -113,6 +115,23 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             services.AddHttpContextAccessor();
             services.AddControllers();
             services.AddHealthChecks();
+
+            // Audit
+            services.AddScoped<IAuditPublisher, AuditPublisher>();
+
+            // Standardize ProblemDetails (Automatic validation errors)
+            services.AddProblemDetails(options =>
+            {
+                options.CustomizeProblemDetails = (context) =>
+                {
+                    var activity = Activity.Current;
+                    context.ProblemDetails.Extensions["traceId"] = activity?.TraceId.ToString() ?? context.HttpContext.TraceIdentifier;
+                    context.ProblemDetails.Extensions["traceparent"] = activity?.Id ?? context.HttpContext.TraceIdentifier;
+                    context.ProblemDetails.Extensions["correlationId"] = context.HttpContext.Items["X-Correlation-ID"]?.ToString();
+                    context.ProblemDetails.Extensions["timestamp"] = DateTime.UtcNow;
+                };
+            });
+
             return services;
         }
     }

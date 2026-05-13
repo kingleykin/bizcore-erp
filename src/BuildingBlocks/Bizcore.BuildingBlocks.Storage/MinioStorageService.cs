@@ -56,18 +56,24 @@ namespace Bizcore.BuildingBlocks.Storage
 
         public async Task<string> GetPresignedUrlAsync(string fileName, int expiryInSeconds = 3600, CancellationToken cancellationToken = default)
         {
-            // If we have an external endpoint (e.g. for local dev with Docker) and the bucket is public,
-            // we return a direct public URL to avoid SignatureDoesNotMatch issues caused by hostname mismatch.
-            if (!string.IsNullOrEmpty(_options.ExternalEndpoint))
-            {
-                var externalBase = _options.ExternalEndpoint.TrimEnd('/');
-                return $"{externalBase}/{_options.BucketName}/{fileName}";
-            }
-
             var presignedGetObjectArgs = new PresignedGetObjectArgs()
                 .WithBucket(_options.BucketName)
                 .WithObject(fileName)
                 .WithExpiry(expiryInSeconds);
+
+            // If we have an external endpoint, we need to sign the URL using that endpoint
+            // so the Host header in the signature matches what the browser will send.
+            if (!string.IsNullOrEmpty(_options.ExternalEndpoint))
+            {
+                var uri = new Uri(_options.ExternalEndpoint);
+                var signingClient = new MinioClient()
+                    .WithEndpoint(uri.Host, uri.Port > 0 ? uri.Port : (uri.Scheme == "https" ? 443 : 80))
+                    .WithCredentials(_options.AccessKey, _options.SecretKey)
+                    .WithSSL(uri.Scheme == "https")
+                    .Build();
+                
+                return await signingClient.PresignedGetObjectAsync(presignedGetObjectArgs);
+            }
 
             return await _minioClient.PresignedGetObjectAsync(presignedGetObjectArgs);
         }

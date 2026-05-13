@@ -1,5 +1,6 @@
 using Bizcore.BuildingBlocks.Grpc;
 using Bizcore.BuildingBlocks.Grpc.Protos;
+using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Contracts;
 using Grpc.Core;
 using MassTransit;
@@ -15,16 +16,16 @@ namespace Orchestration.API.Application.Services
     public class AuditClientService : IAuditClientService
     {
         private readonly AuditGrpc.AuditGrpcClient _client;
-        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IAuditPublisher _audit;
         private readonly ILogger<AuditClientService> _logger;
 
         public AuditClientService(
             AuditGrpc.AuditGrpcClient client, 
-            IPublishEndpoint publishEndpoint,
+            IAuditPublisher audit,
             ILogger<AuditClientService> logger)
         {
             _client = client;
-            _publishEndpoint = publishEndpoint;
+            _audit = audit;
             _logger = logger;
         }
 
@@ -55,17 +56,12 @@ namespace Orchestration.API.Application.Services
         /// </summary>
         public async Task LogAsync(string action, string entityType, string entityId, string details)
         {
-            // Tuân thủ kiến trúc: Command/State change phải dùng Messaging
-            await _publishEndpoint.Publish<AuditEvent>(new
-            {
-                ServiceName = "Orchestration.API",
-                Action = action,
-                EntityType = entityType,
-                EntityId = entityId,
-                AfterJson = details,
-                AuditLevel = "Information",
-                OccurredAt = DateTime.UtcNow
-            });
+            await _audit.PublishAsync(
+                action,
+                entityType: entityType,
+                entityId: entityId,
+                after: details,
+                category: AuditCategory.System);
         }
     }
 }

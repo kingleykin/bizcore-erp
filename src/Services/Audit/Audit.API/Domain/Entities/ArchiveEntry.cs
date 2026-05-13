@@ -16,7 +16,11 @@ namespace Audit.API.Domain.Entities
         public string?   EntityName      { get; set; }
         public string?   EntityId        { get; set; }
         public string    Action          { get; set; } = null!;
-        public AuditLevel AuditLevel     { get; set; }
+        public AuditCategory Category    { get; set; }
+        public AuditSeverity Severity    { get; set; }
+        public AuditOutcome  Outcome     { get; set; }
+        public DataClassification DataClassification { get; set; }
+        public string?   TenantId        { get; set; }
         public string?   BeforeJson      { get; set; }
         public string?   AfterJson       { get; set; }
         public string?   PerformedBy     { get; set; }
@@ -40,7 +44,11 @@ namespace Audit.API.Domain.Entities
             EntityName      = e.EntityName,
             EntityId        = e.EntityId,
             Action          = e.Action,
-            AuditLevel      = e.AuditLevel,
+            Category        = e.Category,
+            Severity        = e.Severity,
+            Outcome         = e.Outcome,
+            DataClassification = e.DataClassification,
+            TenantId        = e.TenantId,
             BeforeJson      = e.BeforeJson,
             AfterJson       = e.AfterJson,
             PerformedBy     = e.PerformedBy,

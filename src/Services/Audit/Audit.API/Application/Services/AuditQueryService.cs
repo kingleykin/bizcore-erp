@@ -43,8 +43,20 @@ namespace Audit.API.Application.Services
             if (!string.IsNullOrWhiteSpace(q.PerformedBy))
                 query = query.Where(e => e.PerformedBy == q.PerformedBy || e.PerformedByName == q.PerformedBy);
 
-            if (q.AuditLevel.HasValue)
-                query = query.Where(e => e.AuditLevel == q.AuditLevel.Value);
+            if (q.Category.HasValue)
+                query = query.Where(e => e.Category == q.Category.Value);
+            
+            if (q.Severity.HasValue)
+                query = query.Where(e => e.Severity == q.Severity.Value);
+
+            if (q.Outcome.HasValue)
+                query = query.Where(e => e.Outcome == q.Outcome.Value);
+
+            if (q.DataClassification.HasValue)
+                query = query.Where(e => e.DataClassification == q.DataClassification.Value);
+
+            if (!string.IsNullOrWhiteSpace(q.TenantId))
+                query = query.Where(e => e.TenantId == q.TenantId);
 
             if (q.DateFrom.HasValue)
                 query = query.Where(e => e.PerformedAt >= q.DateFrom.Value);
@@ -90,7 +102,12 @@ namespace Audit.API.Application.Services
         private static AuditEntryDto MapToDto(AuditEntry e) => new(
             e.Id, e.CorrelationId, e.TraceId, e.SpanId,
             e.ServiceName, e.EntityName, e.EntityId,
-            e.Action, e.AuditLevel.ToString(),
+            e.Action, 
+            e.Category.ToString(),
+            e.Severity.ToString(),
+            e.Outcome.ToString(),
+            e.DataClassification.ToString(),
+            e.TenantId,
             e.BeforeJson, e.AfterJson,
             e.PerformedBy, e.PerformedByName,
             e.IpAddress, e.UserAgent,

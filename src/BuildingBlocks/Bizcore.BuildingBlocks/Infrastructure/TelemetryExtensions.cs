@@ -18,11 +18,12 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             services.AddOpenTelemetry()
                 .WithTracing(tracing => tracing
                     .SetResourceBuilder(resourceBuilder)
+                    .SetSampler(new AlwaysOnSampler())
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddEntityFrameworkCoreInstrumentation()
-                    .AddSource("MassTransit")
                     .AddGrpcClientInstrumentation()
+                    .AddSource("MassTransit")
                     .AddOtlpExporter())
                 .WithMetrics(metrics => metrics
                     .SetResourceBuilder(resourceBuilder)
