@@ -1,3 +1,5 @@
+using Bizcore.BuildingBlocks.Abstractions;
+using Bizcore.BuildingBlocks.Behaviors;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
@@ -17,16 +19,27 @@ namespace Payment.API
             services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connStr));
 
             // 2. Business Services
+            services.AddScoped<IUnitOfWork, PaymentUnitOfWork>();
             services.AddScoped<IIdempotencyService, IdempotencyService>();
             services.AddScoped<IPaymentService, PaymentService>();
 
-            // 3. SignalR for Real-time Status Updates
+            // 3. MediatR with Transaction Pipeline
+            services.AddMediatR(cfg =>
+            {
+                cfg.RegisterServicesFromAssembly(typeof(Program).Assembly);
+                cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+                cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+                cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
+            });
+
+            // 4. SignalR for Real-time Status Updates
             services.AddSignalR();
 
-            // 4. MassTransit (Using the new convention-based helper)
+            // 5. MassTransit (Using the new convention-based helper)
             services.AddBizcoreMassTransit<AppDbContext>(
                 builder.Configuration, 
                 QueueNames.PaymentService);
         }
     }
 }
+
