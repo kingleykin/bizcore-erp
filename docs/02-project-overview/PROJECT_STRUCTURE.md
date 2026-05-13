@@ -21,11 +21,12 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 ### 🔹 Macro-level (Kiến trúc tổng thể)
 
 * **API Gateway (YARP)**: Đóng vai trò là "người gác cổng". Toàn bộ WebUI chỉ giao tiếp qua Gateway này. Giúp ẩn đi sự phức tạp của các port nội bộ và tập trung xử lý CORS/Auth tại một điểm.
-* **Microservices**: Mỗi service quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Bao gồm: **Admin** (Master Data, Auth), **Accounting** (Core Ledger & Batch), **Invoice** (AR/AP), **Payment** (Treasury), **Report**. Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
+* **Microservices**: Mỗi service quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Bao gồm: **Admin** (Master Data, Auth), **Accounting** (Core Ledger & Batch), **Invoice** (AR/AP), **Payment** (Treasury), **Report**, **File** (Quản lý tệp tin tập trung). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần tái sử dụng.
   * **Contracts**: Định nghĩa Event/Command interfaces.
   * **Permissions**: Định nghĩa tập trung toàn bộ các hành động.
   * **Infrastructure**: Chứa các Extension Methods cho `Program.cs` và `IServiceModule`.
+  * **Storage (Bizcore.BuildingBlocks.Storage)**: Cung cấp tích hợp MinIO chuẩn hóa cho toàn bộ hệ thống.
 * **gRPC**: Cung cấp giao tiếp đồng bộ hiệu năng cao cho các truy vấn Read-only.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
 
@@ -97,6 +98,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao dùng Hybrid Trigger cho Audit?** | Application layer publish event giúp hiểu rõ Business Intent (VD: "Approve Invoice"). EF Interceptor tự động catch field-level thay đổi (VD: "Amount 100 -> 200"). Kết hợp cả 2 cho cái nhìn hoàn hảo về compliance. |
 | **Tại sao dùng Polly?** | Để hệ thống có khả năng tự phục hồi (Self-healing). Nếu service đích bận, Gateway sẽ tự động thử lại (Retry) thay vì trả lỗi ngay lập tức cho người dùng. |
 | **Tại sao dùng Idempotency?** | Đặc biệt quan trọng với thanh toán. Nếu mạng lag và user bấm "Thanh toán" 2 lần, hệ thống sẽ chỉ xử lý 1 lần dựa trên Idempotency Key, tránh trừ tiền 2 lần. |
+| **Tại sao dùng MinIO?** | Hệ thống Microservices cần một kho lưu trữ tệp tin tập trung để tất cả các service (User avatar, Invoice attachments) có thể truy cập thống nhất qua API thay vì lưu cục bộ trên ổ đĩa của từng service. |
 | **Tại sao dùng API Versioning?** | Để hỗ trợ tiến hóa hệ thống. Khi có thay đổi lớn (Breaking Change), chúng ta có thể triển khai V2 trong khi các Client cũ vẫn dùng V1 bình thường. |
 
 ---

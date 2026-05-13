@@ -94,6 +94,44 @@ services:
     depends_on:
       - tempo
 
+  minio:
+    image: minio/minio:latest
+    container_name: bizcore-minio
+    ports:
+      - "9005:9000" # API (Changed from 9000 to 9005 to avoid conflict with Portainer)
+      - "9001:9001" # Console
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=password
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio-setup:
+    image: minio/mc:latest
+    container_name: bizcore-minio-setup
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      until /usr/bin/mc alias set local http://minio:9000 admin password; do echo 'Waiting for MinIO...' && sleep 1; done;
+      if ! /usr/bin/mc ls local/bizcore-uploads > /dev/null 2>&1; then
+        /usr/bin/mc mb local/bizcore-uploads;
+      else
+        echo 'Bucket bizcore-uploads already exists.';
+      fi
+      /usr/bin/mc anonymous set public local/bizcore-uploads;
+      echo 'MinIO setup completed successfully.';
+      exit 0;
+      "
+
   gateway-api:
     image: bizcore-gateway-api
     container_name: bizcore-gateway
@@ -111,6 +149,7 @@ services:
       - ReverseProxy__Clusters__orchestration-cluster__Destinations__d1__Address=http://orchestration-api:8080
       - ReverseProxy__Clusters__admin-cluster__Destinations__d1__Address=http://admin-api:8080
       - ReverseProxy__Clusters__audit-cluster__Destinations__d1__Address=http://audit-api:8080
+      - ReverseProxy__Clusters__file-cluster__Destinations__d1__Address=http://file-api:8080
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
@@ -121,6 +160,7 @@ services:
       - orchestration-api
       - admin-api
       - audit-api
+      - file-api
       - loki
 
   invoice-api:
@@ -245,6 +285,32 @@ services:
       - redis
       - loki
 
+  file-api:
+    image: bizcore-file-api
+    container_name: bizcore-file
+    build:
+      context: .
+      dockerfile: src/Services/File/File.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__Redis=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - Minio__Endpoint=minio:9000
+      - Minio__ExternalEndpoint=http://localhost:9005
+      - Minio__AccessKey=admin
+      - Minio__SecretKey=password
+      - Minio__BucketName=bizcore-uploads
+      - Minio__UseSSL=false
+      - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+    depends_on:
+      - rabbitmq
+      - redis
+      - minio
+      - loki
+
   web-ui:
     image: bizcore-web-ui
     container_name: bizcore-web
@@ -258,3 +324,4 @@ services:
 
 volumes:
   portainer_data:
+  minio_data:

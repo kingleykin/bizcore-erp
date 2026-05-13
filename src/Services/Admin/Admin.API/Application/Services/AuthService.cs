@@ -95,7 +95,7 @@ namespace Admin.API.Application.Services
 
             _logger.LogInformation("User '{Username}' logged in successfully.", user.Username);
 
-            return new LoginResponse(accessToken, refreshToken.Token, expiry, user.Username, roles, permissions);
+            return new LoginResponse(accessToken, refreshToken.Token, expiry, user.Username, user.AvatarUrl, roles, permissions);
         }
 
         public async Task<LoginResponse> RefreshTokenAsync(string refreshTokenStr, string? ipAddress = null)
@@ -130,7 +130,7 @@ namespace Admin.API.Application.Services
             var (accessToken, expiry) = GenerateJwt(user, roles, permissions);
             await _db.SaveChangesAsync();
 
-            return new LoginResponse(accessToken, newRefreshToken.Token, expiry, user.Username, roles, permissions);
+            return new LoginResponse(accessToken, newRefreshToken.Token, expiry, user.Username, user.AvatarUrl, roles, permissions);
         }
 
         public async Task LogoutAsync(string refreshToken)

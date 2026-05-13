@@ -19,7 +19,9 @@ import {
   Search,
   Filter,
   RefreshCcw,
-  UserPlus
+  UserPlus,
+  Upload,
+  User as UserIcon
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 
@@ -155,6 +157,37 @@ const IdentityManager = ({ api }) => {
       fetchRoles();
     }
   }, [activeSubTab]);
+
+  const handleAvatarUpload = async (userId, file) => {
+    if (!file) return;
+    
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const toastId = toast.loading('Đang tải ảnh lên...');
+    try {
+      // 1. Upload file to File.API
+      const uploadRes = await api.post('/api/v1/files/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      const fileName = uploadRes.data.fileName;
+
+      // 2. Get the view URL (presigned or direct if public)
+      // For demo, we assume the gateway routes to minio or we use the presigned url
+      const urlRes = await api.get(`/api/v1/files/view-url/${fileName}`);
+      const avatarUrl = urlRes.data.url;
+
+      // 3. Update User Avatar in Admin.API
+      await api.put(`/api/v1/users/${userId}/avatar`, avatarUrl, {
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      toast.success('Cập nhật ảnh đại diện thành công', { id: toastId });
+      fetchUsers();
+    } catch (error) {
+      toast.error('Lỗi khi tải ảnh: ' + getErrorDetail(error), { id: toastId });
+    }
+  };
 
   const fetchUsers = async () => {
     try {
@@ -304,6 +337,7 @@ const IdentityManager = ({ api }) => {
           <table className="table">
             <thead>
               <tr>
+                <th style={{ width: '50px' }}>Ảnh</th>
                 <th>Username</th>
                 <th>Email</th>
                 <th>Vai trò</th>
@@ -314,7 +348,50 @@ const IdentityManager = ({ api }) => {
             <tbody>
               {users.map(user => (
                 <tr key={user.id}>
-                  <td>{user.username}</td>
+                  <td>
+                    <div style={{ position: 'relative', width: '36px', height: '36px' }}>
+                      <div style={{ 
+                        width: '36px', 
+                        height: '36px', 
+                        borderRadius: '50%', 
+                        overflow: 'hidden', 
+                        background: 'rgba(255,255,255,0.05)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(255,255,255,0.1)'
+                      }}>
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <UserIcon size={16} color="#64748b" />
+                        )}
+                      </div>
+                      <label style={{ 
+                        position: 'absolute', 
+                        bottom: '-2px', 
+                        right: '-2px', 
+                        background: '#2563eb', 
+                        borderRadius: '50%', 
+                        width: '16px', 
+                        height: '16px', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center',
+                        cursor: 'pointer',
+                        border: '2px solid #0f172a'
+                      }}>
+                        <Plus size={10} color="white" />
+                        <input 
+                          type="file" 
+                          hidden 
+                          accept="image/*" 
+                          onChange={(e) => handleAvatarUpload(user.id, e.target.files[0])} 
+                        />
+                      </label>
+                    </div>
+                  </td>
+                  <td style={{ fontWeight: 600 }}>{user.username}</td>
                   <td>{user.email}</td>
                   <td>
                     {user.roles?.map(r => (
@@ -735,6 +812,7 @@ const AuditLogViewer = ({ api }) => {
 
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
+  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
   const [authError, setAuthError] = useState('');
   const [loginData, setLoginData] = useState({ username: 'admin', password: 'Admin@123' });
 
@@ -797,10 +875,14 @@ function App() {
     setAuthError('');
     try {
       const res = await axios.post(`${GATEWAY_URL}/api/v1/auth/login`, loginData);
-      const newToken = res.data.accessToken;
-      setToken(newToken);
-      localStorage.setItem('token', newToken);
-      toast.success('Chào mừng quay trở lại, ' + loginData.username + '!');
+      const { accessToken, username, avatarUrl, roles, permissions } = res.data;
+      
+      const userData = { username, avatarUrl, roles, permissions };
+      setToken(accessToken);
+      setUser(userData);
+      localStorage.setItem('token', accessToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      toast.success('Chào mừng quay trở lại, ' + username + '!');
     } catch (error) {
       setAuthError('Tên đăng nhập hoặc mật khẩu không đúng');
       toast.error('Đăng nhập thất bại');
@@ -809,7 +891,9 @@ function App() {
 
   const handleLogout = () => {
     setToken(null);
+    setUser(null);
     localStorage.removeItem('token');
+    localStorage.removeItem('user');
     toast.success('Đã đăng xuất an toàn');
   };
 
@@ -1017,12 +1101,24 @@ function App() {
             {activeTab === 'identity' && 'Quản trị danh tính'}
             {activeTab === 'audit' && 'Truy vết hệ thống'}
           </h1>
-          {activeTab === 'invoices' && (
-            <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-              <Plus size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }} />
-              Tạo hóa đơn mới
-            </button>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+            {activeTab === 'invoices' && (
+              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
+                <Plus size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }} />
+                Tạo hóa đơn mới
+              </button>
+            )}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '2rem' }}>
+              <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <UserIcon size={18} color="#94a3b8" />
+                )}
+              </div>
+              <span style={{ fontWeight: 500, fontSize: '0.875rem' }}>{user?.username}</span>
+            </div>
+          </div>
         </header>
 
         {activeTab === 'dashboard' ? (

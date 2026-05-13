@@ -171,10 +171,22 @@ namespace Admin.API.Application.Services
             _logger.LogInformation("Unlocked user '{Username}' (Id: {Id}).", user.Username, userId);
         }
 
+        public async Task UpdateAvatarAsync(Guid userId, string? avatarUrl)
+        {
+            var user = await _db.Users.FindAsync(userId)
+                ?? throw new NotFoundException("User", userId);
+
+            user.UpdateAvatar(avatarUrl);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Updated avatar for user '{Id}'.", userId);
+        }
+
         private static UserDto MapToDto(User u) => new(
             u.Id,
             u.Username,
             u.Email,
+            u.AvatarUrl,
             u.IsActive,
             u.FailedLoginAttempts,
             u.LockoutEnd,

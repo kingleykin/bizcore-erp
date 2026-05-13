@@ -18,9 +18,11 @@ bizcore-erp/
 │   │   ├── Payment/     (Xử lý thanh toán - Phân hệ Treasury)
 │   │   ├── Report/      (Tổng hợp báo cáo, Redis)
 │   │   ├── Audit/       (Centralized Audit Service, Immutable log, Hash chain)
+│   │   ├── File/        (Centralized File Management, MinIO Integration)
 │   │   └── Orchestration/ (Theo dõi luồng giao dịch qua event)
 │   ├── BuildingBlocks/
-│   │   └── Bizcore.BuildingBlocks/ (Shared Library: Contracts, Events)
+│   │   ├── Bizcore.BuildingBlocks/ (Shared Library: Contracts, Events)
+│   │   └── Bizcore.BuildingBlocks.Storage/ (Shared Storage Library: MinIO SDK)
 │   └── WebUI/ (React App)
 ├── Bizcore.slnx (Solution file)
 ├── docker-compose.yml
@@ -29,11 +31,12 @@ bizcore-erp/
 
 ## 🧱 Kiến trúc Kỹ thuật
 
-* **Microservices**: Các service core (Admin, Accounting, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [ORCHESTRATION_GUIDE.md](../03-architecture/ORCHESTRATION_GUIDE.md).
+* **Microservices**: Các service core (Admin, Accounting, Invoice, Payment, Report) + **Audit** (Compliance/Security) + **File** (Storage) + **Orchestration** (read-side theo dõi luồng qua event). Chi tiết: [FILE_SERVICE](../04-services/file-service.md).
 * **API Gateway**: YARP (Yet Another Reverse Proxy) port 5001.
 * **Architecture**: Domain-Driven Lite (4-Layer: Domain, Application, Infrastructure, API) kết hợp **Event-Driven Architecture (EDA)**.
 * **Database**: SQL Server (Sử dụng các Database logic độc lập trên cùng 1 server: IdentityDb, InvoiceDb, PaymentDb, ReportDb, AuditDb, OrchestrationDb).
 * **Message Broker**: RabbitMQ (sử dụng MassTransit) để giao tiếp bất đồng bộ giữa các service.
+* **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
   * **Logging & Observability**:
     * **LGTM Stack**: Tích hợp toàn diện Loki (Logs), Grafana (Dashboard), Tempo (Traces) và Prometheus (Metrics).
     * **Serilog + Loki**: Ghi log tập trung và lưu trữ logs có cấu trúc trong Loki.
@@ -136,6 +139,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 | **Payment** | POST | `/payment/pay` | `Payment.Create` | Thanh toán (Idempotent) |
 | **Report** | GET | `/report/summary` | `Report.View` | Báo cáo doanh thu |
 | **Audit** | GET | `/audit` | `Audit.View` | Truy vấn nhật ký |
+| **File** | POST | `/files/upload` | [Authorize] | Tải tệp lên MinIO (Xem [Chi tiết](file-service.md)) |
 | **Orchestration** | GET | `/orchestration/flows`| `Orchestration.View`| Giám sát luồng giao dịch |
 
 ### 1. Audit Service (`Audit.API`) - Cổng: `5006`
@@ -182,6 +186,7 @@ Nằm trong các Domain Service (ví dụ Invoice Service), phục vụ quá tr�
 | `/payment/{**catch-all}` | `http://payment-api:8080` | RateLimit, Auth |
 | `/report/{**catch-all}` | `http://report-api:8080` | RateLimit, Auth |
 | `/audit/{**catch-all}` | `http://audit-api:8080` | RateLimit, Auth |
+| `/files/{**catch-all}` | `http://file-api:8080` | RateLimit, Auth |
 | `/orchestration/{**catch-all}` | `http://orchestration-api:8080` | RateLimit, Auth |
 | `/auth/{**catch-all}` | `http://admin-api:8080` | RateLimit, Anonymous |
 | `/users/{**catch-all}` | `http://admin-api:8080` | RateLimit, Auth |

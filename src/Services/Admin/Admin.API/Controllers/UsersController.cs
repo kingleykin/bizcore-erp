@@ -82,5 +82,14 @@ namespace Admin.API.Controllers
             await _userService.UnlockUserAsync(id);
             return NoContent();
         }
+
+        /// <summary>Cập nhật ảnh đại diện của người dùng.</summary>
+        [HttpPut("{id:guid}/avatar")]
+        [Authorize(Policy = "Identity.Users.Update")]
+        public async Task<IActionResult> UpdateAvatar(Guid id, [FromBody] string? avatarUrl)
+        {
+            await _userService.UpdateAvatarAsync(id, avatarUrl);
+            return NoContent();
+        }
     }
 }

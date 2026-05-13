@@ -10,6 +10,7 @@ namespace Admin.API.Domain.Entities
         public string Username { get; private set; } = null!;
         public string PasswordHash { get; private set; } = null!;
         public string Email { get; private set; } = null!;
+        public string? AvatarUrl { get; private set; }
         public bool IsActive { get; private set; }
 
         // Production-ready: Account Lockout
@@ -24,7 +25,7 @@ namespace Admin.API.Domain.Entities
 
         private User() { } // EF Core constructor
 
-        public static User Create(string username, string email, string passwordHash)
+        public static User Create(string username, string email, string passwordHash, string? avatarUrl = null)
         {
             if (string.IsNullOrWhiteSpace(username))
                 throw new ArgumentException("Username is required.", nameof(username));
@@ -39,12 +40,19 @@ namespace Admin.API.Domain.Entities
                 Username = username.Trim().ToLowerInvariant(),
                 Email = email.Trim().ToLowerInvariant(),
                 PasswordHash = passwordHash,
+                AvatarUrl = avatarUrl,
                 IsActive = true,
                 FailedLoginAttempts = 0,
                 LockoutEnd = null,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow
             };
+        }
+
+        public void UpdateAvatar(string? avatarUrl)
+        {
+            AvatarUrl = avatarUrl;
+            UpdatedAt = DateTime.UtcNow;
         }
 
         public void UpdateProfile(string email)

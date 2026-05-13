@@ -10,6 +10,7 @@ namespace Admin.API.Application.DTOs
         string RefreshToken,
         DateTime AccessTokenExpiry,
         string Username,
+        string? AvatarUrl,
         string[] Roles,
         string[] Permissions
     );
@@ -29,6 +30,7 @@ namespace Admin.API.Application.DTOs
         Guid Id,
         string Username,
         string Email,
+        string? AvatarUrl,
         bool IsActive,
         int FailedLoginAttempts,
         DateTime? LockoutEnd,

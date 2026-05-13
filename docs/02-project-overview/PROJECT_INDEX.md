@@ -21,6 +21,7 @@
 - **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), **Tempo (Traces)**, **OTEL Collector**.
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
+- **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
 - **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**.
 
 ---
@@ -41,9 +42,11 @@ bizcore-erp/
 │   │   ├── Inventory              # Quản lý Kho (INV Sub-ledger)
 │   │   ├── Report                 # Báo cáo tổng hợp (CQRS/Materialized Views)
 │   │   ├── Audit                  # Hệ thống Audit tập trung (Immutable, Hash chain)
+│   │   ├── File                   # Quản lý tệp tin tập trung (MinIO Integration) - [Tài liệu](../04-services/file-service.md)
 │   │   └── Orchestration          # Theo dõi luồng sự kiện phân tán (Read-side)
 │   ├── BuildingBlocks/
-│   │   └── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions)
+│   │   ├── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions)
+│   │   └── Bizcore.BuildingBlocks.Storage # Shared Storage Library (MinIO SDK)
 │   └── WebUI                      # Frontend React
 └── docker-compose.yml             # Triển khai toàn bộ hạ tầng
 ```
