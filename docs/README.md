@@ -65,6 +65,7 @@ Tài liệu riêng biệt cho từng service.
 Tiêu chuẩn coding và quy trình review code.
 
 - [Coding Conventions](06-conventions/CODING_CONVENTIONS.md)
+- [Git Workflow & Collaboration](06-conventions/GIT_WORKFLOW.md)
 - [Code Review Guide](06-conventions/CODE_REVIEW_GUIDE.md)
 - [Conventions Index](06-conventions/CONVENTIONS_INDEX.md)
 
@@ -73,6 +74,7 @@ Tiêu chuẩn coding và quy trình review code.
 Giám sát, triển khai và bảo trì.
 
 - [Monitoring Guide](07-operations/MONITORING_GUIDE.md)
+- [Deployment Guide](07-operations/DEPLOYMENT_GUIDE.md)
 - [HA & Load Balancing Guide](07-operations/HA_LB_GUIDE.md)
 - [Tiêu chuẩn Hệ thống (System Standards)](07-operations/SYSTEM_STANDARDS.md)
 
