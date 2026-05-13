@@ -8,6 +8,7 @@
 ## 👤 Vai Trò Của Bạn Là Gì?
 
 ### 👨‍💻 **Lập trình viên Mới**
+
 **Thời gian đọc**: 30 phút  
 **Mục tiêu**: Hiểu các quy tắc lập trình trước khi viết code
 
@@ -32,6 +33,7 @@
 ---
 
 ### 🔍 **Người Đánh Giá Code**
+
 **Thời gian đọc**: 45 phút  
 **Mục tiêu**: Đánh giá PR sử dụng các tiêu chuẩn nhất quán
 
@@ -54,6 +56,7 @@
 ---
 
 ### 👔 **Người Quản Lý Dự Án / Kiến Trúc Sư**
+
 **Thời gian đọc**: 2 giờ  
 **Mục tiêu**: Triển khai quy tắc trên toàn dự án
 
@@ -79,7 +82,7 @@
 ### 🎯 **Tìm Kiếm Điều Gì Đó Cụ Thể?**
 
 | Tôi cần... | Đọc cái này |
-|-----------|-----------|
+| ----------- | ----------- |
 | **Trả lời nhanh** | [`CONVENTIONS_QUICK_REFERENCE.md`](docs/CONVENTIONS_QUICK_REFERENCE.md) |
 | **Cách đặt tên** | [`CODING_CONVENTIONS.md`](docs/CODING_CONVENTIONS.md) Phần 2 |
 | **Quy tắc kiến trúc** | [`CODING_CONVENTIONS.md`](docs/CODING_CONVENTIONS.md) Phần 3-4 |
@@ -101,6 +104,7 @@
 **Những quy tắc này là KHÔNG THỂ THƯƠNG LƯỢNG. Kiểm tra trong mọi PR.**
 
 ### 1️⃣ **KHÔNG ĐƯA LOGIC KINH DOANH VÀO CONTROLLERS**
+
 ```csharp
 ❌ SAI:
 [HttpPost]
@@ -123,6 +127,7 @@ public async Task<IActionResult> CreateInvoice(CreateInvoiceRequest req)
 ```
 
 ### 2️⃣ **LUÔN THÊM PHÂN QUYỀN**
+
 ```csharp
 ❌ SAI:
 [HttpPost]
@@ -135,6 +140,7 @@ public async Task<IActionResult> CreateInvoice() { }
 ```
 
 ### 3️⃣ **DÙNG SỰ KIỆN CHO LIÊN LẠC GIỮA CÁC DỊCH VỤ**
+
 ```csharp
 ❌ SAI:
 var payment = await _httpClient.GetAsync($"http://payment/api/{id}");
@@ -150,6 +156,7 @@ public class PaymentCompletedConsumer : IConsumer<IPaymentCompletedEvent>
 ```
 
 ### 4️⃣ **VHI CÁC NGOẠI LỆ CÓ LOẠI**
+
 ```csharp
 ❌ SAI:
 if (string.IsNullOrEmpty(invoice.CustomerName)) return -1;
@@ -160,6 +167,7 @@ if (string.IsNullOrEmpty(invoice.CustomerName))
 ```
 
 ### 5️⃣ **DÙNG ASYNC/AWAIT Ở KHẮP NƠI**
+
 ```csharp
 ❌ SAI:
 public Invoice GetById(Guid id) 
@@ -175,7 +183,7 @@ public async Task<Invoice?> GetByIdAsync(Guid id)
 ## 📚 Hướng Dẫn Tài Liệu
 
 | Tài Liệu | Mục Đích | Phù Hợp Cho |
-|----------|----------|------------|
+| ---------- | ---------- | ---------- |
 | **CONVENTIONS_README.md** | Điều hướng & tổng quan | Tất cả người dùng |
 | **CONVENTIONS_QUICK_REFERENCE.md** | Tìm kiếm nhanh, template | Trong quá trình phát triển |
 | **CODING_CONVENTIONS.md** | Tài liệu tham khảo hoàn chỉnh | Hướng dẫn chi tiết |
@@ -205,7 +213,7 @@ public async Task<Invoice?> GetByIdAsync(Guid id)
 
 ---
 
-## ✅ Bạn Đã Sẵn Sàng!
+## ✅ Bạn Đã Sẵn Sàng
 
 - ✅ Tài liệu đã sẵn sàng sử dụng
 - ✅ .editorconfig tự động áp dụng tiêu chuẩn  
@@ -213,11 +221,10 @@ public async Task<Invoice?> GetByIdAsync(Guid id)
 - ✅ Template sẵn sàng để sao chép
 - ✅ Tài liệu tham khảo hoàn chỉnh cho bất kỳ câu hỏi nào
 
-**Bắt đầu viết code! Tham khảo tài liệu khi cần. Chúc lập trình vui vẻ! 🚀**
+> **Bắt đầu viết code! Tham khảo tài liệu khi cần. Chúc lập trình vui vẻ! 🚀**
 
 ---
 
 **Vị trí của tất cả tài liệu**: Thư mục `/docs/` + `.editorconfig` ở thư mục gốc
 
 **Có câu hỏi?** Xem phần FAQ tại [`CONVENTIONS_README.md`](docs/CONVENTIONS_README.md)
-

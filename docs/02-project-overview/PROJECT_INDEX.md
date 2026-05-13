@@ -2,7 +2,7 @@
 
 > [!IMPORTANT]
 > **Mục đích của tài liệu này**: Cung cấp bức tranh toàn cảnh (ngữ cảnh, kiến trúc, và các quy tắc cốt lõi) của dự án **Bizcore ERP** để AI Agent có thể hiểu nhanh chóng hệ thống, từ đó đưa ra các đề xuất code chính xác và duy trì tính nhất quán của kiến trúc.
-
+**Tradeoff:** Bias về cẩn trọng hơn là tốc độ. Với task trivial, dùng judgment.
 ---
 
 ## 1. 🌟 Tổng quan Dự án (Project Overview)
