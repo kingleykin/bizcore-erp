@@ -91,5 +91,15 @@ namespace Admin.API.Controllers
             await _userService.UpdateAvatarAsync(id, avatarUrl);
             return NoContent();
         }
+
+        /// <summary>Cập nhật ngôn ngữ ưu tiên của người dùng.</summary>
+        [HttpPut("{id:guid}/language")]
+        [Authorize] // Any authorized user can update their own language
+        public async Task<IActionResult> UpdateLanguage(Guid id, [FromBody] string languageCode)
+        {
+            // Note: In production, verify that the logged-in user is updating their own language or has admin rights
+            await _userService.UpdatePreferredLanguageAsync(id, languageCode);
+            return NoContent();
+        }
     }
 }

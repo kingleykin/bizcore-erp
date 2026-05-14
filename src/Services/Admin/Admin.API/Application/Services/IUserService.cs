@@ -12,5 +12,6 @@ namespace Admin.API.Application.Services
         Task AssignRolesAsync(Guid userId, AssignRolesRequest request);
         Task UnlockUserAsync(Guid userId);
         Task UpdateAvatarAsync(Guid userId, string? avatarUrl);
+        Task UpdatePreferredLanguageAsync(Guid userId, string languageCode);
     }
 }

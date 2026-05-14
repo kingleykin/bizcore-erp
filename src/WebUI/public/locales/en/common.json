@@ -1,0 +1,25 @@
+{
+  "app_name": "Bizcore ERP",
+  "dashboard": "Dashboard",
+  "invoices": "Invoices",
+  "payments": "Payments",
+  "reports": "Reports",
+  "users": "Users",
+  "roles": "Roles & Permissions",
+  "audit": "Audit Logs",
+  "orchestration": "Orchestration Flows",
+  "actions": {
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "add": "Add New",
+    "refresh": "Refresh",
+    "delete": "Delete",
+    "edit": "Edit"
+  },
+  "status": {
+    "active": "Active",
+    "inactive": "Inactive",
+    "paid": "Paid",
+    "pending": "Pending"
+  }
+}

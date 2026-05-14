@@ -24,6 +24,8 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
+import i18n from './i18n';
 
 import * as signalR from '@microsoft/signalr';
 
@@ -835,18 +837,38 @@ function App() {
     }
   });
 
+  const { t } = useTranslation(['common', 'errors']);
+
   const getErrorDetail = (error) => {
     if (error.response) {
       const data = error.response.data;
+      
+      // Handle standardized error response
+      if (data.code) {
+        return t(`errors:${data.code}`, data.params || {});
+      }
+
       if (typeof data === 'string') return data;
       if (data.errors) {
-        // Handle FluentValidation errors (can be object or array)
         if (Array.isArray(data.errors)) return data.errors.join(', ');
         return Object.values(data.errors).flat().join(', ');
       }
       return data.message || data.error || data.title || JSON.stringify(data);
     }
-    return error.message || 'Lỗi không xác định';
+    return error.message || t('errors:COMMON.INTERNAL_ERROR');
+  };
+
+  const changeLanguage = async (lng) => {
+    await i18n.changeLanguage(lng);
+    if (user && token) {
+      try {
+        await api.put(`/api/v1/users/${user.id}/language`, JSON.stringify(lng), {
+            headers: { 'Content-Type': 'application/json' }
+        });
+      } catch (err) {
+        console.error('Failed to sync language preference to backend', err);
+      }
+    }
   };
 
   useEffect(() => {
@@ -1065,29 +1087,68 @@ function App() {
       <Toaster position="top-right" reverseOrder={false} />
       {/* Sidebar */}
       <aside className="sidebar">
-        <div className="logo">
-          <LayoutDashboard size={28} />
-          <span>BizCore ERP</span>
+        <div style={{ padding: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
+            <div style={{ background: '#2563eb', padding: '0.75rem', borderRadius: '1rem' }}>
+              <Workflow color="white" size={24} />
+            </div>
+            <div>
+              <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.025em' }}>{t('common:app_name')}</h1>
+              <div style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Enterprise Edition</div>
+            </div>
+          </div>
+
+          {/* Language Switcher */}
+          <div style={{ marginBottom: '2rem', display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px' }}>
+            <button 
+              onClick={() => changeLanguage('vi')}
+              style={{ 
+                flex: 1, padding: '4px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                background: i18n.language === 'vi' ? '#2563eb' : 'transparent',
+                color: i18n.language === 'vi' ? 'white' : '#94a3b8',
+                fontSize: '0.75rem', fontWeight: 600
+              }}
+            >
+              TIẾNG VIỆT
+            </button>
+            <button 
+              onClick={() => changeLanguage('en')}
+              style={{ 
+                flex: 1, padding: '4px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+                background: i18n.language === 'en' ? '#2563eb' : 'transparent',
+                color: i18n.language === 'en' ? 'white' : '#94a3b8',
+                fontSize: '0.75rem', fontWeight: 600
+              }}
+            >
+              ENGLISH
+            </button>
+          </div>
+
+          <nav>
+            <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
+              <LayoutDashboard size={20} />
+              {t('common:dashboard')}
+            </div>
+            <div className={`nav-item ${activeTab === 'invoices' ? 'active' : ''}`} onClick={() => setActiveTab('invoices')}>
+              <FileText size={20} />
+              {t('common:invoices')}
+            </div>
+            <div className={`nav-item ${activeTab === 'orchestration' ? 'active' : ''}`} onClick={() => setActiveTab('orchestration')}>
+              <Activity size={20} />
+              {t('common:orchestration')}
+            </div>
+            <div className={`nav-item ${activeTab === 'identity' ? 'active' : ''}`} onClick={() => setActiveTab('identity')}>
+              <ShieldCheck size={20} />
+              {t('common:roles')}
+            </div>
+            <div className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
+              <Search size={20} />
+              {t('common:audit')}
+            </div>
+          </nav>
         </div>
-        <nav style={{ flex: 1 }}>
-          <div className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>
-            <BarChart3 size={20} /> Dashboard
-          </div>
-          <div className={`nav-item ${activeTab === 'invoices' ? 'active' : ''}`} onClick={() => setActiveTab('invoices')}>
-            <FileText size={20} /> Hóa đơn
-          </div>
-          <div className={`nav-item ${activeTab === 'orchestration' ? 'active' : ''}`} onClick={() => setActiveTab('orchestration')}>
-            <Workflow size={20} /> Orchestration
-          </div>
-          <div className={`nav-item ${activeTab === 'identity' ? 'active' : ''}`} onClick={() => setActiveTab('identity')}>
-            <ShieldCheck size={20} /> Phân quyền
-          </div>
-          <div className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
-            <Activity size={20} /> Audit Logs
-          </div>
-        </nav>
-        <div className="nav-item logout" onClick={handleLogout} style={{ borderTop: '1px solid #334155', paddingTop: '1.5rem', marginTop: 'auto', color: '#94a3b8' }}>
-          <CheckCircle2 size={20} /> Đăng xuất
+        <div className="nav-item logout" onClick={handleLogout} style={{ borderTop: '1px solid #334155', padding: '1.5rem', marginTop: 'auto', color: '#94a3b8' }}>
+          <LogOut size={20} /> {t('common:logout')}
         </div>
       </aside>
 
@@ -1095,11 +1156,11 @@ function App() {
       <main className="main-content">
         <header className="header">
           <h1 className="title">
-            {activeTab === 'dashboard' && 'Tổng quan hệ thống'}
-            {activeTab === 'invoices' && 'Quản lý hóa đơn'}
-            {activeTab === 'orchestration' && 'Luồng nghiệp vụ'}
-            {activeTab === 'identity' && 'Quản trị danh tính'}
-            {activeTab === 'audit' && 'Truy vết hệ thống'}
+            {activeTab === 'dashboard' && t('common:dashboard')}
+            {activeTab === 'invoices' && t('common:invoices')}
+            {activeTab === 'orchestration' && t('common:orchestration')}
+            {activeTab === 'identity' && t('common:roles')}
+            {activeTab === 'audit' && t('common:audit')}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
             {activeTab === 'invoices' && (

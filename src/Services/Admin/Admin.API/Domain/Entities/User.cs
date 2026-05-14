@@ -11,6 +11,7 @@ namespace Admin.API.Domain.Entities
         public string PasswordHash { get; private set; } = null!;
         public string Email { get; private set; } = null!;
         public string? AvatarUrl { get; private set; }
+        public string PreferredLanguage { get; private set; } = "vi-VN";
         public bool IsActive { get; private set; }
 
         // Production-ready: Account Lockout
@@ -61,6 +62,15 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Email is required.", nameof(email));
 
             Email = email.Trim().ToLowerInvariant();
+            UpdatedAt = DateTime.UtcNow;
+        }
+
+        public void SetPreferredLanguage(string languageCode)
+        {
+            if (string.IsNullOrWhiteSpace(languageCode))
+                throw new ArgumentException("Language code is required.", nameof(languageCode));
+
+            PreferredLanguage = languageCode;
             UpdatedAt = DateTime.UtcNow;
         }
 

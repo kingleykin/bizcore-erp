@@ -1,13 +1,14 @@
-using Bizcore.BuildingBlocks.Exceptions;
 using Admin.API.Application.DTOs;
 using Admin.API.Domain.Entities;
 using Admin.API.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Authorization;
 using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Contracts;
 using MassTransit;
 using System.Diagnostics;
+using Bizcore.BuildingBlocks.Exceptions;
 
 namespace Admin.API.Application.Services
 {
@@ -49,7 +50,7 @@ namespace Admin.API.Application.Services
                 .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == id)
-                ?? throw new NotFoundException("User", id);
+                ?? throw new NotFoundException(ErrorCodes.User.NotFound, "User not found", new { id });
 
             return MapToDto(user);
         }
@@ -58,10 +59,10 @@ namespace Admin.API.Application.Services
         {
             // Kiểm tra username unique
             if (await _db.Users.AnyAsync(u => u.Username == request.Username.ToLowerInvariant()))
-                throw new DomainException($"Username '{request.Username}' is already taken.");
+                throw new DomainException(ErrorCodes.User.UsernameTaken, $"Username '{request.Username}' is already taken.");
 
             if (await _db.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant()))
-                throw new DomainException($"Email '{request.Email}' is already registered.");
+                throw new DomainException(ErrorCodes.User.EmailTaken, $"Email '{request.Email}' is already registered.");
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
             var user = User.Create(request.Username, request.Email, passwordHash);
@@ -91,10 +92,10 @@ namespace Admin.API.Application.Services
         public async Task<UserDto> UpdateAsync(Guid id, UpdateUserRequest request)
         {
             var user = await _db.Users.FindAsync(id)
-                ?? throw new NotFoundException("User", id);
+                ?? throw new NotFoundException(ErrorCodes.User.NotFound, "User not found", new { id });
 
             if (await _db.Users.AnyAsync(u => u.Email == request.Email.ToLowerInvariant() && u.Id != id))
-                throw new DomainException($"Email '{request.Email}' is already registered by another user.");
+                throw new DomainException(ErrorCodes.User.EmailTaken, $"Email '{request.Email}' is already registered by another user.");
 
             user.UpdateProfile(request.Email);
             await _db.SaveChangesAsync();
@@ -179,12 +180,23 @@ namespace Admin.API.Application.Services
         public async Task UpdateAvatarAsync(Guid userId, string? avatarUrl)
         {
             var user = await _db.Users.FindAsync(userId)
-                ?? throw new NotFoundException("User", userId);
+                ?? throw new NotFoundException(ErrorCodes.User.NotFound, "User not found", new { userId });
 
             user.UpdateAvatar(avatarUrl);
             await _db.SaveChangesAsync();
 
             _logger.LogInformation("Updated avatar for user '{Id}'.", userId);
+        }
+
+        public async Task UpdatePreferredLanguageAsync(Guid userId, string languageCode)
+        {
+            var user = await _db.Users.FindAsync(userId)
+                ?? throw new NotFoundException(ErrorCodes.User.NotFound, "User not found", new { userId });
+
+            user.SetPreferredLanguage(languageCode);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation("Updated preferred language for user '{Id}' to '{Language}'.", userId, languageCode);
         }
 
         private static UserDto MapToDto(User u) => new(

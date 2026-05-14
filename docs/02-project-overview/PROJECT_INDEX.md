@@ -22,7 +22,7 @@
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**.
+- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **Enterprise Localization & Error Governance**.
 
 ---
 
@@ -45,8 +45,9 @@ bizcore-erp/
 │   │   ├── File                   # Quản lý tệp tin tập trung (MinIO Integration) - [Tài liệu](../04-services/file-service.md)
 │   │   └── Orchestration          # Theo dõi luồng sự kiện phân tán (Read-side)
 │   ├── BuildingBlocks/
-│   │   ├── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions)
-│   │   └── Bizcore.BuildingBlocks.Storage # Shared Storage Library (MinIO SDK)
+│   │   ├── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions, ErrorCodes)
+│   │   ├── Bizcore.BuildingBlocks.Storage # Shared Storage Library (MinIO SDK)
+│   │   └── Bizcore.Localization   # Hệ thống quản lý tài nguyên dịch thuật tập trung
 │   └── WebUI                      # Frontend React
 └── docker-compose.yml             # Triển khai toàn bộ hạ tầng
 ```
@@ -145,8 +146,10 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > [!IMPORTANT]
 > **Xử lý Lỗi (Error Handling) & Observability**:
 >
-> - Luôn throw các Exception cụ thể (`DomainException`, `NotFoundException`, v.v.) thay vì return code trực tiếp, để `Global Exception Handling Middleware` xử lý và chuẩn hóa format.
+> - Luôn throw các Exception cụ thể (`DomainException`, `NotFoundException`, v.v.) kèm theo **ErrorCode** (định nghĩa tại `Bizcore.BuildingBlocks.ErrorCodes`) thay vì return code trực tiếp.
+> - `Global Exception Handling Middleware` sẽ xử lý và chuẩn hóa format lỗi cho Frontend (React/i18next) tự động dịch sang ngôn ngữ người dùng.
 > - Mọi request đều có `X-Correlation-ID`. Đảm bảo các tiến trình background (MassTransit consumers) cũng kế thừa và ghi log kèm Correlation ID này để phục vụ distributed tracing.
+> - Ngôn ngữ (Culture) được lan truyền tự động qua Headers (`X-Culture`) trong toàn bộ hệ thống (HTTP & RabbitMQ).
 
 > [!IMPORTANT]
 > **Đồng bộ hóa (Idempotency & Concurrency)**:

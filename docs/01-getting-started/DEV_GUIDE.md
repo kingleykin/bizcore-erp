@@ -13,7 +13,8 @@ Chào mừng bạn đến với tài liệu hướng dẫn phát triển của *
     - [4.5. Giao tiếp gRPC (Synchronous Communication)](#45-giao-tiếp-grpc-synchronous-communication)
 5. [Điều phối Saga (Orchestration)](#5-điều-phối-saga-orchestration)
 6. [Hướng dẫn riêng cho từng Service](#6-hướng-dẫn-riêng-cho-từng-service)
-7. [Checklist tạo Service mới](#7-checklist-tạo-service-mới)
+7. [Đa ngôn ngữ & Quản trị Lỗi (Localization)](#7-đa-ngôn-ngữ--quản-trị-lỗi-localization)
+8. [Checklist tạo Service mới](#8-checklist-tạo-service-mới)
 
 ---
 
@@ -80,7 +81,7 @@ public class Invoice
 
     public static Invoice Create(decimal amount)
     {
-        if (amount <= 0) throw new DomainException("Số tiền phải lớn hơn 0");
+        if (amount <= 0) throw new DomainException(ErrorCodes.Invoice.InvalidAmount, "Số tiền phải lớn hơn 0");
         return new Invoice { Id = Guid.NewGuid(), Amount = amount, Status = InvoiceStatus.Pending };
     }
 }
@@ -89,6 +90,7 @@ public class Invoice
 ### Bước 2: Tạo Command & Handler
 
 Tạo Command (DTO) và Handler trong `Application/Commands/`.
+
 > **Lưu ý**: Handler KHÔNG gọi `SaveChangesAsync()`. Việc này được `TransactionBehavior` tự động xử lý.
 
 ```csharp
@@ -231,7 +233,7 @@ Hệ thống sử dụng **gRPC** cho các truy vấn dữ liệu tức thời (
 
 ```csharp
 services.AddBizcoreGrpcClient<AuditGrpc.AuditGrpcClient>(
-    builder.Configuration, 
+    builder.Configuration,
     "Audit" // Phải khớp với key trong appsettings.json
 );
 ```
@@ -257,25 +259,25 @@ Bạn cần can thiệp vào đây khi:
 1. **Định nghĩa Event/Command**: Trong `BuildingBlocks.Contracts`, thêm interface cho Command mới (ví dụ: `ISendEmailCommand`) và Event kết thúc (ví dụ: `IEmailSentEvent`).
 2. **Khai báo trong Saga**: Mở `PaymentSaga.cs`, khai báo Event và State mới (nếu cần).
 
-   ```csharp
-   public Event<IEmailSentEvent> EmailSent { get; private set; }
-   public State SendingEmail { get; private set; }
-   ```
+    ```csharp
+    public Event<IEmailSentEvent> EmailSent { get; private set; }
+    public State SendingEmail { get; private set; }
+    ```
 
 3. **Cập nhật State Machine**: Thay vì `Finalize()` ngay sau khi `PaymentConfirmed`, bạn chuyển sang state mới và gửi command.
 
-   ```csharp
-   During(Confirmed,
-       When(PaymentConfirmed)
-           .SendAsync(new Uri("queue:notification-service"), ctx => ctx.Init<ISendEmailCommand>(new { ... }))
-           .TransitionTo(SendingEmail)
-   );
+    ```csharp
+    During(Confirmed,
+        When(PaymentConfirmed)
+            .SendAsync(new Uri("queue:notification-service"), ctx => ctx.Init<ISendEmailCommand>(new { ... }))
+            .TransitionTo(SendingEmail)
+    );
 
-   During(SendingEmail,
-       When(EmailSent)
-           .Finalize()
-   );
-   ```
+    During(SendingEmail,
+        When(EmailSent)
+            .Finalize()
+    );
+    ```
 
 4. **Xử lý Timeout**: Luôn thêm `Schedule` để tránh Saga bị treo nếu service bên thứ 3 (Email) không phản hồi.
 
@@ -286,24 +288,24 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 1. **Tạo State Entity**: Tạo file `InventorySagaState.cs` trong `Domain/Entities/`. Class này phải implement `SagaStateMachineInstance`.
 2. **Tạo State Machine**: Tạo file `InventorySaga.cs` trong `Application/Sagas/` kế thừa `MassTransitStateMachine<InventorySagaState>`.
 3. **Cập nhật AppDbContext**:
-   - Thêm `DbSet<InventorySagaState>`.
-   - Cấu hình mapping trong `OnModelCreating` (đặc biệt là `CorrelationId`).
+    - Thêm `DbSet<InventorySagaState>`.
+    - Cấu hình mapping trong `OnModelCreating` (đặc biệt là `CorrelationId`).
 4. **Đăng ký trong `Program.cs`**:
-   - Thêm vào phần `AddMassTransit`:
+    - Thêm vào phần `AddMassTransit`:
 
-     ```csharp
-     x.AddSagaStateMachine<InventorySaga, InventorySagaState>()
-         .EntityFrameworkRepository(r => { ... });
-     ```
+        ```csharp
+        x.AddSagaStateMachine<InventorySaga, InventorySagaState>()
+            .EntityFrameworkRepository(r => { ... });
+        ```
 
-   - Cấu hình Receive Endpoint:
+    - Cấu hình Receive Endpoint:
 
-     ```csharp
-     cfg.ReceiveEndpoint("orchestration-inventory-saga", e =>
-     {
-         e.ConfigureSaga<InventorySagaState>(context);
-     });
-     ```
+        ```csharp
+        cfg.ReceiveEndpoint("orchestration-inventory-saga", e =>
+        {
+            e.ConfigureSaga<InventorySagaState>(context);
+        });
+        ```
 
 ---
 
@@ -317,7 +319,39 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 
 ---
 
-## 7. ✅ Checklist tạo Service mới
+## 7. 🌍 Đa ngôn ngữ & Quản trị Lỗi (Localization)
+
+Hệ thống sử dụng cơ chế Localization tập trung để đảm bảo tính quốc tế hóa.
+
+### 7.1. Cách sử dụng Error Codes (Backend)
+
+Khi xảy ra lỗi nghiệp vụ, đừng trả về text. Hãy dùng `ErrorCodes`:
+
+1.  Kiểm tra xem mã lỗi đã có trong `Bizcore.BuildingBlocks.ErrorCodes` chưa. Nếu chưa, hãy thêm vào.
+2.  Ném exception kèm mã lỗi:
+
+    ```csharp
+    throw new DomainException(ErrorCodes.Invoice.NotFound, "Invoice not found", new { id });
+    ```
+
+### 7.2. Cách thêm bản dịch mới (Frontend)
+
+1.  Mở thư mục `src/WebUI/public/locales/`.
+2.  Thêm key vào file JSON tương ứng (ví dụ `vi/errors.json` và `en/errors.json`).
+3.  Sử dụng trong component:
+
+    ```javascript
+    const { t } = useTranslation("invoice");
+    return <h1>{t("title")}</h1>;
+    ```
+
+### 7.3. Lan truyền ngôn ngữ trong MassTransit
+
+Hệ thống tự động đồng bộ `CultureInfo` qua RabbitMQ. Bạn không cần làm gì thêm, chỉ cần sử dụng `DateTime.Now.ToString()` hoặc các hàm định dạng khác, nó sẽ tự động theo ngôn ngữ của người gửi message.
+
+---
+
+## 8. ✅ Checklist tạo Service mới
 
 1. [ ] Tạo project ASP.NET Core Web API mới.
 2. [ ] Reference project `Bizcore.BuildingBlocks`.
@@ -336,3 +370,4 @@ Nếu bạn có một quy trình mới (ví dụ: Quy trình Nhập kho - `Inven
 > - [Coding Conventions](../06-conventions/CODING_CONVENTIONS.md)
 > - [Orchestration Guide](../03-architecture/ORCHESTRATION_GUIDE.md)
 > - [gRPC Guide](../06-communication/GRPC_GUIDE.md)
+

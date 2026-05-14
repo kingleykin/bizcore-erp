@@ -79,6 +79,7 @@ public static class MassTransitExtensions
             x.UsingRabbitMq((context, cfg) =>
             {
                 cfg.UseCorrelationId(context);
+                cfg.UseCulture(context);
                 cfg.UseDelayedMessageScheduler();
 
                 var host = configuration.GetValue<string>("RabbitMQ:Host") ?? "localhost";

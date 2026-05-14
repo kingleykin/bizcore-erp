@@ -25,8 +25,10 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần tái sử dụng.
   * **Contracts**: Định nghĩa Event/Command interfaces.
   * **Permissions**: Định nghĩa tập trung toàn bộ các hành động.
+  * **ErrorCodes**: Định nghĩa tập trung toàn bộ các mã lỗi chuẩn của hệ thống.
   * **Infrastructure**: Chứa các Extension Methods cho `Program.cs` và `IServiceModule`.
   * **Storage (Bizcore.BuildingBlocks.Storage)**: Cung cấp tích hợp MinIO chuẩn hóa cho toàn bộ hệ thống.
+  * **Localization (Bizcore.Localization)**: Thư viện quản lý tài nguyên dịch thuật và cấu hình đa ngôn ngữ dùng chung.
 * **gRPC**: Cung cấp giao tiếp đồng bộ hiệu năng cao cho các truy vấn Read-only.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
 
@@ -72,6 +74,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 * **Hardening**: Cấu hình Security Headers và giới hạn kích thước Payload để bảo vệ các service.
 * **Business Compensation**: Nếu luồng bất đồng bộ liên service lỗi nghiệp vụ, hệ thống dùng event compensation để đưa trạng thái thanh toán về `Reversed` thay vì rollback transaction xuyên service.
 * **Compliance & Security**: Áp dụng **Centralized Audit**.
+* **Localization & Error Governance**: Sử dụng mã lỗi (Error Codes) kết hợp với **Culture Propagation** xuyên suốt hệ thống (HTTP & Message Broker), giúp Backend chỉ quản lý contract lỗi còn Frontend quản lý việc hiển thị đa ngôn ngữ.
 * **Module Pattern**: Sử dụng `IServiceModule` để tách biệt cấu hình host (`Program.cs`) khỏi đăng ký dịch vụ (`Module.cs`), giúp codebase sạch và dễ scale theo module.
 
 ---
@@ -100,6 +103,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao dùng Idempotency?** | Đặc biệt quan trọng với thanh toán. Nếu mạng lag và user bấm "Thanh toán" 2 lần, hệ thống sẽ chỉ xử lý 1 lần dựa trên Idempotency Key, tránh trừ tiền 2 lần. |
 | **Tại sao dùng MinIO?** | Hệ thống Microservices cần một kho lưu trữ tệp tin tập trung để tất cả các service (User avatar, Invoice attachments) có thể truy cập thống nhất qua API thay vì lưu cục bộ trên ổ đĩa của từng service. |
 | **Tại sao dùng API Versioning?** | Để hỗ trợ tiến hóa hệ thống. Khi có thay đổi lớn (Breaking Change), chúng ta có thể triển khai V2 trong khi các Client cũ vẫn dùng V1 bình thường. |
+| **Tại sao dùng Error Codes & Localization Building Block?** | Để đảm bảo tính nhất quán (Consistency) về thông điệp lỗi trên toàn bộ các service. Backend không nên trả về "Human-readable message" vì khó bảo trì khi đổi ngôn ngữ. Việc dùng mã lỗi giúp Frontend (i18next) linh hoạt dịch thuật và Backend (MassTransit) dễ dàng lan truyền ngôn ngữ (Culture Propagation) trong các tác vụ ngầm. |
 
 ---
 

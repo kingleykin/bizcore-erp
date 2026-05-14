@@ -15,6 +15,7 @@
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks/Bizcore.BuildingBlocks.csproj" />
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks.Grpc/Bizcore.BuildingBlocks.Grpc.csproj" />
     <Project Path="BuildingBlocks/Bizcore.BuildingBlocks.Storage/Bizcore.BuildingBlocks.Storage.csproj" />
+    <Project Path="BuildingBlocks/Bizcore.Localization/Bizcore.Localization.csproj" />
   </Folder>
   <Folder Name="/Tests/">
     <Project Path="Tests/Bizcore.UnitTests/Bizcore.UnitTests.csproj" />

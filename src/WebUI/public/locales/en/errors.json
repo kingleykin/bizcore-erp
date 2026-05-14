@@ -1,0 +1,12 @@
+{
+  "COMMON": {
+    "INTERNAL_ERROR": "A system error occurred. Please try again later.",
+    "UNAUTHORIZED": "You are not authorized to access this feature.",
+    "NOT_FOUND": "Requested data not found."
+  },
+  "USER": {
+    "NOT_FOUND": "User not found.",
+    "USERNAME_TAKEN": "Username '{{username}}' is already taken.",
+    "EMAIL_TAKEN": "Email '{{email}}' is already registered."
+  }
+}

@@ -31,30 +31,33 @@ namespace Bizcore.BuildingBlocks.Middlewares
 
         private async Task HandleExceptionAsync(HttpContext context, Exception exception)
         {
-            var code = StatusCodes.Status500InternalServerError;
+            var statusCode = StatusCodes.Status500InternalServerError;
             var message = "An unexpected error occurred.";
-            var type = "INTERNAL_SERVER_ERROR";
+            var errorCode = ErrorCodes.Common.InternalError;
+            object? parameters = null;
 
             if (exception is DomainException domainEx)
             {
-                code = StatusCodes.Status400BadRequest;
+                statusCode = StatusCodes.Status400BadRequest;
                 message = domainEx.Message;
-                type = "DOMAIN_ERROR";
+                errorCode = domainEx.Code;
+                parameters = domainEx.Parameters;
             }
             else if (exception is UnauthorizedException unauthorizedEx)
             {
-                code = StatusCodes.Status401Unauthorized;
+                statusCode = StatusCodes.Status401Unauthorized;
                 message = unauthorizedEx.Message;
-                type = "UNAUTHORIZED";
+                errorCode = ErrorCodes.Common.Unauthorized;
             }
             else if (exception is NotFoundException notFoundEx)
             {
-                code = StatusCodes.Status404NotFound;
+                statusCode = StatusCodes.Status404NotFound;
                 message = notFoundEx.Message;
-                type = "NOT_FOUND";
+                errorCode = notFoundEx.Code;
+                parameters = notFoundEx.Parameters;
             }
 
-            _logger.LogError(exception, "Error captured by middleware: {Message}", exception.Message);
+            _logger.LogError(exception, "Error captured by middleware: {ErrorCode} - {Message}", errorCode, exception.Message);
 
             var activity = Activity.Current;
             var traceId = activity?.TraceId.ToString() ?? context.TraceIdentifier;
@@ -63,8 +66,9 @@ namespace Bizcore.BuildingBlocks.Middlewares
 
             var response = new
             {
-                Code = type,
+                Code = errorCode,
                 Message = message,
+                Params = parameters,
                 TraceId = traceId,
                 TraceParent = traceParent,
                 CorrelationId = correlationId,
@@ -72,9 +76,13 @@ namespace Bizcore.BuildingBlocks.Middlewares
             };
 
             context.Response.ContentType = "application/json";
-            context.Response.StatusCode = code;
+            context.Response.StatusCode = statusCode;
 
-            await context.Response.WriteAsync(JsonSerializer.Serialize(response));
+            await context.Response.WriteAsync(JsonSerializer.Serialize(response, new JsonSerializerOptions 
+            { 
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+            }));
         }
     }
 }

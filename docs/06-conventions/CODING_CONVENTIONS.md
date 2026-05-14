@@ -19,6 +19,7 @@
 10. [Testing Conventions](#10-testing-conventions)
 11. [Code Review Checklist](#11-code-review-checklist)
 12. [Frontend (React/TypeScript)](#12-frontend-reacttypescript)
+13. [Localization & Error Governance](#13-localization--error-governance)
 
 ---
 
@@ -83,7 +84,7 @@ public class InvoiceService
 {
     private readonly AppDbContext _context;  // Private field
     private readonly ILogger _logger;         // Private field
-    
+
     public async Task<Invoice> CreateAsync(string customerName, decimal amount)
     {
         var invoice = Invoice.Create(customerName, amount);  // Local variable
@@ -186,14 +187,14 @@ public class Invoice
 {
     [Key]
     public Guid Id { get; set; }
-    
+
     public string CustomerName { get; set; }
     public decimal Amount { get; set; }
     public InvoiceStatus Status { get; set; }
-    
+
     [DatabaseGenerated(DatabaseGeneratedOption.Computed)]
     public DateTime CreatedAt { get; set; }
-    
+
     [Timestamp]
     public byte[]? RowVersion { get; set; }  // For concurrency control
 }
@@ -301,11 +302,11 @@ public async Task<IActionResult> CreateInvoice([FromBody] CreateInvoiceRequest r
     // ❌ KHÔNG: Logic nghiệp vụ ở controller
     if (req.Amount > 1_000_000)
         return BadRequest("Exceeds limit");
-    
-    var invoice = new Invoice 
-    { 
-        CustomerName = req.CustomerName, 
-        Amount = req.Amount 
+
+    var invoice = new Invoice
+    {
+        CustomerName = req.CustomerName,
+        Amount = req.Amount
     };
     await _context.Invoices.AddAsync(invoice);
     await _context.SaveChangesAsync();
@@ -360,7 +361,7 @@ public class Invoice
 {
     private readonly AppDbContext _context;  // ❌ KHÔNG: Framework dependency
     private readonly ILogger _logger;         // ❌ KHÔNG: Logger in Domain
-    
+
     public void MarkAsPaid()
     {
         _context.Invoices.Update(this);      // ❌ KHÔNG: DB call
@@ -379,7 +380,7 @@ public class Invoice
     {
         if (Status != InvoiceStatus.Pending)
             throw new DomainException("Cannot mark non-pending invoice as paid");
-        
+
         Status = InvoiceStatus.Paid;
     }
 }
@@ -391,7 +392,7 @@ public class InvoiceService
     {
         var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId);
         if (invoice is null) throw new NotFoundException("Invoice not found");
-        
+
         invoice.MarkAsPaid();  // Call domain logic
         await _context.SaveChangesAsync();
         _logger.LogInformation("Invoice marked as paid: {InvoiceId}", invoiceId);
@@ -507,7 +508,7 @@ public class InvoiceService
     private readonly IInvoiceRepository _repository;
     private readonly IPublishEndpoint _publishEndpoint;
     private readonly ILogger<InvoiceService> _logger;
-    
+
     public InvoiceService(
         IInvoiceRepository repository,
         IPublishEndpoint publishEndpoint,
@@ -531,7 +532,7 @@ public class InvoiceService
 // ✅ Shared in BuildingBlocks
 public static class DateTimeExtensions
 {
-    public static bool IsUtc(this DateTime dt) 
+    public static bool IsUtc(this DateTime dt)
         => dt.Kind == DateTimeKind.Utc;
 }
 
@@ -552,7 +553,12 @@ var isUtc = DateTime.UtcNow.IsUtc();
 public class DomainException : Exception { }
 
 // ✅ Resource not found
-public class NotFoundException : Exception { }
+public class NotFoundException : Exception
+{
+    public string ErrorCode { get; }
+    public object Parameters { get; }
+    // ... constructors supporting code and params
+}
 
 // ✅ Access denied
 public class UnauthorizedException : Exception { }
@@ -572,18 +578,18 @@ public class Invoice
     {
         if (string.IsNullOrWhiteSpace(customerName))
             throw new DomainException("Customer name cannot be empty");
-        
+
         if (amount <= 0)
             throw new DomainException("Amount must be greater than 0");
-        
+
         if (amount > 1_000_000)
             throw new DomainException("Amount exceeds maximum limit");
-        
-        return new Invoice 
-        { 
+
+        return new Invoice
+        {
             Id = Guid.NewGuid(),
-            CustomerName = customerName, 
-            Amount = amount 
+            CustomerName = customerName,
+            Amount = amount
         };
     }
 }
@@ -597,10 +603,10 @@ public class InvoiceService
     public async Task<Invoice> GetByIdAsync(Guid id)
     {
         var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == id);
-        
+
         if (invoice is null)
-            throw new NotFoundException($"Invoice '{id}' not found");
-        
+            throw new NotFoundException(ErrorCodes.Invoice.NotFound, "Invoice not found", new { id });
+
         return invoice;
     }
 }
@@ -615,7 +621,7 @@ public async Task<IActionResult> RestoreField(Guid id, [FromBody] RestoreFieldRe
 {
     if (string.IsNullOrWhiteSpace(request.Reason))
         throw new DomainException("Reason is required");
-    
+
     // ...
 }
 ```
@@ -669,7 +675,7 @@ public void MarkAsPaid()
 {
     if (Status == InvoiceStatus.Cancelled)
         throw new DomainException("Cannot mark cancelled invoice as paid");
-    
+
     Status = InvoiceStatus.Paid;
 }
 
@@ -680,7 +686,7 @@ public async Task<RestoreFieldResult> RestoreFieldAsync(...)
 {
     if (invoice is null)
         return new RestoreFieldResult(false, "Invoice not found");
-    
+
     // ...
     return new RestoreFieldResult(true, "Field restored successfully", auditEntryId);
 }
@@ -763,12 +769,12 @@ public class SensitiveFieldMasker
     {
         "password", "token", "creditcard", "ssn", "apikey"
     };
-    
+
     public static string MaskIfNeeded(string fieldName, object? value)
     {
         if (SensitiveFields.Contains(fieldName.ToLower()))
             return "***MASKED***";
-        
+
         return value?.ToString() ?? "null";
     }
 }
@@ -828,12 +834,12 @@ public async Task<IActionResult> GetInvoice(Guid id)
 public class InvoiceService
 {
     private readonly IPublishEndpoint _publishEndpoint;
-    
+
     public async Task<Invoice> CreateAsync(Invoice invoice)
     {
         await _context.Invoices.AddAsync(invoice);
         await _context.SaveChangesAsync();
-        
+
         // ✅ Publish event after successful save
         await _publishEndpoint.Publish<IInvoiceCreatedEvent>(new
         {
@@ -842,7 +848,7 @@ public class InvoiceService
             Amount = invoice.Amount,
             CreatedAt = invoice.CreatedAt
         });
-        
+
         return invoice;
     }
 }
@@ -855,12 +861,12 @@ public class InvoiceService
 public class PaymentCompletedConsumer : IConsumer<IPaymentCompletedEvent>
 {
     private readonly IInvoiceService _invoiceService;
-    
+
     public PaymentCompletedConsumer(IInvoiceService invoiceService)
     {
         _invoiceService = invoiceService;
     }
-    
+
     public async Task Consume(ConsumeContext<IPaymentCompletedEvent> context)
     {
         var @event = context.Message;
@@ -886,21 +892,21 @@ services.AddMassTransit(x =>
 public class PaymentCompletedConsumer : IConsumer<IPaymentCompletedEvent>
 {
     private readonly AppDbContext _context;
-    
+
     public async Task Consume(ConsumeContext<IPaymentCompletedEvent> context)
     {
         var idempotencyKey = context.Message.PaymentId;
-        
+
         // Check if already processed
         var existing = await _context.ProcessedEvents
             .FirstOrDefaultAsync(pe => pe.EventId == idempotencyKey);
-        
+
         if (existing is not null)
             return;  // Already processed
-        
+
         // Process event
         // ...
-        
+
         // Record as processed
         await _context.ProcessedEvents.AddAsync(
             new ProcessedEvent { EventId = idempotencyKey });
@@ -926,11 +932,11 @@ public class InvoicesController : ControllerBase
 {
     [HttpGet]
     public async Task<IActionResult> GetInvoices() { }
-    
+
     [HttpPost]
     [Authorize(Policy = "Invoice.Create")]
     public async Task<IActionResult> CreateInvoice() { }
-    
+
     [HttpPut("{id}")]
     [Authorize(Policy = "Invoice.Update")]
     public async Task<IActionResult> UpdateInvoice(Guid id) { }
@@ -962,13 +968,13 @@ public static class Permissions
         public const string Update = "Invoice.Update";
         public const string Delete = "Invoice.Delete";
     }
-    
+
     public static class Payment
     {
         public const string View   = "Payment.View";
         public const string Create = "Payment.Create";
     }
-    
+
     public static class Audit
     {
         public const string View      = "Audit.View";
@@ -990,10 +996,10 @@ public class AuditLogDto
 {
     public Guid Id { get; set; }
     public string EntityType { get; set; }
-    
+
     [JsonIgnore]  // Exclude from response unless explicitly needed
     public string? BeforeJson { get; set; }
-    
+
     public string? BeforeJsonMasked { get; set; }  // Sensitive fields masked
 }
 
@@ -1022,17 +1028,17 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
     modelBuilder.Entity<Invoice>(entity =>
     {
         entity.HasKey(e => e.Id);
-        
+
         entity.Property(e => e.CustomerName)
             .IsRequired()
             .HasMaxLength(255);
-        
+
         entity.Property(e => e.Amount)
             .HasColumnType("decimal(18,2)");
-        
+
         entity.Property(e => e.CreatedAt)
             .HasDefaultValueSql("GETUTCDATE()");
-        
+
         entity.Property(e => e.RowVersion)
             .IsRowVersion();
     });
@@ -1043,7 +1049,7 @@ public class Invoice
 {
     [Key]
     public Guid Id { get; set; }
-    
+
     [Required]
     [MaxLength(255)]
     public string CustomerName { get; set; }
@@ -1102,10 +1108,10 @@ public async Task<(Invoice, Payment)> CreateInvoiceAndPaymentAsync(
         {
             await _context.Invoices.AddAsync(invoice);
             await _context.SaveChangesAsync();
-            
+
             await _context.Payments.AddAsync(payment);
             await _context.SaveChangesAsync();
-            
+
             await transaction.CommitAsync();
             return (invoice, payment);
         }
@@ -1132,10 +1138,10 @@ protected override void OnModelCreating(ModelBuilder modelBuilder)
 public async Task<Invoice> CreateAsync(Invoice invoice)
 {
     await _context.Invoices.AddAsync(invoice);
-    
+
     // Event will be published atomically with SaveChanges
     await _publishEndpoint.Publish<IInvoiceCreatedEvent>(new { ... });
-    
+
     await _context.SaveChangesAsync();  // Outbox ensures atomic publish
 }
 ```
@@ -1149,14 +1155,14 @@ public async Task<Invoice> MarkAsPaidAsync(Guid id, byte[]? expectedRowVersion)
     var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == id);
     if (invoice is null)
         throw new NotFoundException("Invoice not found");
-    
+
     // Check if changed by another process
     if (expectedRowVersion != null && !invoice.RowVersion.SequenceEqual(expectedRowVersion))
         throw new DomainException("Invoice was modified by another user");
-    
+
     invoice.MarkAsPaid();
     await _context.SaveChangesAsync();
-    
+
     return invoice;
 }
 ```
@@ -1209,21 +1215,21 @@ public class InvoiceServiceTests
         // Arrange
         var service = new InvoiceService(mockContext, mockPublisher);
         var invoice = Invoice.Create("John", 1000);
-        
+
         // Act
         var result = await service.CreateAsync(invoice);
-        
+
         // Assert
         Assert.NotNull(result);
         Assert.Equal(invoice.Id, result.Id);
     }
-    
+
     [Fact]
     public async Task CreateAsync_WithExcessiveAmount_ThrowsDomainException()
     {
         // Arrange
         var invoice = Invoice.Create("John", 2_000_000);  // Exceeds limit
-        
+
         // Act & Assert
         await Assert.ThrowsAsync<DomainException>(
             () => service.CreateAsync(invoice));
@@ -1245,14 +1251,14 @@ public class PaymentServiceTests
     private readonly Mock<IPaymentRepository> _mockRepository;
     private readonly Mock<IPublishEndpoint> _mockPublisher;
     private readonly PaymentService _service;
-    
+
     public PaymentServiceTests()
     {
         _mockRepository = new Mock<IPaymentRepository>();
         _mockPublisher = new Mock<IPublishEndpoint>();
         _service = new PaymentService(_mockRepository.Object, _mockPublisher.Object);
     }
-    
+
     [Fact]
     public async Task CompletePaymentAsync_PublishesEvent()
     {
@@ -1260,10 +1266,10 @@ public class PaymentServiceTests
         var payment = new Payment { Id = Guid.NewGuid(), Amount = 1000 };
         _mockRepository.Setup(r => r.GetByIdAsync(payment.Id))
             .ReturnsAsync(payment);
-        
+
         // Act
         await _service.CompletePaymentAsync(payment.Id);
-        
+
         // Assert
         _mockPublisher.Verify(
             p => p.Publish(It.IsAny<IPaymentCompletedEvent>(), It.IsAny<CancellationToken>()),
@@ -1332,7 +1338,7 @@ Tuân thủ nghiêm ngặt pattern `{Method}_{Scenario}_{Expected}`.
 - **Scenario**: Điều kiện đầu vào, trạng thái hệ thống hoặc hành vi người dùng.
 - **Expected**: Kết quả kỳ vọng hoặc hành vi mong đợi.
 
-*Ví dụ:*
+_Ví dụ:_
 
 ```csharp
 // ✅ ĐÚNG
@@ -1350,11 +1356,11 @@ public async Task GetById_WhenInvoiceDoesNotExist_ShouldReturnNotFound() { ... }
 
 Mỗi test case phải là một đơn vị độc lập hoàn toàn. Không được viết các test case phụ thuộc vào kết quả hoặc dữ liệu của nhau.
 
-*Ví dụ:*
+_Ví dụ:_
 
 ```csharp
 // ❌ SAI: Test Update phụ thuộc vào việc Test Create đã chạy trước đó
-[Fact] public async Task Step1_CreateUser() { ... } 
+[Fact] public async Task Step1_CreateUser() { ... }
 [Fact] public async Task Step2_UpdateUser() { ... } // Giả định ID 1 đã tồn tại
 
 // ✅ ĐÚNG: Mỗi test tự chuẩn bị dữ liệu cho chính mình
@@ -1362,8 +1368,8 @@ Mỗi test case phải là một đơn vị độc lập hoàn toàn. Không đ�
 public async Task UpdateUser_WhenUserExists_ShouldUpdateSuccessfully()
 {
     // Arrange: Tự tạo user mới phục vụ riêng cho test này
-    var user = await CreateTestUserAsync(); 
-    
+    var user = await CreateTestUserAsync();
+
     // Act & Assert...
 }
 ```
@@ -1372,7 +1378,7 @@ public async Task UpdateUser_WhenUserExists_ShouldUpdateSuccessfully()
 
 Ưu tiên sử dụng thư viện `FluentAssertions` để các câu lệnh kiểm tra (Assert) trở nên tự nhiên, dễ đọc như ngôn ngữ nói và cung cấp thông tin lỗi chi tiết khi test fail.
 
-*Ví dụ:*
+_Ví dụ:_
 
 ```csharp
 // ✅ ĐÚNG (Fluent style)
@@ -1389,7 +1395,7 @@ Assert.True(items.Count == 3);
 
 Để tránh việc dữ liệu "rác" từ lần chạy trước ảnh hưởng đến lần chạy sau, bắt buộc sử dụng `Respawn` trong `ApiTestBase` để reset database về trạng thái ban đầu trước mỗi test case.
 
-*Ví dụ trong Base Class:*
+_Ví dụ trong Base Class:_
 
 ```csharp
 public async Task InitializeAsync()
@@ -1529,13 +1535,13 @@ export const InvoiceList: React.FC = () => {
 
 ```typescript
 // services/invoiceService.ts
-import { API_BASE_URL } from '@/config/constants';
+import { API_BASE_URL } from "@/config/constants";
 
 export interface Invoice {
     id: string;
     customerName: string;
     amount: number;
-    status: 'pending' | 'paid' | 'cancelled';
+    status: "pending" | "paid" | "cancelled";
     createdAt: string;
 }
 
@@ -1556,9 +1562,11 @@ export class InvoiceService {
         return response.json();
     }
 
-    static async create(invoice: Omit<Invoice, 'id' | 'createdAt'>): Promise<Invoice> {
+    static async create(
+        invoice: Omit<Invoice, "id" | "createdAt">,
+    ): Promise<Invoice> {
         const response = await fetch(`${API_BASE_URL}/invoice`, {
-            method: 'POST',
+            method: "POST",
             headers: this.getHeaders(),
             body: JSON.stringify(invoice),
         });
@@ -1568,13 +1576,13 @@ export class InvoiceService {
 
     private static getHeaders(): HeadersInit {
         return {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
             Authorization: `Bearer ${this.getAuthToken()}`,
         };
     }
 
     private static getAuthToken(): string {
-        return localStorage.getItem('authToken') || '';
+        return localStorage.getItem("authToken") || "";
     }
 }
 ```
@@ -1587,17 +1595,23 @@ export class ApiError extends Error {
     constructor(
         public statusCode: number,
         message: string,
-        public details?: Record<string, unknown>
+        public details?: Record<string, unknown>,
     ) {
         super(message);
-        this.name = 'ApiError';
+        this.name = "ApiError";
     }
 }
 
 export async function handleApiResponse<T>(response: Response): Promise<T> {
     if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-        throw new ApiError(response.status, error.error || response.statusText, error);
+        const error = await response
+            .json()
+            .catch(() => ({ error: "Unknown error" }));
+        throw new ApiError(
+            response.status,
+            error.error || response.statusText,
+            error,
+        );
     }
     return response.json();
 }
@@ -1652,21 +1666,21 @@ export function InvoiceForm(props) {
 
 ## 📝 Summary
 
-| Aspek | Quy tắc |
-|-------|--------|
-| **Class/Method** | PascalCase |
-| **Variables** | camelCase |
-| **Constants** | SCREAMING_SNAKE_CASE |
-| **Interfaces** | I{Name} |
-| **Events** | {Entity}{Action}Event |
-| **Files** | Match class name |
-| **Layers** | Domain → App → Infra → API |
-| **Async** | Always use Async suffix |
-| **Exceptions** | Domain-specific types |
-| **Transactions** | Outbox Pattern preferred |
-| **Communication** | Events via MassTransit |
+| Aspek             | Quy tắc                    |
+| ----------------- | -------------------------- |
+| **Class/Method**  | PascalCase                 |
+| **Variables**     | camelCase                  |
+| **Constants**     | SCREAMING_SNAKE_CASE       |
+| **Interfaces**    | I{Name}                    |
+| **Events**        | {Entity}{Action}Event      |
+| **Files**         | Match class name           |
+| **Layers**        | Domain → App → Infra → API |
+| **Async**         | Always use Async suffix    |
+| **Exceptions**    | Domain-specific types      |
+| **Transactions**  | Outbox Pattern preferred   |
+| **Communication** | Events via MassTransit     |
 | **Authorization** | Explicit policies required |
-| **Logging** | Structured with SeriLog |
+| **Logging**       | Structured with SeriLog    |
 
 ---
 
@@ -1682,3 +1696,47 @@ export function InvoiceForm(props) {
 **Last Updated**: 2026-05-12  
 **Version**: 1.2 (Added Cross-platform Test Scripts)  
 **Maintained by**: Architecture Team
+
+---
+
+## 13. 🌍 Localization & Error Governance
+
+Hệ thống ERP yêu cầu sự nhất quán về thông điệp lỗi và khả năng đa ngôn ngữ toàn diện.
+
+### 13.1. Nguyên tắc Backend
+
+- **KHÔNG** trả về các chuỗi ký tự đã được dịch (localized strings) từ Backend.
+- **BẮT BUỘC** sử dụng **ErrorCode** từ `Bizcore.BuildingBlocks.ErrorCodes`.
+- **Cung cấp tham số**: Nếu mã lỗi cần thông tin động (ví dụ: tên user, ID hóa đơn), hãy truyền qua đối tượng `Parameters`.
+
+### 13.2. Cấu trúc ErrorCodes
+
+Mã lỗi được tổ chức theo phân cấp: `{MODULE}.{ENTITY}.{REASON}`
+
+```csharp
+public static class ErrorCodes
+{
+    public static class Invoice
+    {
+        public const string NotFound = "INVOICE.NOT_FOUND";
+        public const string AlreadyPaid = "INVOICE.ALREADY_PAID";
+    }
+}
+```
+
+### 13.3. Culture Propagation (Lan truyền ngôn ngữ)
+
+- Ngôn ngữ được tự động truyền qua HTTP Header `Accept-Language`.
+- Đối với MassTransit, hệ thống tự động đính kèm `X-Culture` vào Message Header.
+- **Quy tắc**: Mọi tác vụ background (gửi email, tạo báo cáo) phải sử dụng `CultureInfo.CurrentUICulture` để lấy đúng ngôn ngữ của người dùng đã kích hoạt tác vụ đó.
+
+### 13.4. Nguyên tắc Frontend
+
+- Toàn bộ bản dịch được lưu tại `public/locales/{lng}/{namespace}.json`.
+- Sử dụng mã lỗi nhận được từ API để tìm bản dịch tương ứng trong `errors.json`.
+
+```javascript
+// Ví dụ dịch lỗi
+const message = t(`errors:${errorCode}`, parameters);
+```
+

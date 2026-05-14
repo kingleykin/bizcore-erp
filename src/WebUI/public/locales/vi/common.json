@@ -1,0 +1,25 @@
+{
+  "app_name": "Bizcore ERP",
+  "dashboard": "Bảng điều khiển",
+  "invoices": "Hóa đơn",
+  "payments": "Thanh toán",
+  "reports": "Báo cáo",
+  "users": "Người dùng",
+  "roles": "Vai trò & Quyền",
+  "audit": "Nhật ký hệ thống",
+  "orchestration": "Luồng điều phối",
+  "actions": {
+    "save": "Lưu thay đổi",
+    "cancel": "Hủy",
+    "add": "Thêm mới",
+    "refresh": "Làm mới",
+    "delete": "Xóa",
+    "edit": "Chỉnh sửa"
+  },
+  "status": {
+    "active": "Hoạt động",
+    "inactive": "Ngừng hoạt động",
+    "paid": "Đã thanh toán",
+    "pending": "Chờ xử lý"
+  }
+}

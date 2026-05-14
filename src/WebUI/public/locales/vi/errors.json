@@ -1,0 +1,12 @@
+{
+  "COMMON": {
+    "INTERNAL_ERROR": "Đã có lỗi hệ thống xảy ra. Vui lòng thử lại sau.",
+    "UNAUTHORIZED": "Bạn không có quyền truy cập vào tính năng này.",
+    "NOT_FOUND": "Không tìm thấy dữ liệu yêu cầu."
+  },
+  "USER": {
+    "NOT_FOUND": "Không tìm thấy người dùng.",
+    "USERNAME_TAKEN": "Tên đăng nhập '{{username}}' đã được sử dụng.",
+    "EMAIL_TAKEN": "Email '{{email}}' đã được đăng ký."
+  }
+}
