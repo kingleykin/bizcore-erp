@@ -126,11 +126,45 @@ public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand,
 
 ### Bước 3: Cấu hình DB & Migrations
 
-Nếu có thay đổi schema, hãy tạo migration:
+Để thêm bảng mới hoặc thay đổi schema, hãy thực hiện theo 3 bước nhỏ:
+
+**3.1. Tạo file Configuration (Fluent API):**
+Tạo file `{EntityName}Configuration.cs` trong thư mục `Infrastructure/Data/Configurations/`. Tránh dùng Data Annotations trực tiếp trên Entity để giữ Domain "sạch".
+
+```csharp
+public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
+{
+    public void Configure(EntityTypeBuilder<Invoice> builder)
+    {
+        builder.HasKey(i => i.Id);
+        builder.Property(i => i.CustomerName).HasMaxLength(256).IsRequired();
+        builder.Property(i => i.Amount).HasPrecision(18, 2);
+        // RowVersion (concurrency) đã được xử lý tự động nếu dùng BaseEntityConfiguration
+    }
+}
+```
+
+**3.2. Đăng ký DbSet:**
+Thêm thuộc tính `DbSet<T>` vào `AppDbContext.cs` của Microservice đó để có thể truy vấn dữ liệu.
+
+```csharp
+public DbSet<Invoice> Invoices { get; set; }
+```
+
+**3.3. Tạo và thực thi Migration:**
+Mở terminal tại thư mục gốc của dự án và chạy các lệnh sau (thay thế đường dẫn tương ứng với service bạn đang làm):
 
 ```powershell
-dotnet ef migrations add InitialCreate --project src/Services/Invoice/Invoice.API
+# 1. Tạo file migration (File sẽ nằm trong Infrastructure/Data/Migrations)
+dotnet ef migrations add AddInvoiceTable --project src/Services/Invoice/Invoice.API --startup-project src/Services/Invoice/Invoice.API
+
+# 2. Cập nhật vào Database (Local)
+dotnet ef database update --project src/Services/Invoice/Invoice.API --startup-project src/Services/Invoice/Invoice.API
 ```
+
+> [!TIP]
+> Nếu bạn gặp lỗi không tìm thấy lệnh `dotnet ef`, hãy cài đặt tool bằng lệnh: 
+> `dotnet tool install --global dotnet-ef`
 
 ### Bước 4: Viết Controller
 
