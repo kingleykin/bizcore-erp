@@ -66,23 +66,9 @@ namespace Audit.API.Application.Consumers
                 occurredAt      : msg.OccurredAt
             );
 
-            // Wrap hash chain computation and insert in a transaction.
-            await using var transaction = await _db.Database.BeginTransactionAsync(System.Data.IsolationLevel.ReadCommitted, context.CancellationToken);
-
-            try
-            {
-                await _hashChain.ComputeAndSetHashAsync(entry, context.CancellationToken);
-
-                _db.AuditEntries.Add(entry);
-                await _db.SaveChangesAsync(context.CancellationToken);
-
-                await transaction.CommitAsync(context.CancellationToken);
-            }
-            catch
-            {
-                await transaction.RollbackAsync(context.CancellationToken);
-                throw;
-            }
+            await _hashChain.ComputeAndSetHashAsync(entry, context.CancellationToken);
+            _db.AuditEntries.Add(entry);
+            await _db.SaveChangesAsync(context.CancellationToken);
 
             _logger.LogDebug("AuditEntry {Id} persisted with hash {Hash}.", entry.Id, entry.Hash);
         }

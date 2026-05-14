@@ -160,6 +160,7 @@ services:
       - ReverseProxy__Clusters__file-cluster__Destinations__d1__Address=http://file-api:8080
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Gateway.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - invoice-api
@@ -184,6 +185,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Invoice.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -204,6 +206,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Payment.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -224,6 +227,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Report.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -245,6 +249,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Orchestration.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -266,6 +271,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Admin.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server
@@ -287,6 +293,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Audit.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
       - Retention__HotDays=180
     depends_on:
@@ -315,6 +322,7 @@ services:
       - Minio__UseSSL=false
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=File.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - rabbitmq

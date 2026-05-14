@@ -57,7 +57,7 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
     * *Quy tắc*: Không phụ thuộc vào bất kỳ thư viện bên ngoài nào (kể cả EF Core hay ASP.NET). Đây là "trái tim" của ứng dụng.
 2. **Application Layer**:
     * *Nội dung*: Interfaces Services, Implementation của Services, **Unit of Work Abstraction**.
-    * *Quy tắc*: Chứa logic nghiệp vụ chính (Use Cases). Điều phối dữ liệu từ Infrastructure để trả về cho API. Sử dụng `IUnitOfWork` để quản lý transaction boundary.
+    * *Quy tắc*: Chứa logic nghiệp vụ chính (Use Cases). Điều phối dữ liệu từ Infrastructure để trả về cho API. Sử dụng `IUnitOfWork` để quản lý transaction boundary. **Lưu ý**: Đối với các logic chạy trong Consumer hoặc MediatR Pipeline, hạ tầng đã quản lý Transaction (Transactional Inbox/Behavior), do đó Application Layer chỉ cần gọi `SaveChangesAsync()`.
 3. **Infrastructure Layer**:
     * *Nội dung*: DbContext, **Modular Configurations**, Migrations, External Clients.
     * *Quy tắc*: Chứa các chi tiết triển khai kỹ thuật (Data Access). Cấu hình Fluent API phải được tách vào các class `IEntityTypeConfiguration<T>`.

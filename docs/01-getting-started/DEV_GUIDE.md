@@ -22,6 +22,10 @@ Chào mừng bạn đến với tài liệu hướng dẫn phát triển của *
 
 Hệ thống Bizcore ERP áp dụng mô hình **DDD-Lite (Clean Architecture)** với 4 lớp chính để đảm bảo tính tách biệt (Separation of Concerns) và khả năng kiểm thử.
 
+**Đặc điểm nổi bật:**
+- **Transactional Inbox**: Mọi Consumer mặc định được bọc trong DB Transaction bởi hạ tầng (MassTransit). Đảm bảo tính nguyên tử (Atomicity) giữa xử lý tin nhắn và lưu database.
+- **Audit Hash Chain**: Sử dụng SHA-256 để đảm bảo tính bất biến của nhật ký kiểm toán.
+
 ```mermaid
 graph TD
     API[API Layer / Controllers] --> App[Application Layer / Use Cases]
@@ -95,6 +99,14 @@ public class Invoice : BaseEntity
     }
 }
 ```
+
+### ⚠️ Lưu ý cực kỳ quan trọng về Transaction (Dành cho Consumer/Handler)
+
+Hệ thống đã cấu hình **Transactional Inbox** (MassTransit) và **Transaction Behavior** (MediatR) tại tầng hạ tầng.
+
+- **QUY TẮC VÀNG**: Tuyệt đối **KHÔNG** gọi `_unitOfWork.BeginTransactionAsync()` hoặc `_db.Database.BeginTransactionAsync()` bên trong hàm `Consume` hoặc `Handle`. 
+- **Lý do**: Hạ tầng đã mở sẵn một transaction trước khi gọi vào logic của bạn. Việc mở thêm transaction lồng nhau sẽ gây lỗi `InvalidOperationException`.
+- **Cách làm đúng**: Chỉ thực hiện thay đổi dữ liệu và gọi `await _unitOfWork.SaveChangesAsync()`. Hệ thống sẽ tự động Commit hoặc Rollback sau khi logic của bạn kết thúc.
 
 ### Bước 2: Tạo Command & Handler
 

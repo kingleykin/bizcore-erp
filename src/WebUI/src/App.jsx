@@ -748,9 +748,9 @@ const AuditLogViewer = ({ api }) => {
               {logs.map(log => (
                 <tr key={log.id} 
                     style={{ cursor: 'pointer', background: selectedLog?.id === log.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
-                    onClick={() => setSelectedFlow(null) || setSelectedLog(log)}>
-                  <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{new Date(log.timestampUtc).toLocaleString()}</td>
-                  <td>{log.userName || 'System'}</td>
+                    onClick={() => setSelectedLog(log)}>
+                  <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{new Date(log.performedAt).toLocaleString()}</td>
+                  <td>{log.performedByName || 'System'}</td>
                   <td>
                     <span className="status-badge" style={{ background: `${getActionColor(log.action)}20`, color: getActionColor(log.action) }}>
                       {log.action}
@@ -772,37 +772,25 @@ const AuditLogViewer = ({ api }) => {
             </div>
             
             <div style={{ marginBottom: '1.5rem' }}>
-              <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.25rem' }}>TRANSACTION ID</div>
-              <div style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{selectedLog.transactionId}</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.25rem' }}>CORRELATION ID</div>
+              <div style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{selectedLog.correlationId}</div>
             </div>
 
             <div className="diff-container">
               <div>
-                <div className="diff-label">Dữ liệu cũ (Old)</div>
+                <div className="diff-label">Dữ liệu cũ (Before)</div>
                 <pre className="diff-box" style={{ color: '#ef4444' }}>
-                  {selectedLog.oldValues ? JSON.stringify(JSON.parse(selectedLog.oldValues), null, 2) : 'N/A'}
+                  {selectedLog.beforeJson ? JSON.stringify(JSON.parse(selectedLog.beforeJson), null, 2) : 'N/A'}
                 </pre>
               </div>
               <div>
-                <div className="diff-label">Dữ liệu mới (New)</div>
+                <div className="diff-label">Dữ liệu mới (After)</div>
                 <pre className="diff-box" style={{ color: '#22c55e' }}>
-                  {selectedLog.newValues ? JSON.stringify(JSON.parse(selectedLog.newValues), null, 2) : 'N/A'}
+                  {selectedLog.afterJson ? JSON.stringify(JSON.parse(selectedLog.afterJson), null, 2) : 'N/A'}
                 </pre>
               </div>
             </div>
 
-            {selectedLog.affectedColumns && (
-              <div style={{ marginTop: '1.5rem' }}>
-                <div className="diff-label">Các trường bị ảnh hưởng</div>
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {JSON.parse(selectedLog.affectedColumns).map(col => (
-                    <span key={col} className="status-badge" style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#cbd5e1' }}>
-                      {col}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>

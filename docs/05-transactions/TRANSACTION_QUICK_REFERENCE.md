@@ -117,35 +117,45 @@ await _idempotencyService.CacheResponseAsync(key, result, statusCode: 202);
 return result;
 ```
 
-### ✅ DO: Idempotent Consumers
+### ✅ DO: Idempotent Consumers (Transactional Inbox)
+
+> **⚠️ QUY TẮC VÀNG**: Trong Consumer, **KHÔNG** gọi `BeginTransactionAsync()` thủ công.
+> MassTransit đã tự động bọc toàn bộ hàm `Consume` trong một DB Transaction thông qua `UseEntityFrameworkOutbox`.
+> Việc gọi thêm sẽ gây lỗi `InvalidOperationException: The connection is already in a transaction`.
 
 ```csharp
+// ✅ CORRECT: Chỉ gọi SaveChangesAsync, KHÔNG cần BeginTransaction
 public async Task Consume(ConsumeContext<PaymentCompletedEvent> context)
 {
     var invoice = await _context.Invoices.FindAsync(context.Message.InvoiceId);
 
-    // ✅ Idempotent check
+    // ✅ Idempotent check - bắt buộc vì Consumer có thể retry
     if (invoice.Status == InvoiceStatus.Paid)
     {
         _logger.LogInformation("Invoice already paid (idempotent)");
-        return; // Safe to return
+        return; // Safe to return - MassTransit sẽ tự commit
     }
 
     invoice.Status = InvoiceStatus.Paid;
+
+    // ✅ Chỉ SaveChanges, MassTransit lo Commit/Rollback
     await _context.SaveChangesAsync();
 }
 ```
 
-### ❌ DON'T: Blindly Update
+### ❌ DON'T: Mở Transaction Thủ Công trong Consumer
 
 ```csharp
+// ❌ WRONG: Gây lỗi "The connection is already in a transaction"
 public async Task Consume(ConsumeContext<PaymentCompletedEvent> context)
 {
-    var invoice = await _context.Invoices.FindAsync(context.Message.InvoiceId);
+    // ❌ MassTransit đã mở transaction rồi, gọi thêm sẽ lỗi!
+    await using var tx = await _context.Database.BeginTransactionAsync();
 
-    // ❌ Not idempotent - may cause issues on duplicate
+    var invoice = await _context.Invoices.FindAsync(context.Message.InvoiceId);
     invoice.Status = InvoiceStatus.Paid;
     await _context.SaveChangesAsync();
+    await tx.CommitAsync(); // ❌ Dư thừa và gây xung đột
 }
 ```
 
@@ -402,10 +412,11 @@ await tx.CommitAsync();
 - [ ] Response caching if needed
 
 ### New Consumer
-- [ ] Idempotent check at start
-- [ ] Transaction if modifying data
-- [ ] Publish events inside transaction if needed
-- [ ] Error handling and logging
+- [ ] **KHÔNG** gọi `BeginTransactionAsync()` — MassTransit quản lý Transaction tự động (Transactional Inbox)
+- [ ] Idempotent check ở đầu hàm `Consume` (bắt buộc vì Consumer có thể bị retry)
+- [ ] Chỉ gọi `SaveChangesAsync()` sau khi thực hiện thay đổi dữ liệu
+- [ ] Không cần gọi `CommitAsync()` hay `RollbackAsync()` thủ công
+- [ ] Log đầy đủ: nhận message, skip (idempotent), thành công
 
 ## 📖 References
 

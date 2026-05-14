@@ -79,7 +79,7 @@ bizcore-erp/
 * **Resilience & Reliability**:
   * **Polly**: Triển khai Retry và Circuit Breaker tại Gateway để bảo vệ hệ thống khỏi các lỗi tạm thời hoặc quá tải.
     * **Idempotency**: Đảm bảo các giao dịch (như Thanh toán) không bị thực hiện lặp lại khi Client gửi trùng request thông qua `X-Idempotency-Key`.
-  * **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính nhất quán dữ liệu (Eventual Consistency) giữa Database và Message Broker, ngăn chặn việc mất Event khi DB lưu thành công nhưng RabbitMQ lỗi.
+  * **Outbox & Transactional Inbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính nhất quán dữ liệu (Eventual Consistency) giữa Database và Message Broker. Đặc biệt, hạ tầng áp dụng **Transactional Inbox** tự động bọc mọi Consumer trong một DB Transaction, đảm bảo tin nhắn chỉ được coi là đã xử lý khi database được cập nhật thành công.
   * **Module Pattern (Clean Program.cs)**: Đóng gói logic đăng ký DI vào lớp `Module` riêng, giúp `Program.cs` cực kỳ gọn nhẹ.
   * **gRPC (Synchronous Query)**: Sử dụng gRPC cho truy vấn dữ liệu tức thời giữa các microservices với hiệu năng cao.
 

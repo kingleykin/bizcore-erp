@@ -22,7 +22,7 @@
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**, **Optimistic Concurrency (RowVersion)**, **Unit of Work Abstraction (IUnitOfWork)**.
+- **Design Patterns cốt lõi**: Outbox Pattern, **Transactional Inbox (MassTransit tự động quản lý Transaction cho mọi Consumer)**, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**, **Optimistic Concurrency (RowVersion)**, **Unit of Work Abstraction (IUnitOfWork)**.
 
 ---
 
@@ -91,13 +91,23 @@ Hệ thống áp dụng **3 Transaction Patterns** để đảm bảo tính toà
 - Invoice + InvoiceLineItems
 - User + UserRole + UserPermission
 
-### 4.2. Outbox Pattern (MassTransit)
+### 4.2. Outbox & Transactional Inbox Pattern (MassTransit)
 
-**Dùng cho:** DB write + Message publish (tránh dual write problem)
+**Dùng cho:** DB write + Message publish (tránh dual write problem) + Đảm bảo Consumer xử lý atomic
 
+**Outbox** (ghi message ngầm vào DB trước, gửi RabbitMQ sau):
 - Invoice creation + InvoiceCreatedEvent
 - Payment initiation + PaymentInitiatedEvent
 - Status update + AuditEvent
+
+**Transactional Inbox** (MassTransit tự động bọc Consumer trong Transaction):
+- Mọi Consumer trong hệ thống đều được bảo vệ tự động
+- Dữ liệu chỉ được commit khi Consumer kết thúc thành công
+- Nếu Consumer ném Exception → Rollback → Message quay về queue để retry
+
+> [!CAUTION]
+> **KHÔNG** gọi `BeginTransactionAsync()` bên trong hàm `Consume()`. MassTransit đã mở sẵn transaction.
+> Gọi thêm sẽ gây lỗi: `InvalidOperationException: The connection is already in a transaction`.
 
 ### 4.3. Standardized Persistence Model
 

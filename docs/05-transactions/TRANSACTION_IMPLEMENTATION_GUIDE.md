@@ -235,19 +235,22 @@ public class PaymentService : IPaymentService
 }
 ```
 
-### 1.3. Update Payment Consumers with Transaction
+### 1.3. Consumer Pattern (Transactional Inbox — Không mở Transaction thủ công)
+
+> **⚠️ QUY TẮC VÀNG**: Dự án Bizcore ERP sử dụng `UseEntityFrameworkOutbox` trong `AddBizcoreMassTransit`.
+> Điều này có nghĩa là **MassTransit tự động mở 1 DB Transaction bọc toàn bộ hàm `Consume`**.
+> Nếu bạn gọi thêm `BeginTransactionAsync()` bên trong Consumer, SQL Server sẽ ném lỗi:
+> `InvalidOperationException: The connection is already in a transaction`.
 
 ```csharp
-// File: src/Services/Payment/Payment.API/Application/Consumers/ConfirmPaymentConsumer.cs
+// ✅ CORRECT: File: src/Services/Payment/Payment.API/Application/Consumers/ConfirmPaymentConsumer.cs
 
 public class ConfirmPaymentConsumer : IConsumer<IConfirmPaymentCommand>
 {
-    private readonly PaymentDbContext _context;
+    private readonly AppDbContext _context;
     private readonly ILogger<ConfirmPaymentConsumer> _logger;
 
-    public ConfirmPaymentConsumer(
-        PaymentDbContext context,
-        ILogger<ConfirmPaymentConsumer> logger)
+    public ConfirmPaymentConsumer(AppDbContext context, ILogger<ConfirmPaymentConsumer> logger)
     {
         _context = context;
         _logger = logger;
@@ -257,64 +260,54 @@ public class ConfirmPaymentConsumer : IConsumer<IConfirmPaymentCommand>
     {
         var cmd = context.Message;
 
-        // ✅ Use ExecutionStrategy
-        var strategy = _context.Database.CreateExecutionStrategy();
+        // ✅ KHÔNG gọi BeginTransactionAsync — MassTransit đã quản lý transaction
+        var payment = await _context.Payments
+            .FirstOrDefaultAsync(p => p.Id == cmd.PaymentId);
 
-        await strategy.ExecuteAsync(async () =>
+        if (payment is null)
         {
-            // ✅ Begin transaction
-            await using var transaction = await _context.Database.BeginTransactionAsync();
+            _logger.LogWarning("Payment not found for confirmation. PaymentId: {PaymentId}", cmd.PaymentId);
+            return; // MassTransit sẽ tự commit transaction rỗng
+        }
 
-            try
-            {
-                var payment = await _context.Payments
-                    .FirstOrDefaultAsync(p => p.Id == cmd.PaymentId);
+        // ✅ Idempotency check — quan trọng vì Consumer có thể bị retry
+        if (payment.Status == PaymentStatus.Completed)
+        {
+            _logger.LogInformation("Payment already completed (idempotent). PaymentId: {PaymentId}", cmd.PaymentId);
+            return;
+        }
 
-                if (payment is null)
-                {
-                    _logger.LogWarning(
-                        "Payment not found for confirmation. PaymentId: {PaymentId}",
-                        cmd.PaymentId
-                    );
-                    return;
-                }
+        // ✅ Thực hiện thay đổi dữ liệu
+        payment.Status = PaymentStatus.Completed;
 
-                // Idempotency check
-                if (payment.Status == PaymentStatus.Completed)
-                {
-                    _logger.LogInformation(
-                        "Payment already completed. PaymentId: {PaymentId}",
-                        cmd.PaymentId
-                    );
-                    return;
-                }
+        // ✅ Chỉ cần SaveChangesAsync — MassTransit lo Commit/Rollback sau khi Consume kết thúc
+        await _context.SaveChangesAsync(context.CancellationToken);
 
-                // Update status
-                payment.Status = PaymentStatus.Completed;
-                await _context.SaveChangesAsync();
-
-                // Commit transaction
-                await transaction.CommitAsync();
-
-                _logger.LogInformation(
-                    "Payment confirmed successfully. PaymentId: {PaymentId}",
-                    cmd.PaymentId
-                );
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync();
-                _logger.LogError(
-                    ex,
-                    "Failed to confirm payment. PaymentId: {PaymentId}",
-                    cmd.PaymentId
-                );
-                throw;
-            }
-        });
+        _logger.LogInformation("Payment confirmed successfully. PaymentId: {PaymentId}", cmd.PaymentId);
     }
 }
 ```
+
+**Luồng hoạt động thực tế (do Infrastructure quản lý):**
+
+```text
+[MassTransit Middleware]
+    │
+    ├─► Mở DB Transaction (UseEntityFrameworkOutbox)
+    │
+    ├─► Gọi Consume() → logic của bạn chạy ở đây
+    │       ├─► SaveChangesAsync() ← ghi vào DB (nhưng chưa Commit)
+    │       └─► Kết thúc bình thường
+    │
+    ├─► Đánh dấu Message là "Processed" trong InboxState
+    │
+    └─► Commit Transaction (tất cả hoặc không gì cả)
+
+[Nếu Consume() ném Exception]
+    └─► Rollback Transaction → Message quay về queue để retry
+```
+
+
 
 ---
 
