@@ -13,9 +13,8 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             app.UseMiddleware<CorrelationIdPropagationMiddleware>();
             app.UseMiddleware<TenantMiddleware>(); // 🏢 Tenant context extraction
 
-            app.UseHttpMetrics();
+            app.MapPrometheusScrapingEndpoint();
             app.MapHealthChecks("/health");
-            app.MapMetrics();
 
             app.UseSwagger();
             app.UseSwaggerUI(c =>

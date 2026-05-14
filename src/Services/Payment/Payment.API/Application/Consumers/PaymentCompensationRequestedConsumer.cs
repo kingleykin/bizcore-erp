@@ -9,11 +9,16 @@ namespace Payment.API.Application.Consumers
     public class PaymentCompensationRequestedConsumer : IConsumer<IPaymentCompensationRequestedEvent>
     {
         private readonly AppDbContext _context;
+        private readonly Payment.API.Infrastructure.Telemetry.PaymentMetrics _metrics;
         private readonly ILogger<PaymentCompensationRequestedConsumer> _logger;
 
-        public PaymentCompensationRequestedConsumer(AppDbContext context, ILogger<PaymentCompensationRequestedConsumer> logger)
+        public PaymentCompensationRequestedConsumer(
+            AppDbContext context, 
+            Payment.API.Infrastructure.Telemetry.PaymentMetrics metrics,
+            ILogger<PaymentCompensationRequestedConsumer> logger)
         {
             _context = context;
+            _metrics = metrics;
             _logger = logger;
         }
 
@@ -39,6 +44,9 @@ namespace Payment.API.Application.Consumers
 
             payment.Status = PaymentStatus.Reversed;
             await _context.SaveChangesAsync();
+
+            // Record Metric
+            _metrics.PaymentReversed();
 
             _logger.LogInformation(
                 "Payment reversed successfully. PaymentId: {PaymentId}, InvoiceId: {InvoiceId}, Reason: {Reason}",

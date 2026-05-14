@@ -22,6 +22,7 @@ namespace Payment.API
             services.AddScoped<IUnitOfWork, PaymentUnitOfWork>();
             services.AddScoped<IIdempotencyService, IdempotencyService>();
             services.AddScoped<IPaymentService, PaymentService>();
+            services.AddSingleton<Payment.API.Infrastructure.Telemetry.PaymentMetrics>();
 
             // 3. MediatR with Transaction Pipeline
             services.AddMediatR(cfg =>

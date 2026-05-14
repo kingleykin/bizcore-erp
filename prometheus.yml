@@ -6,24 +6,39 @@ global:
 
 scrape_configs:
   - job_name: 'gateway-api'
-    static_configs:
-      - targets: ['gateway-api:8080']
     metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bizcore-gateway:8080']
 
   - job_name: 'invoice-api'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['invoice-api:8080']
-    metrics_path: '/metrics'
 
   - job_name: 'payment-api'
+    metrics_path: '/metrics'
     static_configs:
       - targets: ['payment-api:8080']
-    metrics_path: '/metrics'
 
   - job_name: 'report-api'
-    static_configs:
-      - targets: ['report-api:8080']
     metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bizcore-report:8080']
+
+  - job_name: 'admin-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bizcore-admin:8080']
+
+  - job_name: 'audit-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bizcore-audit:8080']
+
+  - job_name: 'orchestration-api'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['bizcore-orchestration:8080']
 
   - job_name: 'prometheus'
     static_configs:

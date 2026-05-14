@@ -1,0 +1,43 @@
+{
+  "title": "Bizcore ERP - Infrastructure Health",
+  "uid": "infra-health",
+  "panels": [
+    {
+      "title": "CPU Usage by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "sum(rate(process_cpu_time_seconds_total[5m])) by (job) or sum(rate(process_cpu_seconds_total[5m])) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "title": "Memory Usage (MB)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "(process_memory_usage_bytes / 1024 / 1024) or (dotnet_total_memory_bytes / 1024 / 1024)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    },
+    {
+      "title": "GC Collections (Total)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "sum(rate(dotnet_gc_collections_total[5m])) by (job) or sum(rate(dotnet_collection_count_total[5m])) by (job)",
+          "legendFormat": "{{job}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s"
+}

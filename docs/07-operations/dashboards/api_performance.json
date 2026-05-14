@@ -1,0 +1,43 @@
+{
+  "title": "Bizcore ERP - API Performance",
+  "uid": "api-perf",
+  "panels": [
+    {
+      "title": "Throughput (Requests/sec)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "sum(rate(http_server_request_duration_seconds_count[5m])) by (http_route)",
+          "legendFormat": "{{http_route}}"
+        }
+      ]
+    },
+    {
+      "title": "Error Rate (Non-2xx)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code!~\"2..\"}[5m])) by (http_response_status_code, http_route)",
+          "legendFormat": "{{http_response_status_code}} - {{http_route}}"
+        }
+      ]
+    },
+    {
+      "title": "P95 Latency",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le, http_route))",
+          "legendFormat": "{{http_route}}"
+        }
+      ]
+    }
+  ],
+  "refresh": "10s"
+}

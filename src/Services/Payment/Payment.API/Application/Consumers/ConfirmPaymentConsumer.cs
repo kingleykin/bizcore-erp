@@ -18,17 +18,20 @@ namespace Payment.API.Application.Consumers
         private readonly AppDbContext _context;
         private readonly IPublishEndpoint _publishEndpoint;
         private readonly IHubContext<PaymentHub> _hubContext;
+        private readonly Payment.API.Infrastructure.Telemetry.PaymentMetrics _metrics;
         private readonly ILogger<ConfirmPaymentConsumer> _logger;
 
         public ConfirmPaymentConsumer(
             AppDbContext context,
             IPublishEndpoint publishEndpoint,
             IHubContext<PaymentHub> hubContext,
+            Payment.API.Infrastructure.Telemetry.PaymentMetrics metrics,
             ILogger<ConfirmPaymentConsumer> logger)
         {
             _context = context;
             _publishEndpoint = publishEndpoint;
             _hubContext = hubContext;
+            _metrics = metrics;
             _logger = logger;
         }
 
@@ -60,6 +63,9 @@ namespace Payment.API.Application.Consumers
 
             payment.Status = PaymentStatus.Completed;
             await _context.SaveChangesAsync();
+
+            // Record Metric
+            _metrics.PaymentCompleted(payment.Amount);
 
             _logger.LogInformation(
                 "[Payment] Payment confirmed successfully CorrelationId={CorrelationId} PaymentId={PaymentId}",

@@ -4,6 +4,9 @@ using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+using System.Diagnostics;
 
 namespace Bizcore.BuildingBlocks.Infrastructure
 {
@@ -31,6 +34,11 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation()
+                    .AddMeter(
+                        "Microsoft.AspNetCore.Hosting",
+                        "Microsoft.AspNetCore.Server.Kestrel",
+                        "System.Net.Http",
+                        "Bizcore.*") // For business metrics
                     .AddPrometheusExporter());
 
             return services;

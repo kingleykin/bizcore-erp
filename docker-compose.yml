@@ -178,6 +178,7 @@ services:
       dockerfile: src/Services/Invoice/Invoice.API/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=InvoiceDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
@@ -197,6 +198,7 @@ services:
       dockerfile: src/Services/Payment/Payment.API/Dockerfile
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
       - ConnectionStrings__DefaultConnection=Server=sql-server;Database=PaymentDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
       - ConnectionStrings__Redis=redis:6379
       - RabbitMQ__Host=rabbitmq
