@@ -1,12 +1,13 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities
 {
     /// <summary>
     /// Thực thể User — chứa thông tin xác thực và trạng thái tài khoản.
     /// Theo chuẩn Production: Password hash BCrypt, account lockout, audit timestamps.
     /// </summary>
-    public class User
+    public class User : BaseEntity
     {
-        public Guid Id { get; private set; }
         public string Username { get; private set; } = null!;
         public string PasswordHash { get; private set; } = null!;
         public string Email { get; private set; } = null!;
@@ -18,8 +19,7 @@ namespace Admin.API.Domain.Entities
         public int FailedLoginAttempts { get; private set; }
         public DateTime? LockoutEnd { get; private set; }
 
-        public DateTime CreatedAt { get; private set; }
-        public DateTime UpdatedAt { get; private set; }
+
 
         // Navigation properties
         public ICollection<UserRole> UserRoles { get; private set; } = new List<UserRole>();
@@ -35,25 +35,26 @@ namespace Admin.API.Domain.Entities
             if (string.IsNullOrWhiteSpace(passwordHash))
                 throw new ArgumentException("Password hash is required.", nameof(passwordHash));
 
-            return new User
+            var user = new User
             {
-                Id = Guid.NewGuid(),
                 Username = username.Trim().ToLowerInvariant(),
                 Email = email.Trim().ToLowerInvariant(),
                 PasswordHash = passwordHash,
                 AvatarUrl = avatarUrl,
                 IsActive = true,
                 FailedLoginAttempts = 0,
-                LockoutEnd = null,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                LockoutEnd = null
             };
+
+            return user;
+
         }
 
         public void UpdateAvatar(string? avatarUrl)
         {
             AvatarUrl = avatarUrl;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public void UpdateProfile(string email)
@@ -62,7 +63,8 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Email is required.", nameof(email));
 
             Email = email.Trim().ToLowerInvariant();
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public void SetPreferredLanguage(string languageCode)
@@ -71,7 +73,8 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Language code is required.", nameof(languageCode));
 
             PreferredLanguage = languageCode;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public void UpdatePassword(string newPasswordHash)
@@ -80,19 +83,22 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Password hash is required.", nameof(newPasswordHash));
 
             PasswordHash = newPasswordHash;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public void Deactivate()
         {
             IsActive = false;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public void Activate()
         {
             IsActive = true;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         /// <summary>
@@ -105,7 +111,8 @@ namespace Admin.API.Domain.Entities
             {
                 LockoutEnd = DateTime.UtcNow.AddMinutes(lockoutMinutes);
             }
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         /// <summary>
@@ -115,7 +122,8 @@ namespace Admin.API.Domain.Entities
         {
             FailedLoginAttempts = 0;
             LockoutEnd = null;
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
         public bool IsLockedOut() =>

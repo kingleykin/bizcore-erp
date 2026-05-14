@@ -200,7 +200,7 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("OccurredAtUtc")
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("PayloadJson")
@@ -211,10 +211,17 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.Property<Guid>("ProcessFlowId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
+
                     b.Property<string>("StepType")
                         .IsRequired()
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.HasKey("Id");
 
@@ -245,6 +252,9 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");
 
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("IdempotencyKey")
                         .IsRequired()
                         .HasMaxLength(256)
@@ -255,6 +265,10 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
 
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -277,6 +291,9 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("CurrentState")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -293,10 +310,11 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.Property<Guid?>("LastPaymentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<DateTime>("StartedAtUtc")
-                        .HasColumnType("datetime2");
+                    b.Property<byte[]>("RowVersion")
+                        .IsRequired()
+                        .HasColumnType("varbinary(max)");
 
-                    b.Property<DateTime>("UpdatedAtUtc")
+                    b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");

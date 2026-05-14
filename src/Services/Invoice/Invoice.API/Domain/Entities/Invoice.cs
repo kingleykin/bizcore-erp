@@ -1,4 +1,5 @@
 using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Exceptions;
 
 namespace Invoice.API.Domain.Entities
@@ -6,35 +7,24 @@ namespace Invoice.API.Domain.Entities
     /// <summary>
     /// Invoice entity.
     /// </summary>
-    public class Invoice
+    public class Invoice : BaseEntity
     {
-        public Guid          Id           { get; set; }
-        public string        CustomerName { get; set; } = string.Empty;
-        public decimal       Amount       { get; set; }
-        public InvoiceStatus Status       { get; set; } = InvoiceStatus.Pending;
-        public DateTime      CreatedAt    { get; set; } = DateTime.UtcNow;
-
-        /// <summary>
-        /// Concurrency token — EF Core dùng để phát hiện concurrent writes.
-        /// Bắt buộc check trong mọi reversal operation để tránh Stale Snapshot Overwrite.
-        /// </summary>
-        [System.ComponentModel.DataAnnotations.Timestamp]
-        public byte[]? RowVersion { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
+        public decimal Amount { get; set; }
+        public InvoiceStatus Status { get; set; } = InvoiceStatus.Pending;
 
         // ── Factory ───────────────────────────────────────────────────────────
 
         public static Invoice Create(string customerName, decimal amount)
         {
-            if (amount > 1_000_000)
+            if (amount > 1_000_000_000)
                 throw new DomainException("Hóa đơn không được vượt quá hạn mức 1,000,000 VNĐ.");
 
             return new Invoice
             {
-                Id           = Guid.NewGuid(),
                 CustomerName = customerName,
-                Amount       = amount,
-                Status       = InvoiceStatus.Pending,
-                CreatedAt    = DateTime.UtcNow
+                Amount = amount,
+                Status = InvoiceStatus.Pending
             };
         }
 

@@ -1,3 +1,4 @@
+using Bizcore.BuildingBlocks.Abstractions;
 using MassTransit;
 
 namespace Orchestration.API.Domain.Entities
@@ -6,7 +7,7 @@ namespace Orchestration.API.Domain.Entities
     /// Saga state entity cho payment flow orchestration.
     /// MassTransit sẽ persist state này vào database để đảm bảo saga có thể recover sau crash.
     /// </summary>
-    public class PaymentSagaState : SagaStateMachineInstance
+    public class PaymentSagaState : BaseEntity, SagaStateMachineInstance
     {
         /// <summary>CorrelationId — MassTransit dùng để track saga instance.</summary>
         public Guid CorrelationId { get; set; }
@@ -31,11 +32,5 @@ namespace Orchestration.API.Domain.Entities
 
         /// <summary>Token ID cho timeout schedule.</summary>
         public Guid? ValidationTimeoutTokenId { get; set; }
-
-        /// <summary>Timestamp khi saga được tạo.</summary>
-        public DateTime CreatedAt { get; set; }
-
-        /// <summary>Timestamp khi saga được update lần cuối.</summary>
-        public DateTime UpdatedAt { get; set; }
     }
 }

@@ -1,19 +1,21 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities
 {
     /// <summary>
     /// Refresh Token — Production-ready: revocable, expires, one-per-user-per-device strategy.
     /// </summary>
-    public class RefreshToken
+    public class RefreshToken : BaseEntity
     {
-        public Guid Id { get; private set; }
         public Guid UserId { get; private set; }
+
 
         /// <summary>Token string (stored as hash in production, plain for demo).</summary>
         public string Token { get; private set; } = null!;
 
         public DateTime ExpiresAt { get; private set; }
         public bool IsRevoked { get; private set; }
-        public DateTime CreatedAt { get; private set; }
+
 
         /// <summary>IP của client khi tạo token — dùng cho audit.</summary>
         public string? CreatedByIp { get; private set; }
@@ -27,14 +29,13 @@ namespace Admin.API.Domain.Entities
         {
             return new RefreshToken
             {
-                Id = Guid.NewGuid(),
                 UserId = userId,
                 Token = token,
                 ExpiresAt = DateTime.UtcNow.AddDays(expiryDays),
                 IsRevoked = false,
-                CreatedAt = DateTime.UtcNow,
                 CreatedByIp = createdByIp
             };
+
         }
 
         public void Revoke() => IsRevoked = true;

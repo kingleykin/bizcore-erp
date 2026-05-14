@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities
 {
     /// <summary>
     /// Dynamic navigation menu item — được render động trên frontend
     /// dựa trên permissions của user hiện tại.
     /// </summary>
-    public class NavigationMenu
+    public class NavigationMenu : BaseEntity
     {
-        public Guid Id { get; private set; }
+
 
         /// <summary>
         /// Parent menu item (null = root level).
@@ -67,7 +69,6 @@ namespace Admin.API.Domain.Entities
 
             return new NavigationMenu
             {
-                Id             = Guid.NewGuid(),
                 Name           = name.Trim(),
                 Route          = route.Trim(),
                 PermissionCode = permissionCode.Trim(),
@@ -76,6 +77,7 @@ namespace Admin.API.Domain.Entities
                 ParentId       = parentId,
                 IsActive       = true
             };
+
         }
 
         public void SetActive(bool isActive) => IsActive = isActive;

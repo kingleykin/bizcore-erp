@@ -28,7 +28,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
             .FirstOrDefaultAsync(p => p.InvoiceId == invoiceId, cancellationToken);
 
         if (flow == null) return null;
-        flow.Steps = flow.Steps.OrderBy(s => s.OccurredAtUtc).ToList();
+        flow.Steps = flow.Steps.OrderBy(s => s.CreatedAt).ToList();
         return flow;
     }
 
@@ -38,13 +38,13 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
         var flows = await _db.ProcessFlows
             .AsNoTracking()
             .Include(p => p.Steps)
-            .OrderByDescending(p => p.UpdatedAtUtc)
+            .OrderByDescending(p => p.UpdatedAt)
             .Take(Math.Clamp(take, 1, 200))
             .ToListAsync(cancellationToken);
 
         foreach (var flow in flows)
         {
-            flow.Steps = flow.Steps.OrderBy(s => s.OccurredAtUtc).ToList();
+            flow.Steps = flow.Steps.OrderBy(s => s.CreatedAt).ToList();
         }
 
         return flows;
@@ -69,12 +69,9 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
 
             flow = new ProcessFlow
             {
-                Id = Guid.NewGuid(),
                 InvoiceId = e.Id,
                 FlowType = InvoicePaymentFlow.FlowTypeConstant,
-                CurrentState = InvoicePaymentFlow.States.InvoiceIndexed,
-                StartedAtUtc = now,
-                UpdatedAtUtc = now
+                CurrentState = InvoicePaymentFlow.States.InvoiceIndexed
             };
             _db.ProcessFlows.Add(flow);
         }
@@ -84,7 +81,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
                 "Updating existing process flow for InvoiceId={InvoiceId} with new invoice creation event. CurrentState={CurrentState}",
                 e.Id, flow.CurrentState);
 
-            flow.UpdatedAtUtc = now;
+            flow.UpdatedAt = now;
             flow.CurrentState = InvoicePaymentFlow.States.InvoiceIndexed;
         }
 
@@ -93,7 +90,6 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
                     flow.Id, e.Id, e.CustomerName, e.Amount);
         _db.FlowSteps.Add(new FlowStep
         {
-            Id = Guid.NewGuid(),
             ProcessFlowId = flow.Id,
             StepType = InvoicePaymentFlow.Steps.InvoiceCreatedObserved,
             PayloadJson = JsonSerializer.Serialize(new
@@ -102,8 +98,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
                 e.CustomerName,
                 e.Amount,
                 e.CreatedAt
-            }, JsonOptions),
-            OccurredAtUtc = now
+            }, JsonOptions)
         });
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -127,12 +122,9 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
 
             flow = new ProcessFlow
             {
-                Id = Guid.NewGuid(),
                 InvoiceId = e.InvoiceId,
                 FlowType = InvoicePaymentFlow.FlowTypeConstant,
                 CurrentState = InvoicePaymentFlow.States.PaymentCaptured,
-                StartedAtUtc = now,
-                UpdatedAtUtc = now,
                 LastPaymentId = e.PaymentId
             };
             _db.ProcessFlows.Add(flow);
@@ -145,7 +137,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
 
             flow.LastPaymentId = e.PaymentId;
             flow.CurrentState = InvoicePaymentFlow.States.PaymentCaptured;
-            flow.UpdatedAtUtc = now;
+            flow.UpdatedAt = now;
         }
 
         _logger.LogInformation(
@@ -153,7 +145,6 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
             flow.Id, e.PaymentId, e.InvoiceId);
         _db.FlowSteps.Add(new FlowStep
         {
-            Id = Guid.NewGuid(),
             ProcessFlowId = flow.Id,
             StepType = InvoicePaymentFlow.Steps.PaymentCompletedObserved,
             PayloadJson = JsonSerializer.Serialize(new
@@ -162,8 +153,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
                 e.InvoiceId,
                 e.Amount,
                 e.PaymentDate
-            }, JsonOptions),
-            OccurredAtUtc = now
+            }, JsonOptions)
         });
 
         await _db.SaveChangesAsync(cancellationToken);
@@ -186,12 +176,9 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
 
             flow = new ProcessFlow
             {
-                Id = Guid.NewGuid(),
                 InvoiceId = e.InvoiceId,
                 FlowType = InvoicePaymentFlow.FlowTypeConstant,
                 CurrentState = InvoicePaymentFlow.States.CompensationRequired,
-                StartedAtUtc = now,
-                UpdatedAtUtc = now,
                 LastPaymentId = e.PaymentId
             };
             _db.ProcessFlows.Add(flow);
@@ -204,7 +191,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
 
             flow.LastPaymentId = e.PaymentId;
             flow.CurrentState = InvoicePaymentFlow.States.CompensationRequired;
-            flow.UpdatedAtUtc = now;
+            flow.UpdatedAt = now;
         }
 
         _logger.LogInformation(
@@ -212,7 +199,6 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
             flow.Id, e.PaymentId, e.InvoiceId, e.Reason);
         _db.FlowSteps.Add(new FlowStep
         {
-            Id = Guid.NewGuid(),
             ProcessFlowId = flow.Id,
             StepType = InvoicePaymentFlow.Steps.PaymentCompensationRequestedObserved,
             PayloadJson = JsonSerializer.Serialize(new
@@ -222,8 +208,7 @@ public class ProcessOrchestrationService : IProcessOrchestrationService
                 e.Amount,
                 e.RequestedAt,
                 e.Reason
-            }, JsonOptions),
-            OccurredAtUtc = now
+            }, JsonOptions)
         });
 
         await _db.SaveChangesAsync(cancellationToken);

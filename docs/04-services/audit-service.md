@@ -6,6 +6,8 @@
 ## 🧱 Cấu trúc (Architecture)
 * **Port nội bộ**: `5006`
 * **Cơ sở dữ liệu**: `AuditDb` (SQL Server)
+* **Standardized Persistence**: Sử dụng `BaseEntity` với `RowVersion` cho mọi bảng (AuditEntries, ArchiveEntries, AuditHashChainHeads) để đảm bảo tính nhất quán hạ tầng.
+* **Mô hình**: Bounded Context độc lập, sử dụng Modular DbContext Configuration.
 * **Cơ chế thu thập**: 
   * Asynchronous thông qua RabbitMQ (MassTransit Consumer).
   * Sử dụng Retry Policy và Dead Letter Queue (DLQ) để không bị mất dữ liệu kiểm toán khi có lỗi mạng.

@@ -70,19 +70,28 @@ Giả sử bạn cần thêm tính năng "Tạo Hóa đơn mới" vào `Invoice.
 
 ### Bước 1: Định nghĩa Domain Entity
 
-Tạo entity trong `Domain/Entities/`. Sử dụng **Factory Method** thay vì public constructor để đảm bảo tính toàn vẹn.
+Tạo entity trong `Domain/Entities/`. 
+- **Bắt buộc**: Kế thừa từ `BaseEntity` để có sẵn `Id`, `CreatedAt`, `UpdatedAt` và `RowVersion`.
+- Sử dụng **Factory Method** thay vì public constructor để đảm bảo tính toàn vẹn.
 
 ```csharp
-public class Invoice
+public class Invoice : BaseEntity
 {
-    public Guid Id { get; private set; }
+    public string CustomerName { get; private set; } = string.Empty;
     public decimal Amount { get; private set; }
     public InvoiceStatus Status { get; private set; }
 
-    public static Invoice Create(decimal amount)
+    public static Invoice Create(string customerName, decimal amount)
     {
-        if (amount <= 0) throw new DomainException(ErrorCodes.Invoice.InvalidAmount, "Số tiền phải lớn hơn 0");
-        return new Invoice { Id = Guid.NewGuid(), Amount = amount, Status = InvoiceStatus.Pending };
+        if (amount <= 0) 
+            throw new DomainException(ErrorCodes.Invoice.InvalidAmount, "Số tiền phải lớn hơn 0");
+
+        return new Invoice 
+        { 
+            CustomerName = customerName,
+            Amount = amount, 
+            Status = InvoiceStatus.Pending 
+        };
     }
 }
 ```
@@ -91,10 +100,11 @@ public class Invoice
 
 Tạo Command (DTO) và Handler trong `Application/Commands/`.
 
-> **Lưu ý**: Handler KHÔNG gọi `SaveChangesAsync()`. Việc này được `TransactionBehavior` tự động xử lý.
+> [!IMPORTANT]
+> **Quy tắc Unit of Work**: Handler KHÔNG gọi `SaveChangesAsync()`. Việc này được `TransactionBehavior` tự động xử lý thông qua `IUnitOfWork` sau khi Handler hoàn tất thành công.
 
 ```csharp
-public record CreateInvoiceCommand(decimal Amount) : IRequest<InvoiceDto>;
+public record CreateInvoiceCommand(string CustomerName, decimal Amount) : IRequest<InvoiceDto>;
 
 public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand, InvoiceDto>
 {
@@ -103,10 +113,10 @@ public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand,
 
     public async Task<InvoiceDto> Handle(CreateInvoiceCommand request, CancellationToken ct)
     {
-        var invoice = Invoice.Create(request.Amount);
+        var invoice = Invoice.Create(request.CustomerName, request.Amount);
         _context.Invoices.Add(invoice);
 
-        // Publish event (tự động vào Outbox)
+        // Publish event (MassTransit Outbox sẽ đảm bảo tính atomic)
         await _publishEndpoint.Publish<IInvoiceCreatedEvent>(new { invoice.Id, invoice.Amount });
 
         return invoice.ToDto();
@@ -139,12 +149,27 @@ public async Task<ActionResult<InvoiceDto>> Create([FromBody] CreateInvoiceComma
 
 ## 4. 🧩 Các Pattern cốt lõi & Building Blocks
 
-### 4.1. Quản lý Giao dịch (Transaction & Unit of Work)
+### 4.1. Quản lý Giao dịch (Transaction & IUnitOfWork)
 
-Hệ thống sử dụng `TransactionBehavior` để tự động bao bọc các `Command` (kết thúc bằng từ "Command") trong một Transaction.
+Hệ thống sử dụng `TransactionBehavior` để tự động bao bọc các `Command` (implement `ITransactionalCommand` hoặc kết thúc bằng từ "Command") trong một Transaction.
 
-- **Quy tắc**: Mọi thay đổi dữ liệu phải qua `IUnitOfWork`.
-- **Thực thi**: `TransactionBehavior` sẽ gọi `UnitOfWork.CommitAsync()` sau khi Handler chạy thành công.
+- **Quy tắc**: Lớp Application chỉ inject `IUnitOfWork` nếu cần điều khiển transaction thủ công (hiếm khi). Mặc định hãy để Pipeline lo.
+- **Thực thi**: Pipeline sẽ gọi `UnitOfWork.SaveChangesAsync()` sau khi Handler chạy xong. Mọi thay đổi trên DbContext sẽ được commit nguyên tử (Atomic).
+- **Optimistic Concurrency**: Nhờ `BaseEntity`, EF Core sẽ tự động kiểm tra `RowVersion`. Nếu có xung đột dữ liệu, hệ thống sẽ ném `DbUpdateConcurrencyException`.
+
+### 4.2. Cấu hình DbContext (Modular Configurations)
+
+Để tránh "God DbContext", chúng ta không viết cấu hình Fluent API trong `OnModelCreating`.
+
+- **Quy tắc**: Mỗi Entity có một class configuration riêng trong `Infrastructure/Data/Configurations/`.
+- **Cách dùng**:
+    ```csharp
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        base.OnModelCreating(modelBuilder);
+        modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+    }
+    ```
 
 ### 4.2. Messaging & Outbox Pattern
 

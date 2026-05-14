@@ -1,6 +1,7 @@
 using Bizcore.BuildingBlocks.Infrastructure;
 using Payment.API;
 using Payment.API.Infrastructure.Data;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -24,6 +25,15 @@ app.MapHub<Payment.API.Application.Hubs.PaymentHub>("/hubs/payment");
 
 // Database Initialization
 await app.Services.MigrateDatabaseAsync<AppDbContext>();
+
+try
+{
+    await app.Services.MigrateDatabaseAsync<AppDbContext>();
+    using var scope = app.Services.CreateScope();
+    await DbSeeder.SeedAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>(), scope.ServiceProvider.GetRequiredService<ILogger<Program>>());
+}
+catch (Exception ex) { Log.Error(ex, "Error occurred during Invoice database initialization."); throw; }
+
 
 app.Run();
 

@@ -1,4 +1,5 @@
 using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Abstractions;
 
 namespace Payment.API.Domain.Entities
 {
@@ -14,9 +15,8 @@ namespace Payment.API.Domain.Entities
         Failed = 3
     }
 
-    public class Payment
+    public class Payment : BaseEntity
     {
-        public Guid Id { get; set; }
         public Guid InvoiceId { get; set; }
         public decimal Amount { get; set; }
         public string? PaymentMethod { get; set; }
@@ -26,9 +26,8 @@ namespace Payment.API.Domain.Entities
         public string? FailureReason { get; set; }
     }
 
-    public class Invoice
+    public class Invoice : BaseEntity
     {
-        public Guid Id { get; set; }
         public InvoiceStatus Status { get; set; }
     }
 }

@@ -1,6 +1,6 @@
 using Report.API.Domain.Entities;
+using Report.API.Infrastructure.Data.Extensions;
 using Microsoft.EntityFrameworkCore;
-using MassTransit;
 
 namespace Report.API.Infrastructure.Data
 {
@@ -14,13 +14,10 @@ namespace Report.API.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Invoice>().ToTable("Invoices");
-            modelBuilder.Entity<Invoice>().Property(i => i.Amount).HasPrecision(18, 2);
+            base.OnModelCreating(modelBuilder);
 
-            // MassTransit Outbox Mappings
-            modelBuilder.AddInboxStateEntity();
-            modelBuilder.AddOutboxMessageEntity();
-            modelBuilder.AddOutboxStateEntity();
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+            modelBuilder.ConfigureMassTransitOutbox();
         }
     }
 }

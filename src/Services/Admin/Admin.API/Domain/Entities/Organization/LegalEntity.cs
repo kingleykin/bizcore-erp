@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities.Organization
 {
     /// <summary>
     /// Pháp nhân độc lập — có mã số thuế riêng, xuất báo cáo tài chính riêng.
     /// Đây là root aggregate của cây tổ chức doanh nghiệp.
     /// </summary>
-    public class LegalEntity
+    public class LegalEntity : BaseEntity
     {
-        public Guid   Id                 { get; private set; }
+
         public string Code               { get; private set; } = null!;  // VD: 'BIZCORE-VN'
         public string Name               { get; private set; } = null!;
         public string? TaxCode           { get; private set; }
@@ -15,8 +17,7 @@ namespace Admin.API.Domain.Entities.Organization
         public string? BaseCurrencyCode  { get; private set; }           // VD: 'VND'
         public int    Status             { get; private set; }           // 1=Active, 0=Inactive
 
-        public DateTime CreatedAt { get; private set; }
-        public DateTime UpdatedAt { get; private set; }
+
 
         // Navigation
         public ICollection<Branch>     Branches    { get; private set; } = new List<Branch>();
@@ -39,17 +40,15 @@ namespace Admin.API.Domain.Entities.Organization
 
             return new LegalEntity
             {
-                Id                 = Guid.NewGuid(),
                 Code               = code.Trim().ToUpperInvariant(),
                 Name               = name.Trim(),
                 TaxCode            = taxCode?.Trim(),
                 RegistrationNumber = registrationNumber?.Trim(),
                 Address            = address?.Trim(),
                 BaseCurrencyCode   = baseCurrencyCode?.Trim().ToUpperInvariant() ?? "VND",
-                Status             = 1,
-                CreatedAt          = DateTime.UtcNow,
-                UpdatedAt          = DateTime.UtcNow
+                Status             = 1
             };
+
         }
 
         public void Update(
@@ -68,10 +67,11 @@ namespace Admin.API.Domain.Entities.Organization
             Address            = address?.Trim();
             if (!string.IsNullOrWhiteSpace(baseCurrencyCode))
                 BaseCurrencyCode = baseCurrencyCode.Trim().ToUpperInvariant();
-            UpdatedAt          = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
-        public void Deactivate() { Status = 0; UpdatedAt = DateTime.UtcNow; }
-        public void Activate()   { Status = 1; UpdatedAt = DateTime.UtcNow; }
+        public void Deactivate() { Status = 0; UpdateTimestamp(); }
+        public void Activate()   { Status = 1; UpdateTimestamp(); }
     }
 }

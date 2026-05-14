@@ -63,6 +63,7 @@ bizcore-erp/
   * **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`RowVersion`) để tránh Stale Data.
   * **Data Classification & Sanitization**: Tự động nhận diện và che giấu dữ liệu nhạy cảm (PII) trong logs thông qua `SensitiveDataAttribute` và Serilog destructuring policy, đảm bảo tuân thủ các tiêu chuẩn bảo mật (GDPR/Compliance).
   * **Multi-tenancy Foundation**: Thiết lập nền tảng đa người thuê (Multi-tenancy) với cơ chế tự động lan truyền Tenant Context qua Middleware và Header `X-Tenant-ID`.
+  * **Standardized Persistence Model**: Sử dụng `BaseEntity` (Id, Audit Props, RowVersion) và `IUnitOfWork` để chuẩn hóa toàn bộ tầng persistence, đảm bảo tính nhất quán dữ liệu và hỗ trợ xử lý concurrency tự động.
 * * **Enterprise Localization & Error Governance**: Hệ thống sử dụng cơ chế Error Code tập trung kết hợp với i18next (Frontend) và Culture Propagation (Backend/MassTransit). Đảm bảo trải nghiệm người dùng nhất quán và quốc tế hóa sẵn sàng.
 
 * Compliance: Che giấu (mask) các trường nhạy cảm bằng `SensitiveFieldMasker`.
@@ -109,15 +110,24 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
 
 ### 📦 Entities
 
-#### Invoice
+#### BaseEntity (Common Structure)
 
 ```json
 {
   "Id": "guid",
+  "CreatedAt": "datetime",
+  "UpdatedAt": "datetime",
+  "RowVersion": "byte[] (Concurrency Token)"
+}
+```
+
+#### Invoice (Inherits BaseEntity)
+
+```json
+{
   "CustomerName": "string",
   "Amount": "decimal",
-  "Status": "Pending (0) | Paid (1) | Cancelled (2)",
-  "CreatedAt": "datetime"
+  "Status": "Pending (0) | Paid (1) | Cancelled (2)"
 }
 ```
 

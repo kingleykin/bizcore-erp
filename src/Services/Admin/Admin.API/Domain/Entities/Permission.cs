@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities
 {
     /// <summary>
     /// Đại diện cho một quyền cụ thể trong hệ thống.
     /// Convention: Code dạng "Invoice.View", "Menu.Invoice", "Invoice.Amount.Edit"
     /// </summary>
-    public class Permission
+    public class Permission : BaseEntity
     {
-        public Guid Id { get; private set; }
+
 
         /// <summary>
         /// Mã định danh duy nhất, PascalCase dot-notation.
@@ -59,7 +61,6 @@ namespace Admin.API.Domain.Entities
 
             return new Permission
             {
-                Id          = Guid.NewGuid(),
                 Code        = code.Trim(),
                 Name        = name.Trim(),
                 Resource    = resource.Trim(),
@@ -67,11 +68,14 @@ namespace Admin.API.Domain.Entities
                 Description = description,
                 IsSystem    = isSystem
             };
+
         }
 
         public void UpdateDescription(string? description)
         {
             Description = description;
+            UpdateTimestamp();
         }
+
     }
 }

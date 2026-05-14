@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities
 {
-    public class Role
+    public class Role : BaseEntity
     {
-        public Guid Id { get; private set; }
+
         public string Name { get; private set; } = null!;
         public string? Description { get; private set; }
         public bool IsSystem { get; private set; } // System roles cannot be deleted (Admin, User)
-        public DateTime CreatedAt { get; private set; }
+
 
         // Navigation
         public ICollection<UserRole> UserRoles { get; private set; } = new List<UserRole>();
@@ -21,12 +23,11 @@ namespace Admin.API.Domain.Entities
 
             return new Role
             {
-                Id = Guid.NewGuid(),
                 Name = name.Trim(),
                 Description = description,
-                IsSystem = isSystem,
-                CreatedAt = DateTime.UtcNow
+                IsSystem = isSystem
             };
+
         }
 
         public void Update(string name, string? description)
@@ -36,6 +37,8 @@ namespace Admin.API.Domain.Entities
 
             Name = name.Trim();
             Description = description;
+            UpdateTimestamp();
+
         }
     }
 }

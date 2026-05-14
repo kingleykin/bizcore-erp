@@ -1,6 +1,6 @@
 using Invoice.API.Domain.Entities;
+using Invoice.API.Infrastructure.Data.Extensions;
 using Microsoft.EntityFrameworkCore;
-using MassTransit;
 
 namespace Invoice.API.Infrastructure.Data
 {
@@ -14,16 +14,10 @@ namespace Invoice.API.Infrastructure.Data
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
-            modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>().HasKey(i => i.Id);
-            modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>().Property(i => i.Amount).HasPrecision(18, 2);
-            modelBuilder.Entity<Invoice.API.Domain.Entities.Invoice>()
-                .Property(i => i.RowVersion)
-                .IsRowVersion();
+            base.OnModelCreating(modelBuilder);
 
-            // MassTransit Outbox Mappings
-            modelBuilder.AddInboxStateEntity();
-            modelBuilder.AddOutboxMessageEntity();
-            modelBuilder.AddOutboxStateEntity();
+            modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+            modelBuilder.ConfigureMassTransitOutbox();
         }
     }
 }

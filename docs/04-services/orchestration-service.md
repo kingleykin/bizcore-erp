@@ -6,7 +6,8 @@
 ## 🧱 Cấu trúc (Architecture)
 * **Port nội bộ**: `5004`
 * **Cơ sở dữ liệu**: `OrchestrationDb` (SQL Server)
-* **Thành phần**: Hoàn toàn không chứa logic chỉnh sửa nghiệp vụ (Read-Only). Chỉ lắng nghe Event qua MassTransit.
+* **Standardized Persistence**: Sử dụng `BaseEntity` (Id, CreatedAt, UpdatedAt, RowVersion) cho mọi thực thể bao gồm Sagas và Flow Tracking.
+* **Thành phần**: Read-side API kết hợp MassTransit Sagas.
 
 ## 🔄 Cơ chế hoạt động (How it works)
 1. Orchestration Service có các Consumer lắng nghe tất cả Domain Events (Ví dụ: `InvoiceCreatedEvent`, `PaymentCompletedEvent`, `PaymentCompensationRequestedEvent`).

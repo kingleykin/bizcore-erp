@@ -6,9 +6,8 @@ namespace Audit.API.Domain.Entities
     /// Warm-tier archive for entries older than the hot retention window (180 days).
     /// Same structure as AuditEntry — preserves full forensic data.
     /// </summary>
-    public class ArchiveEntry
+    public class ArchiveEntry : Bizcore.BuildingBlocks.Abstractions.BaseEntity
     {
-        public Guid      Id              { get; set; }
         public string?   CorrelationId   { get; set; }
         public string?   TraceId         { get; set; }
         public string?   SpanId          { get; set; }

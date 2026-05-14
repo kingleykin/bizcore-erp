@@ -1,19 +1,20 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities.Organization
 {
     /// <summary>
     /// Trung tâm chi phí (Cost Center) — thuộc một LegalEntity.
     /// Dùng trong phân hệ Kế toán để phân bổ chi phí.
     /// </summary>
-    public class CostCenter
+    public class CostCenter : BaseEntity
     {
-        public Guid   Id            { get; private set; }
         public Guid   LegalEntityId { get; private set; }
+
         public string Code          { get; private set; } = null!;
         public string Name          { get; private set; } = null!;
         public bool   IsActive      { get; private set; }
 
-        public DateTime CreatedAt { get; private set; }
-        public DateTime UpdatedAt { get; private set; }
+
 
         // Navigation
         public LegalEntity LegalEntity { get; private set; } = null!;
@@ -31,14 +32,12 @@ namespace Admin.API.Domain.Entities.Organization
 
             return new CostCenter
             {
-                Id            = Guid.NewGuid(),
                 LegalEntityId = legalEntityId,
                 Code          = code.Trim().ToUpperInvariant(),
                 Name          = name.Trim(),
-                IsActive      = true,
-                CreatedAt     = DateTime.UtcNow,
-                UpdatedAt     = DateTime.UtcNow
+                IsActive      = true
             };
+
         }
 
         public void Update(string name)
@@ -46,10 +45,11 @@ namespace Admin.API.Domain.Entities.Organization
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Name is required.", nameof(name));
             Name      = name.Trim();
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
-        public void Deactivate() { IsActive = false; UpdatedAt = DateTime.UtcNow; }
-        public void Activate()   { IsActive = true;  UpdatedAt = DateTime.UtcNow; }
+        public void Deactivate() { IsActive = false; UpdateTimestamp(); }
+        public void Activate()   { IsActive = true;  UpdateTimestamp(); }
     }
 }

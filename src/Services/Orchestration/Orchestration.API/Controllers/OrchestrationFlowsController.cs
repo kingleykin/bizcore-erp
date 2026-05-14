@@ -58,10 +58,10 @@ public class OrchestrationFlowsController : ControllerBase
             flow.FlowType,
             flow.CurrentState,
             flow.LastPaymentId,
-            flow.StartedAtUtc,
-            flow.UpdatedAtUtc,
+            flow.CreatedAt,
+            flow.UpdatedAt,
             flow.Steps
-                .OrderBy(s => s.OccurredAtUtc)
-                .Select(s => new FlowStepDto(s.Id, s.StepType, s.PayloadJson, s.OccurredAtUtc))
+                .OrderBy(s => s.CreatedAt)
+                .Select(s => new FlowStepDto(s.Id, s.StepType, s.PayloadJson, s.CreatedAt))
                 .ToList());
 }

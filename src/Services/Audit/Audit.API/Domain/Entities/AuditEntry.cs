@@ -6,10 +6,8 @@ namespace Audit.API.Domain.Entities
     /// Immutable audit record — append-only, never updated or deleted.
     /// Includes hash chain for tamper detection (blockchain-lite pattern).
     /// </summary>
-    public class AuditEntry
+    public class AuditEntry : Bizcore.BuildingBlocks.Abstractions.BaseEntity
     {
-        // ── Identity ──────────────────────────────────────────────────────────
-        public Guid   Id              { get; private set; }
 
         // ── Distributed Tracing ───────────────────────────────────────────────
         public string? CorrelationId  { get; private set; }

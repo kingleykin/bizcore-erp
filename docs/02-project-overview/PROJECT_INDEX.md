@@ -22,7 +22,7 @@
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**.
+- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**, **Optimistic Concurrency (RowVersion)**, **Unit of Work Abstraction (IUnitOfWork)**.
 
 ---
 
@@ -99,7 +99,16 @@ Hệ thống áp dụng **3 Transaction Patterns** để đảm bảo tính toà
 - Payment initiation + PaymentInitiatedEvent
 - Status update + AuditEvent
 
-### 4.3. Partitioned Audit Hash Chain
+### 4.3. Standardized Persistence Model
+
+**Dùng cho:** Đảm bảo tính nhất quán và bảo mật dữ liệu xuyên suốt các service.
+
+- **BaseEntity**: Mọi Entity đều kế thừa `BaseEntity` (Id, CreatedAt, UpdatedAt, RowVersion).
+- **Optimistic Concurrency**: Sử dụng `byte[] RowVersion` để ngăn chặn "Lost Update" trong môi trường concurrency cao.
+- **IUnitOfWork**: Abstraction duy nhất để quản lý transaction, tích hợp sẵn trong `TransactionBehavior` của MediatR.
+- **Modular Configuration**: Tách biệt Fluent API config vào `IEntityTypeConfiguration<T>` để tránh "God DbContext".
+
+### 4.4. Partitioned Audit Hash Chain
 
 **Dùng cho:** Bảo vệ Hash Chain khỏi race condition bằng sequence/lock theo partition
 

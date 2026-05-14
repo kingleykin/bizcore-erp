@@ -1,3 +1,5 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Payment.API.Domain.Entities
 {
     /// <summary>
@@ -5,16 +7,13 @@ namespace Payment.API.Domain.Entities
     /// Đảm bảo idempotency across service restarts và multiple instances.
     /// Supports response replay for duplicate requests.
     /// </summary>
-    public class IdempotencyRecord
+    public class IdempotencyRecord : BaseEntity
     {
         /// <summary>Idempotency key từ client (unique).</summary>
         public string Key { get; set; } = string.Empty;
 
         /// <summary>PaymentId đã được tạo cho key này.</summary>
         public Guid PaymentId { get; set; }
-
-        /// <summary>Timestamp khi record được tạo.</summary>
-        public DateTime CreatedAt { get; set; }
 
         /// <summary>Timestamp khi record hết hạn (TTL).</summary>
         public DateTime ExpiresAt { get; set; }

@@ -38,17 +38,25 @@ namespace Audit.API.Migrations
                     b.Property<DateTime>("ArchivedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("AuditLevel")
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("BeforeJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CorrelationId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataClassification")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("EntityId")
                         .HasMaxLength(200)
@@ -66,6 +74,11 @@ namespace Audit.API.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<DateTime>("PerformedAt")
                         .HasColumnType("datetime2");
 
@@ -81,18 +94,36 @@ namespace Audit.API.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("ServiceName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("SpanId")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("TraceId")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
@@ -122,17 +153,25 @@ namespace Audit.API.Migrations
                     b.Property<string>("AfterJson")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("AuditLevel")
+                    b.Property<string>("BeforeJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Category")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
-                    b.Property<string>("BeforeJson")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("CorrelationId")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("DataClassification")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<string>("EntityId")
                         .HasMaxLength(200)
@@ -152,6 +191,11 @@ namespace Audit.API.Migrations
 
                     b.Property<bool>("IsReversed")
                         .HasColumnType("bit");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
 
                     b.Property<DateTime>("PerformedAt")
                         .HasColumnType("datetime2");
@@ -174,18 +218,36 @@ namespace Audit.API.Migrations
                     b.Property<Guid?>("ReversedByEntryId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
+
                     b.Property<string>("ServiceName")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("nvarchar(30)");
+
                     b.Property<string>("SpanId")
                         .HasMaxLength(32)
                         .HasColumnType("nvarchar(32)");
 
+                    b.Property<string>("TenantId")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
                     b.Property<string>("TraceId")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("UserAgent")
                         .HasMaxLength(500)
@@ -195,7 +257,7 @@ namespace Audit.API.Migrations
 
                     b.HasIndex("Action");
 
-                    b.HasIndex("AuditLevel");
+                    b.HasIndex("Category");
 
                     b.HasIndex("CorrelationId");
 
@@ -207,16 +269,19 @@ namespace Audit.API.Migrations
 
                     b.HasIndex("ServiceName");
 
+                    b.HasIndex("TenantId");
+
                     b.ToTable("AuditEntries", (string)null);
                 });
 
             modelBuilder.Entity("Audit.API.Domain.Entities.AuditHashChainHead", b =>
                 {
-                    b.Property<int>("Id")
+                    b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
+                        .HasColumnType("uniqueidentifier");
 
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("CurrentHash")
                         .IsRequired()
@@ -227,6 +292,12 @@ namespace Audit.API.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
+
+                    b.Property<byte[]>("RowVersion")
+                        .IsConcurrencyToken()
+                        .IsRequired()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("rowversion");
 
                     b.Property<long>("Sequence")
                         .HasColumnType("bigint");

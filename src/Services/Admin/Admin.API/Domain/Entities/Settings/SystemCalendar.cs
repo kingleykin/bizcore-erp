@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities.Settings
 {
     /// <summary>
     /// Lịch làm việc hệ thống. Date là Primary Key.
     /// Được dùng để xác định ngày làm việc và ngày nghỉ lễ.
     /// </summary>
-    public class SystemCalendar
+    public class SystemCalendar : BaseEntity
     {
-        public DateTime Date         { get; private set; }  // PK
+        public DateTime Date         { get; private set; }
         public bool     IsWorkingDay { get; private set; }
         public string?  HolidayName  { get; private set; }  // null nếu là ngày thường
 

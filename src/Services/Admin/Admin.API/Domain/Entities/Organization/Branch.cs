@@ -1,20 +1,21 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities.Organization
 {
     /// <summary>
     /// Chi nhánh phụ thuộc vào một LegalEntity.
     /// Mỗi chi nhánh có thể có nhiều phòng ban (Department).
     /// </summary>
-    public class Branch
+    public class Branch : BaseEntity
     {
-        public Guid   Id            { get; private set; }
         public Guid   LegalEntityId { get; private set; }
+
         public string Code          { get; private set; } = null!;
         public string Name          { get; private set; } = null!;
         public string? Address      { get; private set; }
         public bool   IsActive      { get; private set; }
 
-        public DateTime CreatedAt { get; private set; }
-        public DateTime UpdatedAt { get; private set; }
+
 
         // Navigation
         public LegalEntity              LegalEntity  { get; private set; } = null!;
@@ -33,15 +34,13 @@ namespace Admin.API.Domain.Entities.Organization
 
             return new Branch
             {
-                Id            = Guid.NewGuid(),
                 LegalEntityId = legalEntityId,
                 Code          = code.Trim().ToUpperInvariant(),
                 Name          = name.Trim(),
                 Address       = address?.Trim(),
-                IsActive      = true,
-                CreatedAt     = DateTime.UtcNow,
-                UpdatedAt     = DateTime.UtcNow
+                IsActive      = true
             };
+
         }
 
         public void Update(string name, string? address)
@@ -50,10 +49,11 @@ namespace Admin.API.Domain.Entities.Organization
                 throw new ArgumentException("Name is required.", nameof(name));
             Name      = name.Trim();
             Address   = address?.Trim();
-            UpdatedAt = DateTime.UtcNow;
+            UpdateTimestamp();
+
         }
 
-        public void Deactivate() { IsActive = false; UpdatedAt = DateTime.UtcNow; }
-        public void Activate()   { IsActive = true;  UpdatedAt = DateTime.UtcNow; }
+        public void Deactivate() { IsActive = false; UpdateTimestamp(); }
+        public void Activate()   { IsActive = true;  UpdateTimestamp(); }
     }
 }

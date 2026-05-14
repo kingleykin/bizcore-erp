@@ -1,12 +1,14 @@
+using Bizcore.BuildingBlocks.Abstractions;
+
 namespace Admin.API.Domain.Entities.Settings
 {
     /// <summary>
     /// Danh mục tiền tệ hệ thống. Code là Primary Key (ISO 4217).
     /// Ví dụ: VND, USD, EUR.
     /// </summary>
-    public class Currency
+    public class Currency : BaseEntity
     {
-        public string Code          { get; private set; } = null!;  // PK — ISO 4217
+        public string Code          { get; private set; } = null!;  // ISO 4217
         public string Name          { get; private set; } = null!;
         public string Symbol        { get; private set; } = null!;  // VD: ₫, $, €
         public int    DecimalPlaces { get; private set; }           // VND=0, USD=2
