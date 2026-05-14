@@ -5,12 +5,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── 1. Host Extensions ────────────────────────────────────────────────────────
-builder.Host.AddBizcoreLogging("Invoice.API");
+// ── 1. Host & Service Registrations (Standardized) ──────────────────────────
+builder.AddServiceDefaults("Invoice.API");
 
-// ── 2. Service Registrations (Centralized + Module) ──────────────────────────
-builder.Services.AddBizcoreTelemetry("Invoice.API");
-builder.Services.AddBizcoreInfrastructure();
 builder.Services.AddBizcoreAuth(builder.Configuration);
 builder.Services.AddBizcoreVersioning();
 builder.Services.AddBizcoreSwagger("BizCore Invoice API", "Core Financial Processing Service");
@@ -18,10 +15,10 @@ builder.Services.AddBizcoreSwagger("BizCore Invoice API", "Core Financial Proces
 // Load Service Specific Module
 builder.Services.AddBizcoreModule<InvoiceModule>(builder);
 
-// ── 3. App Pipeline ───────────────────────────────────────────────────────────
+// ── 2. App Pipeline ───────────────────────────────────────────────────────────
 var app = builder.Build();
 
-app.UseBizcorePipeline("BizCore Invoice API v1");
+app.MapDefaultEndpoints("BizCore Invoice API v1");
 
 // Database Initialization & Seeding
 try

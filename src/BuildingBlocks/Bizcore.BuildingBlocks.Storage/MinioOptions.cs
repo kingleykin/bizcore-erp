@@ -8,6 +8,7 @@ namespace Bizcore.BuildingBlocks.Storage
         public string AccessKey { get; set; } = string.Empty;
         public string SecretKey { get; set; } = string.Empty;
         public string BucketName { get; set; } = string.Empty;
+        public string PublicBucketName { get; set; } = string.Empty; // Bucket with read-only policy for public access
         public bool UseSSL { get; set; } = false;
     }
 }

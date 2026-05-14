@@ -24,11 +24,10 @@ Dự án tuân thủ mô hình **Macro-level: Microservices** và **Micro-level:
 * **Microservices**: Mỗi service quản lý một vùng dữ liệu và nghiệp vụ độc lập (Bounded Context). Bao gồm: **Admin** (Master Data, Auth), **Accounting** (Core Ledger & Batch), **Invoice** (AR/AP), **Payment** (Treasury), **Report**, **File** (Quản lý tệp tin tập trung). Thêm **Orchestration.API** chỉ làm **read-side orchestration**: lắng nghe các event domain và lưu timeline để luồng giao dịch minh bạch. Thêm **Audit.API** làm Centralized Audit để lưu vết mọi thao tác với Hash chain.
 * **BuildingBlocks (Bizcore.BuildingBlocks)**: Thư viện dùng chung chứa các thành phần tái sử dụng.
   * **Contracts**: Định nghĩa Event/Command interfaces.
-  * **Permissions**: Định nghĩa tập trung toàn bộ các hành động.
-  * **ErrorCodes**: Định nghĩa tập trung toàn bộ các mã lỗi chuẩn của hệ thống.
-  * **Infrastructure**: Chứa các Extension Methods cho `Program.cs` và `IServiceModule`.
+  * **Permissions**: Định nghĩa tập trung toàn bộ các hành động.** **ErrorCodes**: Định nghĩa tập trung toàn bộ các mã lỗi chuẩn của hệ thống.
+  * **Infrastructure**: Chứa các Extension Methods chuẩn hóa (`ServiceDefaults`), Multi-tenancy Middleware và Telemetry/Logging abstractions.
   * **Storage (Bizcore.BuildingBlocks.Storage)**: Cung cấp tích hợp MinIO chuẩn hóa cho toàn bộ hệ thống.
-  * **Localization (Bizcore.Localization)**: Thư viện quản lý tài nguyên dịch thuật và cấu hình đa ngôn ngữ dùng chung.
+  * **Security**: Chứa cơ chế Data Classification và Sanitization policies.
 * **gRPC**: Cung cấp giao tiếp đồng bộ hiệu năng cao cho các truy vấn Read-only.
 * **Message Broker (RabbitMQ)**: Cung cấp cơ chế giao tiếp bất đồng bộ. Giúp các service giảm bớt sự phụ thuộc trực tiếp vào nhau (Decoupling).
 
@@ -43,6 +42,11 @@ Hệ thống áp dụng mô hình bảo mật nhiều lớp:
     * Mọi Microservice đều tự thực hiện việc kiểm tra chữ ký của JWT Token (không chỉ tin tưởng Gateway).
     * Áp dụng **Permission-based Authorization**: Mỗi API Endpoint yêu cầu một Permission cụ thể (ví dụ: `Invoice.Create`). User phải có quyền tương ứng trong Redis Cache hoặc JWT mới có thể thực hiện.
     * **Real-time Refresh**: Quyền hạn được cập nhật tức thì toàn hệ thống mà không cần người dùng đăng nhập lại.
+3. **Data Security & Privacy**:
+    * **Data Classification**: Gắn nhãn dữ liệu nhạy cảm ngay tại code (`[SensitiveData]`).
+    * **Automated Sanitization**: Logs và Traces được tự động làm sạch (masking) để bảo vệ PII trước khi lưu trữ tập trung.
+4. **Tenant Isolation**:
+    * **Implicit Context**: Tenant ID được tự động trích xuất và lan truyền ngầm định qua toàn bộ các layer, đảm bảo tính cách ly dữ liệu mà không cần truyền tham số thủ công.
 
 ### 🔹 Micro-level (Cấu trúc nội bộ Service)
 
@@ -101,6 +105,9 @@ Mỗi service được tổ chức thành 4 lớp (folders) bên trong project A
 | **Tại sao dùng Hybrid Trigger cho Audit?** | Application layer publish event giúp hiểu rõ Business Intent (VD: "Approve Invoice"). EF Interceptor tự động catch field-level thay đổi (VD: "Amount 100 -> 200"). Kết hợp cả 2 cho cái nhìn hoàn hảo về compliance. |
 | **Tại sao dùng Polly?** | Để hệ thống có khả năng tự phục hồi (Self-healing). Nếu service đích bận, Gateway sẽ tự động thử lại (Retry) thay vì trả lỗi ngay lập tức cho người dùng. |
 | **Tại sao dùng Idempotency?** | Đặc biệt quan trọng với thanh toán. Nếu mạng lag và user bấm "Thanh toán" 2 lần, hệ thống sẽ chỉ xử lý 1 lần dựa trên Idempotency Key, tránh trừ tiền 2 lần. |
+| **Tại sao dùng ServiceDefaults?** | Để tránh "Architecture Drift". Đảm bảo mọi service mới đều tự động có Logging, Tracing, Health Checks và Resilience cấu hình đúng chuẩn mà không cần copy-paste cấu hình thủ công. |
+| **Tại sao dùng Data Classification?** | Để đảm bảo tính Compliance ngay từ tầng code. Việc mask dữ liệu tại nguồn (destructuring policy) an toàn hơn nhiều so với việc cố gắng lọc log ở tầng lưu trữ. |
+| **Tại sao dùng Multi-tenancy Middleware?** | Để giảm thiểu Technical Debt. Dev chỉ cần sử dụng `ITenantContext` để lấy ID, Middleware sẽ lo việc trích xuất từ Headers/JWT một cách an toàn và nhất quán. |
 | **Tại sao dùng MinIO?** | Hệ thống Microservices cần một kho lưu trữ tệp tin tập trung để tất cả các service (User avatar, Invoice attachments) có thể truy cập thống nhất qua API thay vì lưu cục bộ trên ổ đĩa của từng service. |
 | **Tại sao dùng API Versioning?** | Để hỗ trợ tiến hóa hệ thống. Khi có thay đổi lớn (Breaking Change), chúng ta có thể triển khai V2 trong khi các Client cũ vẫn dùng V1 bình thường. |
 | **Tại sao dùng Error Codes & Localization Building Block?** | Để đảm bảo tính nhất quán (Consistency) về thông điệp lỗi trên toàn bộ các service. Backend không nên trả về "Human-readable message" vì khó bảo trì khi đổi ngôn ngữ. Việc dùng mã lỗi giúp Frontend (i18next) linh hoạt dịch thuật và Backend (MassTransit) dễ dàng lan truyền ngôn ngữ (Culture Propagation) trong các tác vụ ngầm. |
@@ -113,23 +120,23 @@ Hệ thống ERP yêu cầu truy xuất nguồn gốc (traceability) nghiêm ng�
 
 ### Quyết định Thiết kế cốt lõi
 
-1.  **Hybrid Trigger (Event + Interceptor)**:
-    *   **Application Layer**: Publish Business Events (ví dụ: `PaymentCompleted`, `LoginFailed`) để ghi nhận ý nghĩa nghiệp vụ.
-    *   **EF Core `SaveChangesInterceptor`**: Tự động capture sự thay đổi ở cấp độ Field (Before/After) mỗi khi gọi `SaveChanges()`. Bảo vệ hệ thống khỏi rủi ro Dev quên viết log.
+1. **Hybrid Trigger (Event + Interceptor)**:
+    * **Application Layer**: Publish Business Events (ví dụ: `PaymentCompleted`, `LoginFailed`) để ghi nhận ý nghĩa nghiệp vụ.
+    * **EF Core `SaveChangesInterceptor`**: Tự động capture sự thay đổi ở cấp độ Field (Before/After) mỗi khi gọi `SaveChanges()`. Bảo vệ hệ thống khỏi rủi ro Dev quên viết log.
 
-2.  **Toàn vẹn dữ liệu (Data Integrity)**:
-    *   Database được cấu hình **Append-only** (DENY UPDATE/DELETE) đối với tài khoản service.
-    *   Sử dụng **Hash Chain (SHA-256)**: Mỗi AuditEntry chứa Hash của chính nó + Hash của bản ghi trước đó. Nếu bất kỳ dữ liệu cũ nào bị thay đổi lén lút, toàn bộ chuỗi Hash sau đó sẽ bị sai lệch, giúp phát hiện lập tức (Tamper Detection).
+2. **Toàn vẹn dữ liệu (Data Integrity)**:
+    * Database được cấu hình **Append-only** (DENY UPDATE/DELETE) đối với tài khoản service.
+    * Sử dụng **Hash Chain (SHA-256)**: Mỗi AuditEntry chứa Hash của chính nó + Hash của bản ghi trước đó. Nếu bất kỳ dữ liệu cũ nào bị thay đổi lén lút, toàn bộ chuỗi Hash sau đó sẽ bị sai lệch, giúp phát hiện lập tức (Tamper Detection).
 
-3.  **Data Masking**:
-    *   Sử dụng `SensitiveFieldMasker` để thay thế thông tin nhạy cảm (Password, Token, PII) bằng chuỗi `***` *trước khi* lưu vào Database.
+3. **Data Masking**:
+    * Sử dụng `SensitiveFieldMasker` để thay thế thông tin nhạy cảm (Password, Token, PII) bằng chuỗi `***` *trước khi* lưu vào Database.
 
-4.  **Audit-Assisted Recovery (Data Correction / Reversal)**:
-    *   Phân biệt rạch ròi giữa **Business Compensation** (hủy giao dịch tài chính tự động) và **Admin Data Correction** (sửa lỗi nhập liệu thủ công).
-    *   **Không tự động ghi đè (No Snapshot Overwrite)**: Tránh việc revert lại một phiên bản Entity cũ đã bị lỗi thời (Stale Data).
-    *   **Restore Suggestion**: Audit Service chỉ cung cấp `BeforeJson`. `RestoreDiffEngine` so sánh `BeforeJson` với State hiện tại để gợi ý các trường có thể khôi phục.
-    *   **Dynamic Policy (`IReversalPolicy<T>`)**: Quyết định field nào được khôi phục dựa trên ngữ cảnh: chặn các field tài chính (`Amount`, `Status`), chỉ cho phép các field metadata (`CustomerName`), kiểm tra trạng thái Entity (`Cancelled`/`Paid`), và kiểm tra quyền (`Audit.SuperReverse`).
-    *   **Semantic Domain Command**: Việc khôi phục thực sự được thực thi bởi các hàm trong Domain (ví dụ `RestoreCustomerName()`), kết hợp với Concurrency Token (`RowVersion`) để đảm bảo Thread-safe.
+4. **Audit-Assisted Recovery (Data Correction / Reversal)**:
+    * Phân biệt rạch ròi giữa **Business Compensation** (hủy giao dịch tài chính tự động) và **Admin Data Correction** (sửa lỗi nhập liệu thủ công).
+    * **Không tự động ghi đè (No Snapshot Overwrite)**: Tránh việc revert lại một phiên bản Entity cũ đã bị lỗi thời (Stale Data).
+    * **Restore Suggestion**: Audit Service chỉ cung cấp `BeforeJson`. `RestoreDiffEngine` so sánh `BeforeJson` với State hiện tại để gợi ý các trường có thể khôi phục.
+    * **Dynamic Policy (`IReversalPolicy<T>`)**: Quyết định field nào được khôi phục dựa trên ngữ cảnh: chặn các field tài chính (`Amount`, `Status`), chỉ cho phép các field metadata (`CustomerName`), kiểm tra trạng thái Entity (`Cancelled`/`Paid`), và kiểm tra quyền (`Audit.SuperReverse`).
+    * **Semantic Domain Command**: Việc khôi phục thực sự được thực thi bởi các hàm trong Domain (ví dụ `RestoreCustomerName()`), kết hợp với Concurrency Token (`RowVersion`) để đảm bảo Thread-safe.
 
 ---
 
@@ -163,6 +170,7 @@ Luồng rollback nghiệp vụ hiện tại:
 3. Payment Service consume `PaymentCompensationRequestedEvent` và cập nhật `Payment.Status = Reversed`.
 
 **Lưu ý cho dev**:
+
 * Đây là rollback mức nghiệp vụ (compensation), không phải rollback ACID transaction liên service.
 * Consumer compensation phải idempotent: nếu payment đã `Reversed` thì bỏ qua.
 * `PaymentId` trong event là khóa chính để xác định giao dịch cần bù trừ.

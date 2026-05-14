@@ -1,0 +1,12 @@
+{
+  "title": "Payment",
+  "list": "Payment List",
+  "create": "Create Payment",
+  "fields": {
+    "transactionId": "Transaction ID",
+    "invoiceNo": "Invoice Number",
+    "amount": "Amount",
+    "method": "Method",
+    "status": "Status"
+  }
+}

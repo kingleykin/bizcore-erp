@@ -1,0 +1,19 @@
+{
+  "title": "Hóa đơn",
+  "list": "Danh sách hóa đơn",
+  "create": "Tạo hóa đơn mới",
+  "fields": {
+    "invoiceNo": "Số hóa đơn",
+    "customer": "Khách hàng",
+    "amount": "Số tiền",
+    "status": "Trạng thái",
+    "date": "Ngày lập"
+  },
+  "status": {
+    "draft": "Nháp",
+    "pending": "Chờ duyệt",
+    "approved": "Đã duyệt",
+    "paid": "Đã thanh toán",
+    "cancelled": "Đã hủy"
+  }
+}

@@ -17,7 +17,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             {
                 var builder = new SqlConnectionStringBuilder(connectionString);
                 var databaseName = builder.InitialCatalog;
-                
+
                 // Nếu không có tên DB thì bỏ qua
                 if (string.IsNullOrEmpty(databaseName)) return;
 
@@ -25,7 +25,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                 builder.InitialCatalog = "master";
                 using var connection = new SqlConnection(builder.ConnectionString);
                 connection.Open();
-                
+
                 using var command = connection.CreateCommand();
                 command.CommandText = $@"
                     IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = '{databaseName}') 
@@ -46,18 +46,18 @@ namespace Bizcore.BuildingBlocks.Infrastructure
         /// <summary>
         /// Thực hiện Migration tự động cho DbContext.
         /// </summary>
-        public static async Task MigrateDatabaseAsync<TContext>(this IServiceProvider serviceProvider) 
+        public static async Task MigrateDatabaseAsync<TContext>(this IServiceProvider serviceProvider)
             where TContext : DbContext
         {
             using var scope = serviceProvider.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<TContext>();
             var dbName = context.Database.GetDbConnection().Database;
-            
-            try 
+
+            try
             {
                 var pendingMigrations = await context.Database.GetPendingMigrationsAsync();
                 var migrations = pendingMigrations.ToList();
-                
+
                 if (migrations.Any())
                 {
                     Console.WriteLine($"[Info] Found {migrations.Count} pending migrations for database '{dbName}':");
@@ -65,7 +65,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     {
                         Console.WriteLine($"[Info]   - Applying migration: {migration}");
                     }
-                    
+
                     await context.Database.MigrateAsync();
                     Console.WriteLine($"[Info] Successfully applied all migrations for database '{dbName}'.");
                 }

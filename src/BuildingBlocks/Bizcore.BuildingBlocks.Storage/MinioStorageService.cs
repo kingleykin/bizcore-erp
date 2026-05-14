@@ -15,10 +15,19 @@ namespace Bizcore.BuildingBlocks.Storage
             _options = options.Value;
         }
 
-        public async Task<string> UploadAsync(Stream fileStream, string fileName, string contentType, CancellationToken cancellationToken = default)
+        private string GetBucket(bool isPublic) 
         {
+            return isPublic && !string.IsNullOrEmpty(_options.PublicBucketName) 
+                ? _options.PublicBucketName 
+                : _options.BucketName;
+        }
+
+        public async Task<string> UploadAsync(Stream fileStream, string fileName, string contentType, bool isPublic = false, CancellationToken cancellationToken = default)
+        {
+            var bucket = GetBucket(isPublic);
+            
             var putObjectArgs = new PutObjectArgs()
-                .WithBucket(_options.BucketName)
+                .WithBucket(bucket)
                 .WithObject(fileName)
                 .WithStreamData(fileStream)
                 .WithObjectSize(fileStream.Length)
@@ -29,11 +38,12 @@ namespace Bizcore.BuildingBlocks.Storage
             return fileName;
         }
 
-        public async Task<Stream> DownloadAsync(string fileName, CancellationToken cancellationToken = default)
+        public async Task<Stream> DownloadAsync(string fileName, bool isPublic = false, CancellationToken cancellationToken = default)
         {
+            var bucket = GetBucket(isPublic);
             var memoryStream = new MemoryStream();
             var getObjectArgs = new GetObjectArgs()
-                .WithBucket(_options.BucketName)
+                .WithBucket(bucket)
                 .WithObject(fileName)
                 .WithCallbackStream(stream =>
                 {
@@ -45,24 +55,37 @@ namespace Bizcore.BuildingBlocks.Storage
             return memoryStream;
         }
 
-        public async Task DeleteAsync(string fileName, CancellationToken cancellationToken = default)
+        public async Task DeleteAsync(string fileName, bool isPublic = false, CancellationToken cancellationToken = default)
         {
+            var bucket = GetBucket(isPublic);
             var removeObjectArgs = new RemoveObjectArgs()
-                .WithBucket(_options.BucketName)
+                .WithBucket(bucket)
                 .WithObject(fileName);
 
             await _minioClient.RemoveObjectAsync(removeObjectArgs, cancellationToken);
         }
 
-        public async Task<string> GetPresignedUrlAsync(string fileName, int expiryInSeconds = 3600, CancellationToken cancellationToken = default)
+        public async Task<string> GetFileUrlAsync(string fileName, bool isPublic = false, int expiryInSeconds = 3600, CancellationToken cancellationToken = default)
         {
+            var bucket = GetBucket(isPublic);
+
+            // If it's a public file, return the direct URL
+            if (isPublic && !string.IsNullOrEmpty(_options.PublicBucketName))
+            {
+                var endpoint = !string.IsNullOrEmpty(_options.ExternalEndpoint) 
+                    ? _options.ExternalEndpoint 
+                    : _options.Endpoint;
+                
+                // Ensure endpoint doesn't end with slash
+                endpoint = endpoint.TrimEnd('/');
+                return $"{endpoint}/{bucket}/{fileName}";
+            }
+
             var presignedGetObjectArgs = new PresignedGetObjectArgs()
-                .WithBucket(_options.BucketName)
+                .WithBucket(bucket)
                 .WithObject(fileName)
                 .WithExpiry(expiryInSeconds);
 
-            // If we have an external endpoint, we need to sign the URL using that endpoint
-            // so the Host header in the signature matches what the browser will send.
             if (!string.IsNullOrEmpty(_options.ExternalEndpoint))
             {
                 var uri = new Uri(_options.ExternalEndpoint);

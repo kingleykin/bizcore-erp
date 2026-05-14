@@ -1,0 +1,10 @@
+{
+  "title": "Report",
+  "list": "Report List",
+  "export": "Export Report",
+  "fields": {
+    "reportName": "Report Name",
+    "createdAt": "Created Date",
+    "createdBy": "Created By"
+  }
+}

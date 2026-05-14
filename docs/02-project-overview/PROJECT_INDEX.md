@@ -22,7 +22,7 @@
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
-- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **Enterprise Localization & Error Governance**.
+- **Design Patterns cốt lõi**: Outbox Pattern, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**.
 
 ---
 
@@ -45,8 +45,8 @@ bizcore-erp/
 │   │   ├── File                   # Quản lý tệp tin tập trung (MinIO Integration) - [Tài liệu](../04-services/file-service.md)
 │   │   └── Orchestration          # Theo dõi luồng sự kiện phân tán (Read-side)
 │   ├── BuildingBlocks/
-│   │   ├── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions, ErrorCodes)
-│   │   ├── Bizcore.BuildingBlocks.Storage # Shared Storage Library (MinIO SDK)
+│   │   ├── Bizcore.BuildingBlocks # Shared Library (Contracts, Events, Permissions)
+│   │   └── Bizcore.BuildingBlocks.Storage # Shared Storage Library (MinIO SDK)
 │   │   └── Bizcore.Localization   # Hệ thống quản lý tài nguyên dịch thuật tập trung
 │   └── WebUI                      # Frontend React
 └── docker-compose.yml             # Triển khai toàn bộ hạ tầng
@@ -59,7 +59,7 @@ bizcore-erp/
 > 2. **Application Layer**: Chứa Use Cases (Services/Handlers). Điều phối logic nghiệp vụ.
 > 3. **Infrastructure Layer**: DbContext, Migrations, MassTransit Config, External Clients.
 > 4. **API Layer**: Controllers, **Module.cs**, **Program.cs**.
->    - `Program.cs`: Chỉ chứa host setup và nạp Module.
+>    - `Program.cs`: Chỉ chứa host setup và nạp Module. Sử dụng **AddServiceDefaults()** để chuẩn hóa hạ tầng.
 >    - `Module.cs`: Đóng gói toàn bộ đăng ký DI của service.
 
 ---
@@ -149,7 +149,8 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > - Luôn throw các Exception cụ thể (`DomainException`, `NotFoundException`, v.v.) kèm theo **ErrorCode** (định nghĩa tại `Bizcore.BuildingBlocks.ErrorCodes`) thay vì return code trực tiếp.
 > - `Global Exception Handling Middleware` sẽ xử lý và chuẩn hóa format lỗi cho Frontend (React/i18next) tự động dịch sang ngôn ngữ người dùng.
 > - Mọi request đều có `X-Correlation-ID`. Đảm bảo các tiến trình background (MassTransit consumers) cũng kế thừa và ghi log kèm Correlation ID này để phục vụ distributed tracing.
-> - Ngôn ngữ (Culture) được lan truyền tự động qua Headers (`X-Culture`) trong toàn bộ hệ thống (HTTP & RabbitMQ).
+> >
+> > - Ngôn ngữ (Culture) được lan truyền tự động qua Headers (`X-Culture`) trong toàn bộ hệ thống (HTTP & RabbitMQ).
 
 > [!IMPORTANT]
 > **Đồng bộ hóa (Idempotency & Concurrency)**:
@@ -164,6 +165,9 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > - **Outbox Pattern**: Sử dụng MassTransit Outbox để đảm bảo tính atomic giữa DB write và Message publish (tránh dual write problem).
 > - **Partitioned Audit Hash Chain**: Áp dụng cho Audit Service; serialize append theo `PartitionKey`, không dùng global Serializable.
 > - **ExecutionStrategy**: Sử dụng để tự động retry khi gặp transient errors (deadlock, connection timeout).
+> - **ServiceDefaults Alignment**: Mọi Microservice mới phải kế thừa `ServiceDefaults` để đảm bảo có sẵn Logging Sanitization, OpenTelemetry và Health Checks.
+> - **Data Privacy**: Tuyệt đối không log các trường nhạy cảm ở dạng raw. Sử dụng `[SensitiveData]` attribute để tự động mask dữ liệu nhạy cảm thông qua destructuring policy.
+> - **Tenant Awareness**: Luôn sử dụng `ITenantContext` thay vì đọc header thủ công để đảm bảo tính nhất quán và bảo mật của dữ liệu đa người thuê.
 > - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](../05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](../05-transactions/TRANSACTION_IMPLEMENTATION_GUIDE.md)
 >
 ---

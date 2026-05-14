@@ -168,19 +168,17 @@ const IdentityManager = ({ api }) => {
 
     const toastId = toast.loading('Đang tải ảnh lên...');
     try {
-      // 1. Upload file to File.API
-      const uploadRes = await api.post('/api/v1/files/upload', formData, {
+      // 1. Upload file to File.API as PUBLIC
+      // Using ?isPublic=true to get a permanent URL for the avatar
+      const uploadRes = await api.post('/api/v1/files/upload?isPublic=true', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      const fileName = uploadRes.data.fileName;
+      
+      // The updated backend returns the permanent URL directly if isPublic is true
+      const avatarUrl = uploadRes.data.url;
 
-      // 2. Get the view URL (presigned or direct if public)
-      // For demo, we assume the gateway routes to minio or we use the presigned url
-      const urlRes = await api.get(`/api/v1/files/view-url/${fileName}`);
-      const avatarUrl = urlRes.data.url;
-
-      // 3. Update User Avatar in Admin.API
-      await api.put(`/api/v1/users/${userId}/avatar`, avatarUrl, {
+      // 2. Update User Avatar in Admin.API with the permanent URL
+      await api.put(`/api/v1/users/${userId}/avatar`, JSON.stringify(avatarUrl), {
         headers: { 'Content-Type': 'application/json' }
       });
 
@@ -897,9 +895,9 @@ function App() {
     setAuthError('');
     try {
       const res = await axios.post(`${GATEWAY_URL}/api/v1/auth/login`, loginData);
-      const { accessToken, username, avatarUrl, roles, permissions } = res.data;
+      const { accessToken, id, username, avatarUrl, roles, permissions } = res.data;
       
-      const userData = { username, avatarUrl, roles, permissions };
+      const userData = { id, username, avatarUrl, roles, permissions };
       setToken(accessToken);
       setUser(userData);
       localStorage.setItem('token', accessToken);
@@ -1090,7 +1088,7 @@ function App() {
         <div style={{ padding: '2rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '2.5rem' }}>
             <div style={{ background: '#2563eb', padding: '0.75rem', borderRadius: '1rem' }}>
-              <Workflow color="white" size={24} />
+              <LayoutDashboard color="white" size={24} />
             </div>
             <div>
               <h1 style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.025em' }}>{t('common:app_name')}</h1>

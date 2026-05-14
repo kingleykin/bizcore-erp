@@ -29,10 +29,15 @@ namespace Bizcore.BuildingBlocks.Middlewares
                 correlationId = Guid.NewGuid().ToString();
             }
 
+            var activity = System.Diagnostics.Activity.Current;
+            var traceId = activity?.TraceId.ToString() ?? context.TraceIdentifier;
+
             context.Items[CorrelationIdHeader] = correlationId;
             context.Response.Headers[CorrelationIdHeader] = correlationId;
+            context.Response.Headers["X-Trace-ID"] = traceId;
 
             using (LogContext.PushProperty("CorrelationId", correlationId))
+            using (LogContext.PushProperty("TraceId", traceId))
             {
                 await _next(context);
             }
@@ -64,9 +69,13 @@ namespace Bizcore.BuildingBlocks.Middlewares
                 correlationId = Guid.NewGuid().ToString();
             }
 
-            context.Items[CorrelationIdHeader] = correlationId;
+            var activity = System.Diagnostics.Activity.Current;
+            var traceId = activity?.TraceId.ToString() ?? context.TraceIdentifier;
 
+            context.Items[CorrelationIdHeader] = correlationId;
+            
             using (LogContext.PushProperty("CorrelationId", correlationId))
+            using (LogContext.PushProperty("TraceId", traceId))
             {
                 await _next(context);
             }

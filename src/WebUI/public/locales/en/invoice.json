@@ -1,0 +1,19 @@
+{
+  "title": "Invoice",
+  "list": "Invoice List",
+  "create": "Create New Invoice",
+  "fields": {
+    "invoiceNo": "Invoice No",
+    "customer": "Customer",
+    "amount": "Amount",
+    "status": "Status",
+    "date": "Date"
+  },
+  "status": {
+    "draft": "Draft",
+    "pending": "Pending",
+    "approved": "Approved",
+    "paid": "Paid",
+    "cancelled": "Cancelled"
+  }
+}

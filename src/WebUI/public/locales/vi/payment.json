@@ -1,0 +1,12 @@
+{
+  "title": "Thanh toán",
+  "list": "Danh sách giao dịch",
+  "create": "Tạo thanh toán",
+  "fields": {
+    "transactionId": "Mã giao dịch",
+    "invoiceNo": "Số hóa đơn",
+    "amount": "Số tiền",
+    "method": "Phương thức",
+    "status": "Trạng thái"
+  }
+}

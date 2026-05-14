@@ -25,7 +25,7 @@ namespace File.API.Controllers
         }
 
         [HttpPost("upload")]
-        public async Task<IActionResult> Upload(IFormFile file, CancellationToken cancellationToken)
+        public async Task<IActionResult> Upload(IFormFile file, [FromQuery] bool isPublic = false, CancellationToken cancellationToken = default)
         {
             if (file == null || file.Length == 0)
             {
@@ -37,14 +37,21 @@ namespace File.API.Controllers
                 var fileName = $"{Guid.NewGuid()}{Path.GetExtension(file.FileName)}";
                 using var stream = file.OpenReadStream();
 
-                var result = await _storageService.UploadAsync(stream, fileName, file.ContentType, cancellationToken);
+                var result = await _storageService.UploadAsync(stream, fileName, file.ContentType, isPublic, cancellationToken);
 
                 await _audit.PublishAsync(
                     AuditActions.File.Uploaded,
                     entityType: nameof(File),
                     entityId: fileName,
-                    after: new { fileName, file.ContentType, file.Length },
+                    after: new { fileName, file.ContentType, file.Length, isPublic },
                     category: AuditCategory.Business);
+
+                // If public, we can return the direct URL immediately
+                if (isPublic)
+                {
+                    var url = await _storageService.GetFileUrlAsync(fileName, isPublic, cancellationToken: cancellationToken);
+                    return Ok(new { FileName = fileName, Url = url });
+                }
 
                 return Ok(new { FileName = result });
             }
@@ -56,11 +63,11 @@ namespace File.API.Controllers
         }
 
         [HttpGet("download/{fileName}")]
-        public async Task<IActionResult> Download(string fileName, CancellationToken cancellationToken)
+        public async Task<IActionResult> Download(string fileName, [FromQuery] bool isPublic = false, CancellationToken cancellationToken = default)
         {
             try
             {
-                var stream = await _storageService.DownloadAsync(fileName, cancellationToken);
+                var stream = await _storageService.DownloadAsync(fileName, isPublic, cancellationToken);
                 return File(stream, "application/octet-stream", fileName);
             }
             catch (Exception ex)
@@ -71,11 +78,11 @@ namespace File.API.Controllers
         }
 
         [HttpGet("view-url/{fileName}")]
-        public async Task<IActionResult> GetViewUrl(string fileName, CancellationToken cancellationToken)
+        public async Task<IActionResult> GetViewUrl(string fileName, [FromQuery] bool isPublic = false, CancellationToken cancellationToken = default)
         {
             try
             {
-                var url = await _storageService.GetPresignedUrlAsync(fileName, 3600, cancellationToken);
+                var url = await _storageService.GetFileUrlAsync(fileName, isPublic, 3600, cancellationToken);
 
                 await _audit.PublishAsync(
                     AuditActions.File.Viewed,
@@ -93,11 +100,11 @@ namespace File.API.Controllers
         }
 
         [HttpDelete("{fileName}")]
-        public async Task<IActionResult> Delete(string fileName, CancellationToken cancellationToken)
+        public async Task<IActionResult> Delete(string fileName, [FromQuery] bool isPublic = false, CancellationToken cancellationToken = default)
         {
             try
             {
-                await _storageService.DeleteAsync(fileName, cancellationToken);
+                await _storageService.DeleteAsync(fileName, isPublic, cancellationToken);
 
                 await _audit.PublishAsync(
                     AuditActions.File.Deleted,

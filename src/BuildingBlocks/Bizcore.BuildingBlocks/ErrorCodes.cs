@@ -10,6 +10,7 @@ namespace Bizcore.BuildingBlocks
             public const string Forbidden = "COMMON.FORBIDDEN";
             public const string NotFound = "COMMON.NOT_FOUND";
             public const string ConcurrencyError = "COMMON.CONCURRENCY_ERROR";
+            public const string ServiceUnavailable = "COMMON.SERVICE_UNAVAILABLE";
         }
 
         public static class User

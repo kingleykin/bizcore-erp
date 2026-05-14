@@ -116,6 +116,9 @@ namespace Bizcore.BuildingBlocks.Infrastructure
             services.AddControllers();
             services.AddHealthChecks();
 
+            // Multi-tenancy
+            services.AddScoped<Bizcore.BuildingBlocks.MultiTenancy.ITenantContext, Bizcore.BuildingBlocks.MultiTenancy.TenantContext>();
+
             // Audit
             services.AddScoped<IAuditPublisher, AuditPublisher>();
 

@@ -1,0 +1,10 @@
+{
+  "title": "Báo cáo",
+  "list": "Danh sách báo cáo",
+  "export": "Xuất báo cáo",
+  "fields": {
+    "reportName": "Tên báo cáo",
+    "createdAt": "Ngày tạo",
+    "createdBy": "Người tạo"
+  }
+}

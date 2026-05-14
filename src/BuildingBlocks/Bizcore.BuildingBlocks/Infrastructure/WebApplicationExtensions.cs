@@ -11,6 +11,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
         {
             app.UseMiddleware<GlobalExceptionMiddleware>();
             app.UseMiddleware<CorrelationIdPropagationMiddleware>();
+            app.UseMiddleware<TenantMiddleware>(); // 🏢 Tenant context extraction
 
             app.UseHttpMetrics();
             app.MapHealthChecks("/health");

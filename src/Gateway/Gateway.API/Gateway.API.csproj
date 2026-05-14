@@ -12,8 +12,8 @@
     <PackageReference Include="Serilog.Sinks.Grafana.Loki" Version="8.3.0" />
     <PackageReference Include="prometheus-net.AspNetCore" Version="8.2.1" />
     <PackageReference Include="Yarp.ReverseProxy" Version="2.3.0" />
-    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="9.2.0" />
-    <PackageReference Include="Microsoft.Extensions.Resilience" Version="9.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="10.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Resilience" Version="10.0.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\BuildingBlocks\Bizcore.BuildingBlocks\Bizcore.BuildingBlocks.csproj" />

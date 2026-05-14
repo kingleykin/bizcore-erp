@@ -101,8 +101,8 @@ services:
       - "9005:9000" # API (Changed from 9000 to 9005 to avoid conflict with Portainer)
       - "9001:9001" # Console
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=password
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
     volumes:
       - minio_data:/data
     command: server /data --console-address ":9001"
@@ -119,18 +119,26 @@ services:
     depends_on:
       minio:
         condition: service_healthy
-    entrypoint: >
-      /bin/sh -c "
-      until /usr/bin/mc alias set local http://minio:9000 admin password; do echo 'Waiting for MinIO...' && sleep 1; done;
-      if ! /usr/bin/mc ls local/bizcore-uploads > /dev/null 2>&1; then
-        /usr/bin/mc mb local/bizcore-uploads;
-      else
-        echo 'Bucket bizcore-uploads already exists.';
-      fi
-      /usr/bin/mc anonymous set public local/bizcore-uploads;
-      echo 'MinIO setup completed successfully.';
-      exit 0;
-      "
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        until /usr/bin/mc alias set local http://minio:9000 minioadmin minioadmin; do echo 'Waiting for MinIO...' && sleep 1; done;
+        
+        # Private bucket for ERP data
+        if ! /usr/bin/mc ls local/bizcore-uploads > /dev/null 2>&1; then
+          /usr/bin/mc mb local/bizcore-uploads;
+        fi
+        /usr/bin/mc anonymous set private local/bizcore-uploads;
+
+        # Public bucket for avatars and public assets
+        if ! /usr/bin/mc ls local/public-files > /dev/null 2>&1; then
+          /usr/bin/mc mb local/public-files;
+        fi
+        /usr/bin/mc anonymous set public local/public-files;
+
+        echo 'MinIO setup completed successfully with private and public buckets.';
+        exit 0;
 
   gateway-api:
     image: bizcore-gateway-api
@@ -298,9 +306,10 @@ services:
       - RabbitMQ__Host=rabbitmq
       - Minio__Endpoint=minio:9000
       - Minio__ExternalEndpoint=http://localhost:9005
-      - Minio__AccessKey=admin
-      - Minio__SecretKey=password
+      - Minio__AccessKey=minioadmin
+      - Minio__SecretKey=minioadmin
       - Minio__BucketName=bizcore-uploads
+      - Minio__PublicBucketName=public-files
       - Minio__UseSSL=false
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317

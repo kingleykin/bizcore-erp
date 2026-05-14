@@ -5,12 +5,9 @@ using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// ── 1. Host Extensions ────────────────────────────────────────────────────────
-builder.Host.AddBizcoreLogging("Report.API");
+// ── 1. Host & Service Registrations (Standardized) ──────────────────────────
+builder.AddServiceDefaults("Report.API");
 
-// ── 2. Service Registrations (Centralized + Module) ──────────────────────────
-builder.Services.AddBizcoreTelemetry("Report.API");
-builder.Services.AddBizcoreInfrastructure();
 builder.Services.AddBizcoreAuth(builder.Configuration);
 builder.Services.AddBizcoreVersioning();
 builder.Services.AddBizcoreSwagger("BizCore Report API", "Read-only Data Analytics & Reporting Service");
@@ -18,10 +15,10 @@ builder.Services.AddBizcoreSwagger("BizCore Report API", "Read-only Data Analyti
 // Load Service Specific Module
 builder.Services.AddBizcoreModule<ReportModule>(builder);
 
-// ── 3. App Pipeline ───────────────────────────────────────────────────────────
+// ── 2. App Pipeline ───────────────────────────────────────────────────────────
 var app = builder.Build();
 
-app.UseBizcorePipeline("BizCore Report API v1");
+app.MapDefaultEndpoints("BizCore Report API v1");
 
 // Database Initialization & Seeding
 try

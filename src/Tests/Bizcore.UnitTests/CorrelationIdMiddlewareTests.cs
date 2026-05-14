@@ -8,6 +8,7 @@ namespace Bizcore.UnitTests;
 public class CorrelationIdMiddlewareTests
 {
     private const string CorrelationIdHeader = "X-Correlation-ID";
+    private const string TraceIdHeader = "X-Trace-ID";
 
     // -------------------------------------------------------------------------
     // Helper: tạo middleware + HttpContext, cho phép capture context ở next
@@ -206,6 +207,43 @@ public class CorrelationIdMiddlewareTests
         // Header phải được set TRƯỚC khi gọi next
         context.Response.Headers[CorrelationIdHeader].ToString().Should().NotBeNullOrEmpty();
     }
+
+    // =========================================================================
+    // 6. TraceId (OpenTelemetry)
+    // =========================================================================
+
+    [Fact]
+    public async Task InvokeAsync_AlwaysSetsTraceIdInResponseHeader()
+    {
+        var (middleware, context) = CreateSut();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Headers[TraceIdHeader].ToString().Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public async Task InvokeAsync_TraceIdMatchesTraceIdentifier_WhenNoActivity()
+    {
+        var (middleware, context) = CreateSut();
+        var expectedTraceId = context.TraceIdentifier;
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Headers[TraceIdHeader].ToString().Should().Be(expectedTraceId);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_TraceIdMatchesActivityTraceId_WhenActivityIsPresent()
+    {
+        var (middleware, context) = CreateSut();
+        using var activity = new System.Diagnostics.Activity("TestActivity").Start();
+        var expectedTraceId = activity.TraceId.ToString();
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Headers[TraceIdHeader].ToString().Should().Be(expectedTraceId);
+    }
 }
 
 // =============================================================================
@@ -215,6 +253,7 @@ public class CorrelationIdMiddlewareTests
 public class CorrelationIdPropagationMiddlewareTests
 {
     private const string CorrelationIdHeader = "X-Correlation-ID";
+    private const string TraceIdHeader = "X-Trace-ID";
 
     // =========================================================================
     // 1. Đọc ID từ request header (do Gateway inject)
@@ -260,9 +299,12 @@ public class CorrelationIdPropagationMiddlewareTests
 
         await middleware.InvokeAsync(context);
 
-        // Propagation middleware KHÔNG set response header
+        // Propagation middleware KHÔNG set response header CorrelationId và TraceId
         context.Response.Headers.ContainsKey(CorrelationIdHeader).Should().BeFalse(
-            "downstream service không cần trả header về, Gateway sẽ lo");
+            "downstream service không cần trả correlation header về, Gateway sẽ lo");
+        
+        context.Response.Headers.ContainsKey(TraceIdHeader).Should().BeFalse(
+            "downstream service không cần trả trace-id header về, Gateway sẽ lo");
     }
 
     // =========================================================================
@@ -317,5 +359,16 @@ public class CorrelationIdPropagationMiddlewareTests
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("downstream error");
+    }
+
+    [Fact]
+    public async Task InvokeAsync_DoesNotSetTraceIdInResponseHeader()
+    {
+        var context = new DefaultHttpContext();
+        var middleware = new CorrelationIdPropagationMiddleware(_ => Task.CompletedTask);
+
+        await middleware.InvokeAsync(context);
+
+        context.Response.Headers.ContainsKey(TraceIdHeader).Should().BeFalse();
     }
 }

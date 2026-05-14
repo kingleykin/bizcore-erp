@@ -50,15 +50,20 @@ public class RestoreInvoiceFieldCommandHandlerTests
         // Assert
         result.Success.Should().BeTrue();
 
-        // Verify AuditEvent was published
-        publishEndpointMock.Verify(p => p.Publish(
-            It.Is<AuditEvent>(e =>
-                e.ServiceName == "Invoice.API" &&
-                e.Action == "DataReversal.Invoice.CustomerName" &&
-                e.EntityType == "Invoice" &&
-                e.EntityId == invoice.Id.ToString() &&
-                e.ActorUserId == "user-123"
-            ),
+        // Verify AuditEvent was published via IAuditPublisher
+        auditPublisherMock.Verify(a => a.PublishAsync(
+            AuditActions.Invoice.FieldRestored,
+            "Invoice",
+            invoice.Id.ToString(),
+            It.IsAny<object>(),
+            It.IsAny<object>(),
+            AuditCategory.Compliance,
+            AuditSeverity.Warning,
+            AuditOutcome.Success,
+            DataClassification.Internal,
+            "user-123",
+            "test-user",
+            null,
             It.IsAny<CancellationToken>()
         ), Times.Once);
 

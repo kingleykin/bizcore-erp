@@ -13,13 +13,13 @@ namespace Bizcore.BuildingBlocks.Grpc
         {
             return ex.StatusCode switch
             {
-                StatusCode.NotFound => new NotFoundException($"{serviceName} resource not found.", ex.Message),
+                StatusCode.NotFound => new NotFoundException(ErrorCodes.Common.NotFound, $"{serviceName} resource not found: {ex.Status.Detail}"),
                 StatusCode.Unauthenticated => new UnauthorizedException("Session expired or invalid."),
                 StatusCode.PermissionDenied => new UnauthorizedException("Permission denied for this operation."),
-                StatusCode.InvalidArgument => new DomainException($"Invalid data sent to {serviceName}: {ex.Status.Detail}"),
-                StatusCode.DeadlineExceeded => new DomainException($"{serviceName} call timed out."),
+                StatusCode.InvalidArgument => new DomainException(ErrorCodes.Common.InvalidRequest, $"Invalid data sent to {serviceName}: {ex.Status.Detail}"),
+                StatusCode.DeadlineExceeded => new DomainException(ErrorCodes.Common.InternalError, $"{serviceName} call timed out."),
                 StatusCode.Unavailable => new ServiceUnavailableException($"{serviceName} is currently unavailable (Circuit Breaker may be open)."),
-                _ => new DomainException($"{serviceName} error: {ex.Status.Detail}", ex)
+                _ => new DomainException(ErrorCodes.Common.InternalError, $"{serviceName} error: {ex.Status.Detail}", ex)
             };
         }
     }

@@ -9,6 +9,7 @@ namespace Admin.API.Application.DTOs
         string AccessToken,
         string RefreshToken,
         DateTime AccessTokenExpiry,
+        Guid Id,
         string Username,
         string? AvatarUrl,
         string[] Roles,

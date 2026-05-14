@@ -1,3 +1,4 @@
+using Bizcore.BuildingBlocks.Security.DataClassification;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -19,6 +20,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                     .Enrich.FromLogContext()
                     .Enrich.WithProperty("Service", serviceName)
                     .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
+                    .Destructure.With<SensitiveDataDestructuringPolicy>() // 🛡️ Data Sanitization
                     .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {CorrelationId} {Message:lj}{NewLine}{Exception}")
                     .WriteTo.GrafanaLoki(lokiUrl,
                         labels: new[]
@@ -26,7 +28,7 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                             new LokiLabel { Key = "service", Value = serviceName.ToLower().Replace(".", "-") },
                             new LokiLabel { Key = "environment", Value = context.HostingEnvironment.EnvironmentName }
                         },
-                        propertiesAsLabels: new[] { "CorrelationId" });
+                        propertiesAsLabels: new[] { "CorrelationId", "TenantId" }); // 🏢 Tenant propagation
             });
 
             return host;

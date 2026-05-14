@@ -135,7 +135,7 @@ namespace Admin.API.Infrastructure.Data
             // ── 4. Seed LegalEntity ───────────────────────────────────────────
             if (!await context.LegalEntities.AnyAsync())
             {
-                var bizcore = LegalEntity.Create("BIZCORE-VN", "Công ty Cổ phần Bizcore Việt Nam", 
+                var bizcore = LegalEntity.Create("BIZCORE-VN", "Công ty Cổ phần Bizcore Việt Nam",
                     taxCode: "0101234567", baseCurrencyCode: "VND");
                 context.LegalEntities.Add(bizcore);
                 await context.SaveChangesAsync();
@@ -171,9 +171,9 @@ namespace Admin.API.Infrastructure.Data
                 ]);
 
             // ── 6. Seed Default Users ──────────────────────────────────────────
-            await SeedUserAsync(context, logger, "admin",   "admin@bizcore.com",   "Admin@123",   "Admin");
+            await SeedUserAsync(context, logger, "admin", "admin@bizcore.com", "Admin@123", "Admin");
             await SeedUserAsync(context, logger, "accountant", "accountant@bizcore.com", "Acc@123", "Accountant");
-            await SeedUserAsync(context, logger, "viewer",  "viewer@bizcore.com",  "Viewer@123",  "Viewer");
+            await SeedUserAsync(context, logger, "viewer", "viewer@bizcore.com", "Viewer@123", "Viewer");
         }
 
         // ── Helpers ──────────────────────────────────────────────────────────────
@@ -223,7 +223,7 @@ namespace Admin.API.Infrastructure.Data
             string roleName)
         {
             var user = await context.Users.FirstOrDefaultAsync(u => u.Username == username);
-            
+
             if (user == null)
             {
                 user = User.Create(username, email, BCrypt.Net.BCrypt.HashPassword(password));
@@ -247,8 +247,8 @@ namespace Admin.API.Infrastructure.Data
                 {
                     context.UserRoles.Add(new UserRole
                     {
-                        UserId     = user.Id,
-                        RoleId     = roleId.Value,
+                        UserId = user.Id,
+                        RoleId = roleId.Value,
                         AssignedAt = DateTime.UtcNow
                     });
                     await context.SaveChangesAsync();
