@@ -1,3 +1,4 @@
+using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Contracts;
 using MassTransit;
 using MediatR;
@@ -13,24 +14,27 @@ namespace Payment.API.Application.Commands;
 /// Creates a payment with Processing status and publishes PaymentInitiatedEvent.
 /// Transaction is managed by TransactionBehavior pipeline.
 /// </summary>
-public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentCommand, InitiatePaymentResult>
-{
-    private readonly AppDbContext _context;
-    private readonly IPublishEndpoint _publishEndpoint;
-    private readonly IIdempotencyService _idempotencyService;
-    private readonly ILogger<InitiatePaymentCommandHandler> _logger;
-
-    public InitiatePaymentCommandHandler(
-        AppDbContext context,
-        IPublishEndpoint publishEndpoint,
-        IIdempotencyService idempotencyService,
-        ILogger<InitiatePaymentCommandHandler> logger)
+    public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentCommand, InitiatePaymentResult>
     {
-        _context = context;
-        _publishEndpoint = publishEndpoint;
-        _idempotencyService = idempotencyService;
-        _logger = logger;
-    }
+        private readonly AppDbContext _context;
+        private readonly IPublishEndpoint _publishEndpoint;
+        private readonly IIdempotencyService _idempotencyService;
+        private readonly IAuditPublisher _audit;
+        private readonly ILogger<InitiatePaymentCommandHandler> _logger;
+
+        public InitiatePaymentCommandHandler(
+            AppDbContext context,
+            IPublishEndpoint publishEndpoint,
+            IIdempotencyService idempotencyService,
+            IAuditPublisher audit,
+            ILogger<InitiatePaymentCommandHandler> logger)
+        {
+            _context = context;
+            _publishEndpoint = publishEndpoint;
+            _idempotencyService = idempotencyService;
+            _audit = audit;
+            _logger = logger;
+        }
 
     public async Task<InitiatePaymentResult> Handle(
         InitiatePaymentCommand request,
@@ -128,6 +132,16 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
         }, cancellationToken);
 
         _logger.LogDebug("IPaymentInitiatedEvent publish call completed. Waiting for transaction commit.");
+
+        // Publish Explicit Audit Log
+        await _audit.PublishAsync(
+            AuditActions.Payment.Initiated,
+            entityType: "Payment",
+            entityId: payment.Id.ToString(),
+            after: new { payment.Id, payment.InvoiceId, payment.Amount, payment.PaymentMethod, payment.Status },
+            category: AuditCategory.Financial,
+            classification: DataClassification.Financial,
+            ct: cancellationToken);
 
         // DO NOT call SaveChangesAsync here!
         // TransactionBehavior's UnitOfWork.CommitAsync will save:

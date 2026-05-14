@@ -67,5 +67,10 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string Uploaded = "file.upload.succeeded";
             public const string Deleted = "file.delete.succeeded";
         }
+
+        public static class Payment
+        {
+            public const string Initiated = "payment.initiated";
+        }
     }
 }
