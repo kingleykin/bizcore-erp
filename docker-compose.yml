@@ -40,7 +40,11 @@ services:
     container_name: loki
     ports:
       - "3100:3100"
+    volumes:
+      - ./loki-config.yaml:/etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
+    depends_on:
+      - minio
 
   promtail:
     image: grafana/promtail:2.9.0
@@ -58,6 +62,9 @@ services:
       - "3001:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./docs/07-operations/dashboards:/etc/grafana/dashboards
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -137,7 +144,12 @@ services:
         fi
         /usr/bin/mc anonymous set public local/public-files;
 
-        echo 'MinIO setup completed successfully with private and public buckets.';
+        # Bucket for Loki logs
+        if ! /usr/bin/mc ls local/bizcore-logs > /dev/null 2>&1; then
+          /usr/bin/mc mb local/bizcore-logs;
+        fi
+
+        echo 'MinIO setup completed successfully with private, public and log buckets.';
         exit 0;
 
   gateway-api:

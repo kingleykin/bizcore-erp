@@ -252,6 +252,21 @@ Hệ thống cho phép khôi phục giá trị cũ của các trường thông q
 - **Domain Guard**: Phải kiểm tra logic nghiệp vụ trong Entity trước khi khôi phục (ví dụ: không cho phép khôi phục nếu hóa đơn đã bị hủy).
 - **Concurrency**: Luôn sử dụng `RowVersion` (Timestamp) để tránh ghi đè dữ liệu cũ.
 
+---
+
+### 4.5. Logging & Bảo mật dữ liệu (Logging & Data Privacy)
+
+Hệ thống sử dụng Serilog + Loki để giám sát tập trung. Mọi nhà phát triển phải tuân thủ các quy tắc sau:
+
+1. **Infra Standardization**: Luôn sử dụng `builder.AddServiceDefaults()` để tự động cấu hình Logging, Telemetry và Health Checks.
+2. **Structured Event Logging**: Đối với các sự kiện nghiệp vụ quan trọng (ví dụ: tạo hóa đơn, đăng nhập), **bắt buộc** dùng log có cấu trúc để phục vụ dashboard và alert.
+   - ✅ `_logger.LogInformation("InvoiceCreated {@InvoiceEvent}", new { Id = id, Amount = val });`
+3. **Data Classification**: Tuyệt đối không log dữ liệu nhạy cảm ở dạng thô. Sử dụng attribute `[SensitiveData]` với level phù hợp:
+   - `Sensitive`: Sẽ được mask thành `***` (VD: Email, Phone).
+   - `Restricted`: Sẽ hoàn toàn bị loại bỏ khỏi log (VD: Password, Secret).
+
+---
+
 ### 4.6. Module Pattern & Clean Program.cs
 
 Để giữ cho `Program.cs` sạch và dễ bảo trì, chúng ta đóng gói logic đăng ký dịch vụ vào một lớp `Module` kế thừa từ `IServiceModule`.
@@ -428,11 +443,12 @@ Hệ thống tự động đồng bộ `CultureInfo` qua RabbitMQ. Bạn không 
 2. [ ] Reference project `Bizcore.BuildingBlocks`.
 3. [ ] Tạo lớp `ServiceModule` và implement `IServiceModule`.
 4. [ ] Di chuyển logic đăng ký DB, DI, MassTransit vào `Module`.
-5. [ ] Làm sạch `Program.cs` theo template chuẩn (Xem mục 4.6).
-6. [ ] Thêm cấu hình logging, RabbitMQ, Redis vào `appsettings.json`.
-7. [ ] Đăng ký service mới vào Gateway (YARP) `appsettings.json`.
-8. [ ] Thêm service vào `docker-compose.yml`.
-9. [ ] Định nghĩa các Permission mới trong `BuildingBlocks` và Seeder.
+5. [ ] Làm sạch `Program.cs` theo template chuẩn (Sử dụng `AddServiceDefaults`).
+6. [ ] Kiểm tra và gắn attribute `[SensitiveData]` cho các trường PII trong DTO.
+7. [ ] Thêm cấu hình logging, RabbitMQ, Redis vào `appsettings.json`.
+8. [ ] Đăng ký service mới vào Gateway (YARP) `appsettings.json`.
+9. [ ] Thêm service vào `docker-compose.yml`.
+10. [ ] Định nghĩa các Permission mới trong `BuildingBlocks` và Seeder.
 
 ---
 

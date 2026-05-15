@@ -15,9 +15,16 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                 var lokiUrl = context.Configuration.GetValue<string>("Loki:Url") ?? "http://loki:3100";
                 
                 loggerConfiguration
-                    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
+                    .MinimumLevel.Information()
+                    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning)
                     .MinimumLevel.Override("Microsoft.AspNetCore", Serilog.Events.LogEventLevel.Warning)
+                    .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", Serilog.Events.LogEventLevel.Warning)
+                    .MinimumLevel.Override("MassTransit", Serilog.Events.LogEventLevel.Warning)
+                    .MinimumLevel.Override("Hangfire", Serilog.Events.LogEventLevel.Warning)
                     .Enrich.FromLogContext()
+                    .Enrich.WithMachineName()
+                    .Enrich.WithThreadId()
+                    .Enrich.WithProcessId()
                     .Enrich.WithProperty("Service", serviceName)
                     .Enrich.WithProperty("Environment", context.HostingEnvironment.EnvironmentName)
                     .Destructure.With<SensitiveDataDestructuringPolicy>() // 🛡️ Data Sanitization
@@ -26,9 +33,9 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                         labels: new[]
                         {
                             new LokiLabel { Key = "service", Value = serviceName.ToLower().Replace(".", "-") },
-                            new LokiLabel { Key = "environment", Value = context.HostingEnvironment.EnvironmentName }
+                            new LokiLabel { Key = "environment", Value = context.HostingEnvironment.EnvironmentName.ToLower() }
                         },
-                        propertiesAsLabels: new[] { "CorrelationId", "TenantId" }); // 🏢 Tenant propagation
+                        propertiesAsLabels: new[] { "CorrelationId", "TenantId", "UserId", "EventType" }); // 🏢 Business & context propagation
             });
 
             return host;

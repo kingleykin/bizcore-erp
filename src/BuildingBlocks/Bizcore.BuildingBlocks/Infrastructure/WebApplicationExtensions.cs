@@ -2,6 +2,7 @@ using Bizcore.BuildingBlocks.Middlewares;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.Hosting;
 using Prometheus;
+using Serilog;
 
 namespace Bizcore.BuildingBlocks.Infrastructure
 {
@@ -9,6 +10,17 @@ namespace Bizcore.BuildingBlocks.Infrastructure
     {
         public static WebApplication UseBizcorePipeline(this WebApplication app, string swaggerTitle)
         {
+            app.UseSerilogRequestLogging(options =>
+            {
+                options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+                {
+                    diagnosticContext.Set("UserId", httpContext.User?.Identity?.Name ?? "Anonymous");
+                    diagnosticContext.Set("TenantId", httpContext.Items["TenantId"] ?? "Default");
+                    diagnosticContext.Set("CorrelationId", httpContext.Items["X-Correlation-ID"] ?? httpContext.TraceIdentifier);
+                    diagnosticContext.Set("TraceId", System.Diagnostics.Activity.Current?.TraceId.ToString());
+                };
+            });
+
             app.UseMiddleware<GlobalExceptionMiddleware>();
             app.UseMiddleware<CorrelationIdPropagationMiddleware>();
             app.UseMiddleware<TenantMiddleware>(); // 🏢 Tenant context extraction

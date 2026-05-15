@@ -54,7 +54,13 @@ namespace Invoice.API.Application.Commands
             // Do NOT call SaveChangesAsync here.
             // TransactionBehavior commits the Invoice and OutboxMessage together.
 
-            _logger.LogInformation("Invoice created successfully. InvoiceId: {InvoiceId}", invoice.Id);
+            _logger.LogInformation("InvoiceCreated {@InvoiceEvent}", new 
+            { 
+                InvoiceId = invoice.Id, 
+                Customer = invoice.CustomerName, 
+                Amount = invoice.Amount,
+                Status = invoice.Status.ToString()
+            });
 
             return invoice;
         }

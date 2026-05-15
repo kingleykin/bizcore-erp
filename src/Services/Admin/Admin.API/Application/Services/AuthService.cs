@@ -46,7 +46,7 @@ namespace Admin.API.Application.Services
 
             if (user == null)
             {
-                _logger.LogWarning("Login failed: user '{Username}' not found.", request.Username);
+                _logger.LogWarning("AuthLoginFailed {@AuthEvent}", new { Username = request.Username, Reason = "UserNotFound" });
                 throw new UnauthorizedException("Invalid username or password.");
             }
 
@@ -60,8 +60,7 @@ namespace Admin.API.Application.Services
             {
                 user.RecordFailedLogin();
                 await _db.SaveChangesAsync();
-                _logger.LogWarning("Login failed: invalid password for '{Username}'. Attempts: {Attempts}",
-                    user.Username, user.FailedLoginAttempts);
+                _logger.LogWarning("AuthLoginFailed {@AuthEvent}", new { Username = user.Username, Reason = "InvalidPassword", Attempts = user.FailedLoginAttempts });
 
                 await _audit.PublishAsync(
                     AuditActions.Identity.AuthLoginFailed,
@@ -99,7 +98,7 @@ namespace Admin.API.Application.Services
                 category: AuditCategory.Security,
                 classification: DataClassification.Credential);
 
-            _logger.LogInformation("User '{Username}' logged in successfully.", user.Username);
+            _logger.LogInformation("AuthLoginSucceeded {@AuthEvent}", new { Username = user.Username, UserId = user.Id });
 
             return new LoginResponse(accessToken, refreshToken.Token, expiry, user.Id, user.Username, user.AvatarUrl, roles, permissions);
         }

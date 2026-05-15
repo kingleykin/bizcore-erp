@@ -1,9 +1,10 @@
+using Bizcore.BuildingBlocks.Security.DataClassification;
 using FluentValidation;
 
 namespace Admin.API.Application.DTOs
 {
     // ── Auth ──────────────────────────────────────────────────────────────────
-    public record LoginRequest(string Username, string Password);
+    public record LoginRequest(string Username, [SensitiveData(ClassificationLevel.Restricted)] string Password);
 
     public record LoginResponse(
         string AccessToken,
@@ -18,10 +19,10 @@ namespace Admin.API.Application.DTOs
 
     public record RefreshTokenRequest(string RefreshToken);
 
-    public record ChangePasswordRequest(string CurrentPassword, string NewPassword);
+    public record ChangePasswordRequest([SensitiveData(ClassificationLevel.Restricted)] string CurrentPassword, [SensitiveData(ClassificationLevel.Restricted)] string NewPassword);
 
     // ── User ──────────────────────────────────────────────────────────────────
-    public record CreateUserRequest(string Username, string Email, string Password, IEnumerable<string>? RoleNames = null);
+    public record CreateUserRequest(string Username, [SensitiveData(ClassificationLevel.Sensitive)] string Email, [SensitiveData(ClassificationLevel.Restricted)] string Password, IEnumerable<string>? RoleNames = null);
 
     public record UpdateUserRequest(string Email);
 
@@ -30,7 +31,7 @@ namespace Admin.API.Application.DTOs
     public record UserDto(
         Guid Id,
         string Username,
-        string Email,
+        [SensitiveData(ClassificationLevel.Sensitive)] string Email,
         string? AvatarUrl,
         bool IsActive,
         int FailedLoginAttempts,

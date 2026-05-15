@@ -1,6 +1,6 @@
 {
   "title": "Bizcore ERP - Business Operations",
-  "uid": "biz-ops",
+  "uid": "business-ops",
   "panels": [
     {
       "title": "Payment Success vs Compensation",
@@ -8,12 +8,12 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "(sum(rate(payment_completed_total[5m])) or on() vector(0))",
           "legendFormat": "Completed"
         },
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "(sum(rate(payment_reversed_total[5m])) or on() vector(0))",
           "legendFormat": "Reversed (Failed)"
         }
@@ -25,7 +25,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "(sum(rate(payment_amount_sum[5m])) or on() vector(0))",
           "legendFormat": "Total Amount"
         }
@@ -37,7 +37,7 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "(sum(audit_verification_failures_total) or on() vector(0))",
           "legendFormat": "Integrity Failures"
         }

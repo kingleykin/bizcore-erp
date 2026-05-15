@@ -18,7 +18,7 @@
 - **API Gateway**: YARP (Yet Another Reverse Proxy).
 - **Message Broker**: RabbitMQ (MassTransit) cho giao tiếp bất đồng bộ và Audit Events.
 - **Database**: SQL Server (Các service dùng chung 1 instance SQL Server nhưng phân tách logical database: IdentityDb, InvoiceDb, AuditDb...).
-- **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), **Tempo (Traces)**, **OTEL Collector**.
+- **Observability**: Serilog + Loki (Logs), Prometheus (Metrics), Grafana (Dashboards), **Tempo (Traces)**, **OTEL Collector**. Xem chi tiết tại [LOGGING GUIDE](../05-observability/LOGGING_GUIDE.md).
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
@@ -185,7 +185,7 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > - **Partitioned Audit Hash Chain**: Áp dụng cho Audit Service; serialize append theo `PartitionKey`, không dùng global Serializable.
 > - **ExecutionStrategy**: Sử dụng để tự động retry khi gặp transient errors (deadlock, connection timeout).
 > - **ServiceDefaults Alignment**: Mọi Microservice mới phải kế thừa `ServiceDefaults` để đảm bảo có sẵn Logging Sanitization, OpenTelemetry và Health Checks.
-> - **Data Privacy**: Tuyệt đối không log các trường nhạy cảm ở dạng raw. Sử dụng `[SensitiveData]` attribute để tự động mask dữ liệu nhạy cảm thông qua destructuring policy.
+> - **Data Privacy & Classification**: Tuyệt đối không log các trường nhạy cảm ở dạng raw. Sử dụng `[SensitiveData]` attribute với các level (Public, Internal, Sensitive, Restricted) để tự động mask hoặc loại bỏ dữ liệu nhạy cảm. Chi tiết tại [LOGGING GUIDE](../05-observability/LOGGING_GUIDE.md).
 > - **Tenant Awareness**: Luôn sử dụng `ITenantContext` thay vì đọc header thủ công để đảm bảo tính nhất quán và bảo mật của dữ liệu đa người thuê.
 > - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](../05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](../05-transactions/TRANSACTION_IMPLEMENTATION_GUIDE.md)
 >

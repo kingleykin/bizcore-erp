@@ -55,7 +55,16 @@ app.Use(async (context, next) =>
 
 if (!app.Environment.IsDevelopment()) app.UseHttpsRedirection();
 
-app.UseSerilogRequestLogging();
+app.UseSerilogRequestLogging(options =>
+{
+    options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
+    {
+        diagnosticContext.Set("UserId", httpContext.User?.Identity?.Name ?? "Anonymous");
+        diagnosticContext.Set("TenantId", httpContext.Items["TenantId"] ?? "Default");
+        diagnosticContext.Set("CorrelationId", httpContext.Items["X-Correlation-ID"] ?? httpContext.TraceIdentifier);
+        diagnosticContext.Set("TraceId", System.Diagnostics.Activity.Current?.TraceId.ToString());
+    };
+});
 app.UseHttpMetrics();
 app.UseRateLimiter();
 app.UseAuthentication();

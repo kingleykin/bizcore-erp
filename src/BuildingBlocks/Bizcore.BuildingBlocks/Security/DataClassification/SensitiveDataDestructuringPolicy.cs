@@ -36,6 +36,13 @@ namespace Bizcore.BuildingBlocks.Security.DataClassification
                 var sensitiveAttr = prop.GetCustomAttribute<SensitiveDataAttribute>();
                 if (sensitiveAttr != null)
                 {
+                    if (sensitiveAttr.Level == ClassificationLevel.Restricted)
+                    {
+                        // Không bao giờ ghi log cho dữ liệu Restricted (ví dụ Password)
+                        hasSensitiveData = true;
+                        continue; 
+                    }
+
                     hasSensitiveData = true;
                     logEventProperties.Add(new LogEventProperty(prop.Name, new ScalarValue(sensitiveAttr.Mask)));
                 }

@@ -1,6 +1,6 @@
 {
   "title": "Bizcore ERP - API Performance",
-  "uid": "api-perf",
+  "uid": "api-performance",
   "panels": [
     {
       "title": "Throughput (Requests/sec)",
@@ -8,7 +8,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(rate(http_server_request_duration_seconds_count[5m])) by (http_route)",
           "legendFormat": "{{http_route}}"
         }
@@ -20,7 +20,7 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(rate(http_server_request_duration_seconds_count{http_response_status_code!~\"2..\"}[5m])) by (http_response_status_code, http_route)",
           "legendFormat": "{{http_response_status_code}} - {{http_route}}"
         }
@@ -32,7 +32,7 @@
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket[5m])) by (le, http_route))",
           "legendFormat": "{{http_route}}"
         }

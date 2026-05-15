@@ -3,12 +3,82 @@
   "uid": "infra-health",
   "panels": [
     {
-      "title": "CPU Usage by Service",
-      "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "title": "Live Services",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(up == 1)",
+          "legendFormat": "Live"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center" }
+    },
+    {
+      "title": "Dead Services",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum(up == 0) or vector(0)",
+          "legendFormat": "Dead"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "colorMode": "background", "graphMode": "none", "justifyMode": "center" }
+    },
+    {
+      "title": "🚨 Dead Services Details",
+      "type": "table",
+      "gridPos": { "h": 4, "w": 16, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "up == 0",
+          "format": "table",
+          "instant": true
+        }
+      ],
+      "options": { "showHeader": true },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "Time" },
+            "properties": [{ "id": "custom.hideFrom", "value": { "tooltip": false, "viz": true, "legend": false } }]
+          },
+          {
+            "matcher": { "id": "byName", "options": "Value" },
+            "properties": [{ "id": "custom.hideFrom", "value": { "tooltip": false, "viz": true, "legend": false } }]
+          }
+        ]
+      }
+    },
+    {
+      "title": "CPU Usage by Service",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(rate(process_cpu_time_seconds_total[5m])) by (job) or sum(rate(process_cpu_seconds_total[5m])) by (job)",
           "legendFormat": "{{job}}"
         }
@@ -17,10 +87,10 @@
     {
       "title": "Memory Usage (MB)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "(process_memory_usage_bytes / 1024 / 1024) or (dotnet_total_memory_bytes / 1024 / 1024)",
           "legendFormat": "{{job}}"
         }
@@ -29,10 +99,10 @@
     {
       "title": "GC Collections (Total)",
       "type": "timeseries",
-      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 8 },
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 12 },
       "targets": [
         {
-          "datasource": { "type": "prometheus", "uid": "afm0yahm9fcw0b" },
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
           "expr": "sum(rate(dotnet_gc_collections_total[5m])) by (job) or sum(rate(dotnet_collection_count_total[5m])) by (job)",
           "legendFormat": "{{job}}"
         }
