@@ -47,7 +47,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-Content-Type-Options"] = "nosniff";
     context.Response.Headers["X-Frame-Options"] = "DENY";
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
-    context.Response.Headers["Content-Security-Policy"] = 
+    context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
         "connect-src 'self' http://localhost:5001 http://localhost:3000; object-src 'none';";
     await next();
@@ -62,7 +62,8 @@ app.UseSerilogRequestLogging(options =>
         diagnosticContext.Set("UserId", httpContext.User?.Identity?.Name ?? "Anonymous");
         diagnosticContext.Set("TenantId", httpContext.Items["TenantId"] ?? "Default");
         diagnosticContext.Set("CorrelationId", httpContext.Items["X-Correlation-ID"] ?? httpContext.TraceIdentifier);
-        diagnosticContext.Set("TraceId", System.Diagnostics.Activity.Current?.TraceId.ToString());
+        diagnosticContext.Set("TraceId", System.Diagnostics.Activity.Current?.TraceId.ToString() ?? httpContext.TraceIdentifier);
+        diagnosticContext.Set("SpanId", System.Diagnostics.Activity.Current?.SpanId.ToString() ?? "NoSpan");
     };
 });
 app.UseHttpMetrics();

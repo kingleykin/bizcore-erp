@@ -59,6 +59,7 @@ Tài liệu riêng biệt cho từng service.
 - [Transaction Management Design](05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md)
 - [Transaction Implementation Guide](05-transactions/TRANSACTION_IMPLEMENTATION_GUIDE.md)
 - [Transaction Quick Reference](05-transactions/TRANSACTION_QUICK_REFERENCE.md)
+- [Logging Guide (Serilog, Loki, Data Classification)](05-observability/LOGGING_GUIDE.md)
 
 ### 📏 06. Quy định & Quy trình (Conventions)
 
@@ -77,6 +78,10 @@ Giám sát, triển khai và bảo trì.
 - [Deployment Guide](07-operations/DEPLOYMENT_GUIDE.md)
 - [HA & Load Balancing Guide](07-operations/HA_LB_GUIDE.md)
 - [Tiêu chuẩn Hệ thống (System Standards)](07-operations/SYSTEM_STANDARDS.md)
+- [Hệ thống Dashboards](07-operations/dashboards/README.md)
+  - [Sức khỏe hạ tầng (Infrastructure Health)](07-operations/dashboards/infrastructure_health.json)
+  - [Hiệu năng API (API Performance)](07-operations/dashboards/api_performance.json)
+  - [Nghiệp vụ (Business Operations)](07-operations/dashboards/business_operations.json)
 
 ### 🔄 08. Di cư & Nâng cấp (Migration)
 

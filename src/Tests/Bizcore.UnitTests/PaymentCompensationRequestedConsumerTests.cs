@@ -10,6 +10,9 @@ using Payment.API.Application.Consumers;
 using Payment.API.Domain.Entities;
 using PaymentEntity = Payment.API.Domain.Entities.Payment;
 using PaymentInvoiceEntity = Payment.API.Domain.Entities.Invoice;
+using Payment.API.Infrastructure.Telemetry;
+using System.Diagnostics.Metrics;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Bizcore.UnitTests;
 
@@ -53,8 +56,12 @@ public class PaymentCompensationRequestedConsumerTests
         context.Payments.Add(payment);
         await context.SaveChangesAsync();
 
-        var loggerMock = new Mock<ILogger<PaymentCompensationRequestedConsumer>>();
-        var consumer = new PaymentCompensationRequestedConsumer(context, loggerMock.Object);
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        var meter = new Meter("Bizcore.Payment");
+        meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
+        var metrics = new PaymentMetrics(meterFactoryMock.Object);
+
+        var consumer = new PaymentCompensationRequestedConsumer(context, metrics, NullLogger<PaymentCompensationRequestedConsumer>.Instance);
 
         var consumeContext = new Mock<ConsumeContext<IPaymentCompensationRequestedEvent>>();
         consumeContext
@@ -72,8 +79,12 @@ public class PaymentCompensationRequestedConsumerTests
         var dbName = Guid.NewGuid().ToString();
         using var context = TestDbContextFactory.CreatePaymentDbContext(dbName);
 
-        var loggerMock = new Mock<ILogger<PaymentCompensationRequestedConsumer>>();
-        var consumer = new PaymentCompensationRequestedConsumer(context, loggerMock.Object);
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        var meter = new Meter("Bizcore.Payment");
+        meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
+        var metrics = new PaymentMetrics(meterFactoryMock.Object);
+
+        var consumer = new PaymentCompensationRequestedConsumer(context, metrics, NullLogger<PaymentCompensationRequestedConsumer>.Instance);
 
         var consumeContext = new Mock<ConsumeContext<IPaymentCompensationRequestedEvent>>();
         consumeContext

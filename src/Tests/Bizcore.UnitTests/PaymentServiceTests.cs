@@ -13,6 +13,8 @@ using PaymentInvoiceEntity = Payment.API.Domain.Entities.Invoice;
 using Microsoft.AspNetCore.SignalR;
 using Payment.API.Application.Hubs;
 using Microsoft.Extensions.Logging;
+using Payment.API.Infrastructure.Telemetry;
+using System.Diagnostics.Metrics;
 
 namespace Bizcore.UnitTests;
 
@@ -237,10 +239,16 @@ public class PaymentServiceTests
         hubContextMock.SetupGet(h => h.Clients).Returns(hubClientsMock.Object);
         hubClientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(clientProxyMock.Object);
 
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        var meter = new Meter("Bizcore.Payment");
+        meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
+        var metrics = new PaymentMetrics(meterFactoryMock.Object);
+
         var consumer = new ConfirmPaymentConsumer(
             context,
             publishMock.Object,
             hubContextMock.Object,
+            metrics,
             NullLogger<ConfirmPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);
@@ -275,10 +283,16 @@ public class PaymentServiceTests
 
         var hubContextMock = new Mock<IHubContext<PaymentHub>>();
 
+        var meterFactoryMock = new Mock<IMeterFactory>();
+        var meter = new Meter("Bizcore.Payment");
+        meterFactoryMock.Setup(m => m.Create(It.IsAny<MeterOptions>())).Returns(meter);
+        var metrics = new PaymentMetrics(meterFactoryMock.Object);
+
         var consumer = new ConfirmPaymentConsumer(
             context,
             publishMock.Object,
             hubContextMock.Object,
+            metrics,
             NullLogger<ConfirmPaymentConsumer>.Instance);
 
         await consumer.Consume(BuildConsumeContext(command.Object).Object);
