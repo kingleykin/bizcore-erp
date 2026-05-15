@@ -1,23 +1,21 @@
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.Storage;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.Extensions.DependencyInjection;
+using Bizcore.BuildingBlocks.Behaviors;
+using MediatR;
 
-namespace File.API
+namespace File.API;
+
+public class FileModule : IServiceModule
 {
-    public class FileModule : IServiceModule
+    public void RegisterServices(IServiceCollection services, WebApplicationBuilder builder)
     {
-        public void RegisterServices(IServiceCollection services, WebApplicationBuilder builder)
-        {
-            // Register Storage Building Block
-            services.AddBizcoreModule<StorageModule>(builder);
-            
-            // Add controllers
-            services.AddControllers();
-            
-            // Add Swagger
-            services.AddEndpointsApiExplorer();
-            services.AddSwaggerGen();
-        }
+        // 1. Database/Storage
+        services.AddBizcoreModule<StorageModule>(builder);
+
+        // 2. MediatR
+        services.AddMediatR(cfg => {
+            cfg.RegisterServicesFromAssembly(typeof(FileModule).Assembly);
+            cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
+        });
     }
 }

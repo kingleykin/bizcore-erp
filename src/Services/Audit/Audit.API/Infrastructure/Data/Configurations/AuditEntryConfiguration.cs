@@ -35,7 +35,7 @@ namespace Audit.API.Infrastructure.Data.Configurations
             builder.Property(x => x.Hash).HasMaxLength(64);
             builder.Property(x => x.PreviousHash).HasMaxLength(64);
             builder.Property(x => x.PerformedAt).IsRequired();
-            builder.Property(x => x.RowVersion).IsRowVersion();
+            builder.Property(x => x.Version).IsConcurrencyToken();
 
             // Performance indexes
             builder.HasIndex(x => x.PerformedAt);

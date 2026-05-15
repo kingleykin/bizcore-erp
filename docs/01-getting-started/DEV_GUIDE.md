@@ -75,15 +75,20 @@ Giả sử bạn cần thêm tính năng "Tạo Hóa đơn mới" vào `Invoice.
 ### Bước 1: Định nghĩa Domain Entity
 
 Tạo entity trong `Domain/Entities/`. 
-- **Bắt buộc**: Kế thừa từ `BaseEntity` để có sẵn `Id`, `CreatedAt`, `UpdatedAt` và `RowVersion`.
+- **Bắt buộc**: Kế thừa từ `BaseEntity` để có sẵn `Id`, `CreatedAt`, `UpdatedAt` và `Version`.
+- **AggregateRoot**: Nếu thực thể là gốc của một Aggregate (ví dụ: `Invoice`, `Payment`), **bắt buộc** phải kế thừa từ lớp `AggregateRoot`. Điều này kích hoạt cơ chế theo dõi concurrency tự động thông qua `MarkStateChanged()`.
 - Sử dụng **Factory Method** thay vì public constructor để đảm bảo tính toàn vẹn.
+- **Encapsulation**: Aggregate Root không được expose public mutable collections. Sử dụng `private readonly List<T> _items` và `IReadOnlyCollection<T>`.
 
 ```csharp
-public class Invoice : BaseEntity
+public class Invoice : AggregateRoot
 {
     public string CustomerName { get; private set; } = string.Empty;
     public decimal Amount { get; private set; }
     public InvoiceStatus Status { get; private set; }
+
+    private readonly List<InvoiceLine> _lines = new();
+    public IReadOnlyCollection<InvoiceLine> Lines => _lines.AsReadOnly();
 
     public static Invoice Create(string customerName, decimal amount)
     {
@@ -97,6 +102,35 @@ public class Invoice : BaseEntity
             Status = InvoiceStatus.Pending 
         };
     }
+
+    public void AddLine(string description, decimal unitPrice, int qty)
+    {
+        var line = new InvoiceLine { Id = Guid.NewGuid(), InvoiceId = Id, Description = description, UnitPrice = unitPrice, Qty = qty };
+        _lines.Add(line);
+        
+        // Bắt buộc gọi MarkStateChanged() để tăng Version của Aggregate Root
+        MarkStateChanged();
+    }
+
+    /// <summary>
+    /// Business method — luôn gọi MarkStateChanged() khi mutation xảy ra.
+    /// </summary>
+    public void ChangeStatus(InvoiceStatus newStatus)
+    {
+        Status = newStatus;
+        MarkStateChanged(); // Kích hoạt Version increment qua EntityVersionInterceptor
+    }
+
+    /// <summary>
+    /// Trả về child entity để Handler có thể gọi db.Add() tường minh.
+    /// </summary>
+    public InvoiceLine AddLine(string description, decimal unitPrice, int qty)
+    {
+        var line = new InvoiceLine { InvoiceId = Id, Description = description, UnitPrice = unitPrice, Qty = qty };
+        _lines.Add(line);
+        MarkStateChanged();
+        return line; // BẮT BUỘC: trả về để Handler gọi db.Add(line)
+    }
 }
 ```
 
@@ -107,7 +141,6 @@ Hệ thống đã cấu hình **Transactional Inbox** (MassTransit) và **Transa
 - **QUY TẮC VÀNG**: Tuyệt đối **KHÔNG** gọi `_unitOfWork.BeginTransactionAsync()` hoặc `_db.Database.BeginTransactionAsync()` bên trong hàm `Consume` hoặc `Handle`. 
 - **Lý do**: Hạ tầng đã mở sẵn một transaction trước khi gọi vào logic của bạn. Việc mở thêm transaction lồng nhau sẽ gây lỗi `InvalidOperationException`.
 - **Cách làm đúng**: Chỉ thực hiện thay đổi dữ liệu và gọi `await _unitOfWork.SaveChangesAsync()`. Hệ thống sẽ tự động Commit hoặc Rollback sau khi logic của bạn kết thúc.
-
 ### Bước 2: Tạo Command & Handler
 
 Tạo Command (DTO) và Handler trong `Application/Commands/`.
@@ -136,6 +169,61 @@ public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand,
 }
 ```
 
+#### 💡 Lưu ý về Cập nhật (Update) & Concurrency
+
+Khi thực hiện cập nhật một thực thể đã tồn tại, bạn cần tuân thủ quy tắc **Optimistic Concurrency** bằng cách sử dụng `OriginalValue`.
+
+```csharp
+public record UpdateInvoiceStatusCommand(Guid Id, InvoiceStatus Status, long Version) : IRequest<bool>, ITransactionalCommand;
+
+public class UpdateInvoiceStatusCommandHandler : IRequestHandler<UpdateInvoiceStatusCommand, bool>
+{
+    private readonly AppDbContext _context;
+
+    public async Task<bool> Handle(UpdateInvoiceStatusCommand request, CancellationToken ct)
+    {
+        var invoice = await _context.Invoices.FindAsync(new object[] { request.Id }, ct);
+        if (invoice is null) return false;
+
+        invoice.Status = request.Status;
+
+        // QUY TẮC VÀNG: Thiết lập OriginalValue để EF Core kiểm tra concurrency chuẩn xác
+        _context.Entry(invoice).Property(x => x.Version).OriginalValue = request.Version;
+
+        return true;
+    }
+}
+```
+
+> [!CAUTION]
+> **KHÔNG BAO GIỜ** gán trực tiếp `entity.Version = request.Version`. Việc này làm mất đi khả năng kiểm tra concurrency của EF Core. Luôn sử dụng `.Property(x => x.Version).OriginalValue`.
+
+#### 🛑 Xử lý lỗi Concurrency (409 Conflict)
+
+Hệ thống đã cấu hình `GlobalExceptionMiddleware` để tự động bắt `DbUpdateConcurrencyException` và trả về mã lỗi **409 Conflict** kèm message hướng dẫn người dùng làm mới trang.
+
+#### 🌳 Quy tắc Aggregate Root, Child Collections & EF Tracking
+
+1.  **Kế thừa `AggregateRoot`**: Hệ thống chỉ tự động quản lý version cho các thực thể kế thừa từ `AggregateRoot`.
+2.  **Explicit Mutation Signal**: Version của Aggregate Root **chỉ** tăng khi bạn gọi `MarkStateChanged()` bên trong các business methods. Điều này giúp kiểm soát chính xác khi nào một thay đổi được coi là xung đột concurrency.
+3.  **Child Entity Registration**: Khi thêm mới một thực thể con vào collection (ví dụ: `InvoiceLine` vào `Invoice`), EF Core có thể nhầm lẫn trạng thái nếu Id đã được gán.
+    - **Quy tắc**: Luôn gọi `_context.Set<ChildEntity>().Add(child)` tường minh trong Handler nếu child entity được tạo mới với một Guid có sẵn.
+4.  **Optimistic Concurrency**: Luôn sử dụng `.Property(x => x.Version).OriginalValue = request.Version` khi cập nhật dữ liệu từ DTO.
+
+```csharp
+// ✅ CÁCH LÀM ĐÚNG
+public async Task Handle(AddLineCommand request, ct) 
+{
+    var invoice = await _context.Invoices.Include(x => x.Lines).FirstAsync(x => x.Id == request.Id);
+    var line = invoice.AddLine(...);
+    
+    // Đảm bảo EF biết đây là bản ghi mới (INSERT)
+    _context.Set<InvoiceLine>().Add(line); 
+}
+```
+
+
+
 ### Bước 3: Cấu hình DB & Migrations
 
 Để thêm bảng mới hoặc thay đổi schema, hãy thực hiện theo 3 bước nhỏ:
@@ -151,7 +239,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.HasKey(i => i.Id);
         builder.Property(i => i.CustomerName).HasMaxLength(256).IsRequired();
         builder.Property(i => i.Amount).HasPrecision(18, 2);
-        // RowVersion (concurrency) đã được xử lý tự động nếu dùng BaseEntityConfiguration
+        // Version (concurrency) đã được xử lý tự động toàn hệ thống thông qua ModelBuilderExtensions
     }
 }
 ```
@@ -201,7 +289,8 @@ Hệ thống sử dụng `TransactionBehavior` để tự động bao bọc các
 
 - **Quy tắc**: Lớp Application chỉ inject `IUnitOfWork` nếu cần điều khiển transaction thủ công (hiếm khi). Mặc định hãy để Pipeline lo.
 - **Thực thi**: Pipeline sẽ gọi `UnitOfWork.SaveChangesAsync()` sau khi Handler chạy xong. Mọi thay đổi trên DbContext sẽ được commit nguyên tử (Atomic).
-- **Optimistic Concurrency**: Nhờ `BaseEntity`, EF Core sẽ tự động kiểm tra `RowVersion`. Nếu có xung đột dữ liệu, hệ thống sẽ ném `DbUpdateConcurrencyException`.
+- **Optimistic Concurrency**: Nhờ `BaseEntity` và `IAggregateRoot`, EF Core sẽ tự động kiểm tra `Version`. Nếu có xung đột dữ liệu, hệ thống sẽ ném `DbUpdateConcurrencyException`.
+- **Automatic Versioning**: `EntityVersionInterceptor` sẽ tự động tăng `Version` khi phát hiện thay đổi ở bất kỳ trường nghiệp vụ nào, và gán `Version = 1` cho thực thể mới.
 
 ### 4.2. Cấu hình DbContext (Modular Configurations)
 
@@ -250,7 +339,7 @@ Hệ thống sử dụng mô hình **Centralized Identity + Distributed Authoriz
 Hệ thống cho phép khôi phục giá trị cũ của các trường thông qua `RestoreInvoiceFieldCommand`.
 
 - **Domain Guard**: Phải kiểm tra logic nghiệp vụ trong Entity trước khi khôi phục (ví dụ: không cho phép khôi phục nếu hóa đơn đã bị hủy).
-- **Concurrency**: Luôn sử dụng `RowVersion` (Timestamp) để tránh ghi đè dữ liệu cũ.
+- **Concurrency**: Luôn sử dụng `Version` và `OriginalValue` pattern để tránh ghi đè dữ liệu cũ.
 
 ---
 

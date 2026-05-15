@@ -88,5 +88,22 @@ namespace Bizcore.BuildingBlocks.Infrastructure
                 throw;
             }
         }
+        /// <summary>
+        /// Registers a DbContext with standard Bizcore configurations, including EntityVersionInterceptor.
+        /// </summary>
+        public static IServiceCollection AddBizcoreDbContext<TContext>(
+            this IServiceCollection services,
+            string connectionString) where TContext : DbContext
+        {
+            services.AddSingleton<Bizcore.BuildingBlocks.Interceptors.EntityVersionInterceptor>();
+
+            services.AddDbContext<TContext>((sp, options) =>
+            {
+                options.UseSqlServer(connectionString);
+                options.AddInterceptors(sp.GetRequiredService<Bizcore.BuildingBlocks.Interceptors.EntityVersionInterceptor>());
+            });
+
+            return services;
+        }
     }
 }

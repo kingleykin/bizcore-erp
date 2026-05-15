@@ -49,6 +49,12 @@ namespace Bizcore.BuildingBlocks.Middlewares
                 message = unauthorizedEx.Message;
                 errorCode = ErrorCodes.Common.Unauthorized;
             }
+            else if (exception is Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException)
+            {
+                statusCode = StatusCodes.Status409Conflict;
+                message = "Dữ liệu đã bị thay đổi bởi người dùng khác. Vui lòng làm mới trang và thử lại.";
+                errorCode = ErrorCodes.Common.ConcurrencyError;
+            }
             else if (exception is NotFoundException notFoundEx)
             {
                 statusCode = StatusCodes.Status404NotFound;

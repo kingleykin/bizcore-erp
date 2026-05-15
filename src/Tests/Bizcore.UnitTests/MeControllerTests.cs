@@ -1,117 +1,94 @@
+using System;
+using System.Collections.Generic;
 using System.Security.Claims;
-using Bizcore.BuildingBlocks.Authorization;
+using System.Threading;
+using System.Threading.Tasks;
 using FluentAssertions;
 using Admin.API.Controllers;
-using Admin.API.Domain.Entities;
-using Admin.API.Infrastructure.Data;
+using Admin.API.Application.DTOs;
+using Admin.API.Application.Queries;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using MediatR;
 using Moq;
+using Xunit;
 
-namespace Bizcore.UnitTests
+namespace Bizcore.UnitTests;
+
+public class MeControllerTests
 {
-    public class MeControllerTests : IDisposable
+    private readonly Mock<IMediator> _mediatorMock;
+    private readonly MeController _controller;
+
+    public MeControllerTests()
     {
-        private readonly AdminDbContext _db;
-        private readonly Mock<IPermissionCache> _cacheMock;
-        private readonly Mock<ILogger<MeController>> _loggerMock;
-        private readonly MeController _controller;
+        _mediatorMock = new Mock<IMediator>();
+        _controller = new MeController(_mediatorMock.Object);
+    }
 
-        public MeControllerTests()
+    private void SetupUser(Guid userId, string username)
+    {
+        var claims = new List<Claim>
         {
-            var options = new DbContextOptionsBuilder<AdminDbContext>()
-                .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-                .Options;
-            
-            _db = new AdminDbContext(options);
-            _cacheMock = new Mock<IPermissionCache>();
-            _loggerMock = new Mock<ILogger<MeController>>();
-            
-            _controller = new MeController(_db, _loggerMock.Object, _cacheMock.Object);
-        }
-
-        private void SetupUser(Guid userId, string username)
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Name, username),
+            new Claim("sub", userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+        
+        _controller.ControllerContext = new ControllerContext
         {
-            var claims = new List<Claim>
-            {
-                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-                new Claim(ClaimTypes.Name, username)
-            };
-            var identity = new ClaimsIdentity(claims, "TestAuth");
-            var principal = new ClaimsPrincipal(identity);
-            
-            _controller.ControllerContext = new ControllerContext
-            {
-                HttpContext = new DefaultHttpContext { User = principal }
-            };
-        }
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
+    }
 
-        [Fact]
-        public async Task GetMyPermissions_ShouldReturnFromCache_WhenAvailable()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            var username = "testuser";
-            var cachedPermissions = new[] { "Invoice.View" };
-            
-            SetupUser(userId, username);
-            _cacheMock.Setup(x => x.GetAsync(userId, It.IsAny<CancellationToken>()))
-                      .ReturnsAsync(cachedPermissions);
+    [Fact]
+    public async Task GetMyPermissions_ShouldReturnFromMediator()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var username = "testuser";
+        SetupUser(userId, username);
 
-            // Act
-            var result = await _controller.GetMyPermissions(CancellationToken.None);
+        var expectedDto = new UserPermissionsDto(userId, username, new[] { "Admin" }, new[] { "Invoice.View" });
+        
+        _mediatorMock.Setup(x => x.Send(It.IsAny<GetMyPermissionsQuery>(), It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(expectedDto);
 
-            // Assert
-            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-            var dto = okResult.Value.As<Admin.API.Application.DTOs.UserPermissionsDto>();
-            dto.Permissions.Should().BeEquivalentTo(cachedPermissions);
-            dto.UserId.Should().Be(userId);
-        }
+        // Act
+        var result = await _controller.GetMyPermissions(CancellationToken.None);
 
-        [Fact]
-        public async Task GetMyPermissions_ShouldLoadFromDbAndCache_WhenCacheMiss()
-        {
-            // Arrange
-            var userId = Guid.NewGuid();
-            var username = "dbuser";
-            SetupUser(userId, username);
-            
-            // Seed DB
-            var user = User.Create(username, "user@test.com", "hash");
-            // Set private Id via reflection or use a public setter if available. 
-            // In the actual entity it's private set. Use Reflection to force it for test.
-            typeof(User).GetProperty("Id")!.SetValue(user, userId);
-            
-            var role = Role.Create("Admin", "Admin role");
-            var permission = Permission.Create("Invoice.Create", "Create Invoice", "Invoice", "Action");
-            
-            _db.Users.Add(user);
-            _db.Roles.Add(role);
-            _db.Permissions.Add(permission);
-            _db.UserRoles.Add(new UserRole { UserId = userId, RoleId = role.Id });
-            _db.RolePermissions.Add(new RolePermission { RoleId = role.Id, PermissionId = permission.Id });
-            await _db.SaveChangesAsync();
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.As<UserPermissionsDto>();
+        dto.Permissions.Should().Contain("Invoice.View");
+        dto.UserId.Should().Be(userId);
+    }
 
-            _cacheMock.Setup(x => x.GetAsync(userId, It.IsAny<CancellationToken>()))
-                      .ReturnsAsync((string[]?)null);
+    [Fact]
+    public async Task GetMyNavigation_ShouldReturnFromMediator()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var username = "testuser";
+        SetupUser(userId, username);
 
-            // Act
-            var result = await _controller.GetMyPermissions(CancellationToken.None);
+        var expectedDto = new NavigationMenuDto[] 
+        { 
+            new NavigationMenuDto(Guid.NewGuid(), null, "Dashboard", "/dashboard", "dashboard", 1) 
+        };
+        
+        _mediatorMock.Setup(x => x.Send(It.IsAny<GetMyNavigationQuery>(), It.IsAny<CancellationToken>()))
+                     .ReturnsAsync(expectedDto);
 
-            // Assert
-            var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
-            var dto = okResult.Value.As<Admin.API.Application.DTOs.UserPermissionsDto>();
-            dto.Permissions.Should().Contain("Invoice.Create");
-            
-            _cacheMock.Verify(x => x.SetAsync(userId, It.IsAny<string[]>(), It.IsAny<CancellationToken>()), Times.Once);
-        }
+        // Act
+        var result = await _controller.GetMyNavigation(CancellationToken.None);
 
-        public void Dispose()
-        {
-            _db.Database.EnsureDeleted();
-            _db.Dispose();
-        }
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var dto = okResult.Value.As<NavigationMenuDto[]>();
+        dto.Should().HaveCount(1);
+        dto[0].Name.Should().Be("Dashboard");
     }
 }

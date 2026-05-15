@@ -16,6 +16,13 @@ namespace Orchestration.API.Infrastructure.Data.Configurations
                 .WithOne(x => x.ProcessFlow)
                 .HasForeignKey(x => x.ProcessFlowId)
                 .OnDelete(DeleteBehavior.Cascade);
+            
+            // Explicit backing field declaration so EF can track AddStep() items as Added
+            builder.Navigation(x => x.Steps)
+                .HasField("_steps")
+                .UsePropertyAccessMode(PropertyAccessMode.Field);
+
+            builder.Property(x => x.Version).IsConcurrencyToken();
         }
     }
 }

@@ -211,10 +211,6 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.Property<Guid>("ProcessFlowId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
                     b.Property<string>("StepType")
                         .IsRequired()
                         .HasMaxLength(128)
@@ -222,6 +218,9 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 
@@ -266,15 +265,14 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.Property<Guid>("PaymentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("ValidationTimeoutTokenId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<long>("Version")
+                        .HasColumnType("bigint");
 
                     b.HasKey("CorrelationId");
 
@@ -310,12 +308,12 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.Property<Guid?>("LastPaymentId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<byte[]>("RowVersion")
-                        .IsRequired()
-                        .HasColumnType("varbinary(max)");
-
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<long>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
 
                     b.HasKey("Id");
 

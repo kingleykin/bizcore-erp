@@ -34,7 +34,7 @@ namespace Audit.API.Infrastructure.Data.Configurations
             builder.Property(x => x.AfterJson).HasColumnType("nvarchar(max)");
             builder.Property(x => x.Hash).HasMaxLength(64);
             builder.Property(x => x.PreviousHash).HasMaxLength(64);
-            builder.Property(x => x.RowVersion).IsRowVersion();
+            builder.Property(x => x.Version).IsConcurrencyToken();
 
             builder.HasIndex(x => x.PerformedAt);
             builder.HasIndex(x => x.ServiceName);

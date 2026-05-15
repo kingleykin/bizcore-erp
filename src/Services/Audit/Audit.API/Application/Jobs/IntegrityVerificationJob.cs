@@ -1,36 +1,38 @@
-using Audit.API.Application.Services;
+using Audit.API.Application.Queries;
+using MediatR;
 
-namespace Audit.API.Application.Jobs
+namespace Audit.API.Application.Jobs;
+
+/// <summary>
+/// Hangfire weekly job: verifies the hash chain on hot AuditEntries.
+/// Logs a warning if tampering is detected.
+/// </summary>
+public class IntegrityVerificationJob
 {
-    /// <summary>
-    /// Hangfire weekly job: verifies the hash chain on hot AuditEntries.
-    /// Logs a warning if tampering is detected.
-    /// </summary>
-    public class IntegrityVerificationJob
+    private readonly IMediator _mediator;
+    private readonly ILogger<IntegrityVerificationJob> _logger;
+
+    public IntegrityVerificationJob(IMediator mediator, ILogger<IntegrityVerificationJob> logger)
     {
-        private readonly IAuditQueryService _queryService;
-        private readonly ILogger<IntegrityVerificationJob> _logger;
+        _mediator = mediator;
+        _logger = logger;
+    }
 
-        public IntegrityVerificationJob(
-            IAuditQueryService queryService,
-            ILogger<IntegrityVerificationJob> logger)
+    public async Task ExecuteAsync(CancellationToken ct = default)
+    {
+        _logger.LogInformation("IntegrityVerificationJob started.");
+
+        var result = await _mediator.Send(new VerifyAuditIntegrityQuery(), ct);
+
+        if (result.IsValid)
         {
-            _queryService = queryService;
-            _logger       = logger;
+            _logger.LogInformation("Audit chain integrity OK. {Details}", result.Details);
         }
-
-        public async Task ExecuteAsync(CancellationToken ct = default)
+        else
         {
-            _logger.LogInformation("IntegrityVerificationJob started.");
-
-            var result = await _queryService.VerifyIntegrityAsync(ct);
-
-            if (result.IsValid)
-                _logger.LogInformation("Audit chain integrity OK. {Details}", result.Details);
-            else
-                _logger.LogCritical(
-                    "⚠ AUDIT CHAIN INTEGRITY VIOLATION DETECTED at {CheckedAt}! {Details}",
-                    result.CheckedAt, result.Details);
+            _logger.LogCritical(
+                "⚠ AUDIT CHAIN INTEGRITY VIOLATION DETECTED at {CheckedAt}! {Details}",
+                result.CheckedAt, result.Details);
         }
     }
 }

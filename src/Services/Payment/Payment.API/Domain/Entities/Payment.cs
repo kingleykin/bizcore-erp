@@ -15,7 +15,7 @@ namespace Payment.API.Domain.Entities
         Failed = 3
     }
 
-    public class Payment : BaseEntity
+    public class Payment : AggregateRoot
     {
         public Guid InvoiceId { get; set; }
         public decimal Amount { get; set; }

@@ -37,7 +37,7 @@ namespace Admin.API.Domain.Entities
 
             Name = name.Trim();
             Description = description;
-            UpdateTimestamp();
+            UpdateState();
 
         }
     }

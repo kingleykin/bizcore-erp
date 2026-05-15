@@ -10,7 +10,7 @@ namespace Invoice.API.Infrastructure.Data.Configurations
         {
             builder.HasKey(i => i.Id);
             builder.Property(i => i.Amount).HasPrecision(18, 2);
-            builder.Property(i => i.RowVersion).IsRowVersion();
+            builder.Property(i => i.Version).IsConcurrencyToken();
         }
     }
 }

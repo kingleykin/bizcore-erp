@@ -45,11 +45,11 @@ namespace Admin.API.Domain.Entities.Organization
             if (string.IsNullOrWhiteSpace(name))
                 throw new ArgumentException("Name is required.", nameof(name));
             Name      = name.Trim();
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
-        public void Deactivate() { IsActive = false; UpdateTimestamp(); }
-        public void Activate()   { IsActive = true;  UpdateTimestamp(); }
+        public void Deactivate() { IsActive = false; UpdateState(); }
+        public void Activate()   { IsActive = true;  UpdateState(); }
     }
 }

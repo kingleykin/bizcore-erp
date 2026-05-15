@@ -10,7 +10,7 @@ namespace Audit.API.Infrastructure.Data.Configurations
         {
             builder.ToTable("AuditHashChainHeads");
             builder.HasKey(x => x.Id);
-            builder.Property(x => x.RowVersion).IsRowVersion();
+            builder.Property(x => x.Version).IsConcurrencyToken();
             builder.HasIndex(x => new { x.PartitionKey, x.Sequence }).IsUnique();
         }
     }

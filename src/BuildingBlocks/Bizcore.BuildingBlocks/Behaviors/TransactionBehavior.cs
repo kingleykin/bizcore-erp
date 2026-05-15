@@ -75,14 +75,9 @@ public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TReque
 
     private static bool IsTransactionalCommand(TRequest request)
     {
-        // Option 1: Marker interface (explicit)
-        if (request is ITransactionalCommand)
-        {
-            return true;
-        }
-
-        // Option 2: Convention-based (commands need transaction, queries don't)
-        var typeName = request.GetType().Name;
-        return typeName.EndsWith("Command") && !typeName.EndsWith("Query");
+        // Only wrap commands that explicitly opt-in via ITransactionalCommand.
+        // Convention-based naming is intentionally removed to avoid unintended wrapping
+        // of auth commands (e.g. LoginCommand) that manage their own transaction flow.
+        return request is ITransactionalCommand;
     }
 }

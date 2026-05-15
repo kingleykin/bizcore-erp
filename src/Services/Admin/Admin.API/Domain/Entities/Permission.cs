@@ -74,7 +74,7 @@ namespace Admin.API.Domain.Entities
         public void UpdateDescription(string? description)
         {
             Description = description;
-            UpdateTimestamp();
+            UpdateState();
         }
 
     }

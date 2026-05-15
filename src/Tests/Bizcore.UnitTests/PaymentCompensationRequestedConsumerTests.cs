@@ -14,6 +14,8 @@ using Payment.API.Infrastructure.Telemetry;
 using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Logging.Abstractions;
 
+using Microsoft.Data.Sqlite;
+
 namespace Bizcore.UnitTests;
 
 public class PaymentCompensationRequestedConsumerTests
@@ -39,8 +41,8 @@ public class PaymentCompensationRequestedConsumerTests
     [Fact]
     public async Task Consume_WhenPaymentExists_MarksAsReversed()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreatePaymentDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreatePaymentDbContext(connection);
 
         var invoiceId = Guid.NewGuid();
         context.Invoices.Add(new PaymentInvoiceEntity { Id = invoiceId });
@@ -76,8 +78,8 @@ public class PaymentCompensationRequestedConsumerTests
     [Fact]
     public async Task Consume_WhenPaymentMissing_DoesNothing()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreatePaymentDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreatePaymentDbContext(connection);
 
         var meterFactoryMock = new Mock<IMeterFactory>();
         var meter = new Meter("Bizcore.Payment");

@@ -12,7 +12,7 @@ namespace Payment.API.Infrastructure.Data.Configurations
             builder.Property(x => x.Key).HasMaxLength(256).IsRequired();
             builder.Property(x => x.RequestHash).HasMaxLength(64);
             builder.Property(x => x.Status).HasMaxLength(50).HasDefaultValue("InProgress");
-            builder.Property(x => x.ResponseJson).HasColumnType("nvarchar(max)");
+            builder.Property(x => x.ResponseJson).IsRequired(false);
             builder.HasIndex(x => x.Key).IsUnique(); // Keep Key as unique index
             builder.HasIndex(x => x.ExpiresAt);
             builder.HasIndex(x => x.PaymentId);

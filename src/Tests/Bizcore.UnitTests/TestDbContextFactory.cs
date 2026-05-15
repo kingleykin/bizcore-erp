@@ -1,39 +1,52 @@
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 
 namespace Bizcore.UnitTests;
 
 internal static class TestDbContextFactory
 {
-    public static Invoice.API.Infrastructure.Data.AppDbContext CreateInvoiceDbContext(string databaseName)
+    private static DbContextOptions<TContext> CreateSqliteOptions<TContext>(SqliteConnection connection) where TContext : DbContext
     {
-        var options = new DbContextOptionsBuilder<Invoice.API.Infrastructure.Data.AppDbContext>()
-            .UseInMemoryDatabase(databaseName)
+        return new DbContextOptionsBuilder<TContext>()
+            .UseSqlite(connection)
+            .AddInterceptors(new Bizcore.BuildingBlocks.Interceptors.EntityVersionInterceptor())
             .Options;
-        return new Invoice.API.Infrastructure.Data.AppDbContext(options);
     }
 
-    public static Payment.API.Infrastructure.Data.AppDbContext CreatePaymentDbContext(string databaseName)
+    public static Invoice.API.Infrastructure.Data.AppDbContext CreateInvoiceDbContext(SqliteConnection connection)
     {
-        var options = new DbContextOptionsBuilder<Payment.API.Infrastructure.Data.AppDbContext>()
-            .UseInMemoryDatabase(databaseName)
-            .Options;
-        return new Payment.API.Infrastructure.Data.AppDbContext(options);
+        var context = new Invoice.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Invoice.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
     }
 
-    public static Report.API.Infrastructure.Data.AppDbContext CreateReportDbContext(string databaseName)
+    public static Payment.API.Infrastructure.Data.AppDbContext CreatePaymentDbContext(SqliteConnection connection)
     {
-        var options = new DbContextOptionsBuilder<Report.API.Infrastructure.Data.AppDbContext>()
-            .UseInMemoryDatabase(databaseName)
-            .Options;
-        return new Report.API.Infrastructure.Data.AppDbContext(options);
+        var context = new Payment.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Payment.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
     }
 
-    public static Orchestration.API.Infrastructure.Data.AppDbContext CreateOrchestrationDbContext(string databaseName)
+    public static Report.API.Infrastructure.Data.AppDbContext CreateReportDbContext(SqliteConnection connection)
     {
-        var options = new DbContextOptionsBuilder<Orchestration.API.Infrastructure.Data.AppDbContext>()
-            .UseInMemoryDatabase(databaseName)
-            .Options;
-        return new Orchestration.API.Infrastructure.Data.AppDbContext(options);
+        var context = new Report.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Report.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
     }
+
+    public static Orchestration.API.Infrastructure.Data.AppDbContext CreateOrchestrationDbContext(SqliteConnection connection)
+    {
+        var context = new Orchestration.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Orchestration.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    public static SqliteConnection CreateOpenConnection()
+    {
+        var connection = new SqliteConnection("DataSource=:memory:");
+        connection.Open();
+        return connection;
+    }
+
+    // Legacy support or specific SQL Server integration tests should use Testcontainers
 }
-

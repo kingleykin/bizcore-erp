@@ -11,7 +11,7 @@ namespace Bizcore.BuildingBlocks.Abstractions
         public Guid Id { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime UpdatedAt { get; set; }
-        public byte[] RowVersion { get; set; } = null!;
+        public long Version { get; set; }
 
         protected BaseEntity()
         {
@@ -19,14 +19,14 @@ namespace Bizcore.BuildingBlocks.Abstractions
             Id = Guid.NewGuid();
             CreatedAt = DateTime.UtcNow;
             UpdatedAt = DateTime.UtcNow;
-            RowVersion = Array.Empty<byte>();
+            Version = 1;
         }
         
         /// <summary>
-        /// Updates the UpdatedAt timestamp to the current UTC time.
+        /// Updates the UpdatedAt timestamp and increments the Version.
         /// Call this method whenever the entity state changes.
         /// </summary>
-        public virtual void UpdateTimestamp()
+        public virtual void UpdateState()
         {
             UpdatedAt = DateTime.UtcNow;
         }

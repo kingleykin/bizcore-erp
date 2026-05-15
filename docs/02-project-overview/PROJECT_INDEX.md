@@ -22,7 +22,7 @@
 - **Frontend**: React/Vite.
 - **Caching**: **Redis** (Phân quyền, Performance).
 - **Storage**: **MinIO** (Object Storage tương thích S3 cho Avatars, Invoices, Reports).
-- **Design Patterns cốt lõi**: Outbox Pattern, **Transactional Inbox (MassTransit tự động quản lý Transaction cho mọi Consumer)**, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**, **Optimistic Concurrency (RowVersion)**, **Unit of Work Abstraction (IUnitOfWork)**.
+- **Design Patterns cốt lõi**: Outbox Pattern, **Transactional Inbox (MassTransit tự động quản lý Transaction cho mọi Consumer)**, Retry/Circuit Breaker (Polly), Idempotency, Eventual Consistency, **Module Pattern (Clean Program.cs)**, **gRPC (Synchronous Queries)**, Compensation (Rollback nghiệp vụ), **Audit-Assisted Data Correction (Reversal)**, **Dynamic Authorization (Fine-grained)**, **ServiceDefaults (Standardized Infra)**, **Data Classification (PII Masking)**, **Multi-tenancy (Tenant Context Propagation)**, **Optimistic Concurrency (Version)**, **Unit of Work Abstraction (IUnitOfWork)**.
 
 ---
 
@@ -113,9 +113,21 @@ Hệ thống áp dụng **3 Transaction Patterns** để đảm bảo tính toà
 
 **Dùng cho:** Đảm bảo tính nhất quán và bảo mật dữ liệu xuyên suốt các service.
 
-- **BaseEntity**: Mọi Entity đều kế thừa `BaseEntity` (Id, CreatedAt, UpdatedAt, RowVersion).
-- **Optimistic Concurrency**: Sử dụng `byte[] RowVersion` để ngăn chặn "Lost Update" trong môi trường concurrency cao.
+- **BaseEntity**: Mọi Entity đều kế thừa `BaseEntity` (Id, CreatedAt, UpdatedAt, Version).
+- **IAggregateRoot**: Mọi Aggregate Root phải kế thừa lớp `AggregateRoot`.
+- **Encapsulation**: Aggregate Root không được expose public mutable collections. Sử dụng `IReadOnlyCollection` và các phương thức nghiệp vụ tường minh.
+- **Optimistic Concurrency**: 
+    - Sử dụng `long Version` và `.IsConcurrencyToken()`.
+    - **Trigger**: Chỉ tăng Version khi Aggregate Root gọi `MarkStateChanged()` bên trong các business methods.
+    - **Interceptor**: `EntityVersionInterceptor` tự động tăng version dựa trên tín hiệu từ `IsStateChanged`.
+    - **Added**: Version khởi tạo = 1.
+    - **Child Collection Rule**: Khi thêm mới child entity vào collection của Aggregate Root, **bắt buộc** phải gọi `_context.Set<TChild>().Add(child)` tường minh trong Handler để tránh EF nhầm lẫn trạng thái (Modified thay vì Added).
+    - **DTO Rule**: KHÔNG BAO GIỜ map Version từ DTO vào Entity. Luôn gán vào `OriginalValue` của EF Entry để kiểm tra tính nhất quán.
 - **IUnitOfWork**: Abstraction duy nhất để quản lý transaction, tích hợp sẵn trong `TransactionBehavior` của MediatR.
+- **Retry Policy**:
+    - **Financial/Audit**: Fail immediately (không auto-retry). Trả về **409 Conflict** khi có xung đột version.
+    - **Master Data/Settings**: Có thể cấu hình retry tại Application layer nếu cần thiết.
+- **No Magic**: Tránh hoàn toàn việc tự động suy diễn thay đổi từ graph/collections. Mọi sự thay đổi phải mang tính chủ đích (intentional).
 - **Modular Configuration**: Tách biệt Fluent API config vào `IEntityTypeConfiguration<T>` để tránh "God DbContext".
 
 ### 4.4. Partitioned Audit Hash Chain
@@ -189,6 +201,8 @@ Khi AI tham gia viết code hoặc debug cho dự án này, hãy TUÂN THỦ NGH
 > - **Tenant Awareness**: Luôn sử dụng `ITenantContext` thay vì đọc header thủ công để đảm bảo tính nhất quán và bảo mật của dữ liệu đa người thuê.
 > - Chi tiết: [TRANSACTION_MANAGEMENT_DESIGN.md](../05-transactions/TRANSACTION_MANAGEMENT_DESIGN.md) và [TRANSACTION_IMPLEMENTATION_GUIDE.md](../05-transactions/TRANSACTION_IMPLEMENTATION_GUIDE.md)
 >
+---
+*Cập nhật lần cuối: 15/05/2026 - Chuẩn hóa Concurrency Token logic (AggregateRoot mutation + Explicit child registration).*
 ---
 
 ## 6. 🧪 Kiểm thử (Testing Strategy)

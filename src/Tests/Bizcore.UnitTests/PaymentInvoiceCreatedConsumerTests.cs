@@ -9,6 +9,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Payment.API.Application.Consumers;
 
+using Microsoft.Data.Sqlite;
+
 namespace Bizcore.UnitTests;
 
 public class PaymentInvoiceCreatedConsumerTests
@@ -32,8 +34,8 @@ public class PaymentInvoiceCreatedConsumerTests
     [Fact]
     public async Task Consume_WhenInvoiceMissing_AddsInvoiceToPaymentReadModel()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreatePaymentDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreatePaymentDbContext(connection);
 
         var consumer = new InvoiceCreatedConsumer(context, Mock.Of<ILogger<InvoiceCreatedConsumer>>());
         var invoiceId = Guid.NewGuid();
@@ -54,15 +56,12 @@ public class PaymentInvoiceCreatedConsumerTests
     [Fact]
     public async Task Consume_WhenInvoiceAlreadyExists_DoesNotInsertDuplicate()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreatePaymentDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreatePaymentDbContext(connection);
 
         var invoiceId = Guid.NewGuid();
-        context.Invoices.Add(new Payment.API.Domain.Entities.Invoice
-        {
-            Id = invoiceId,
-            Status = InvoiceStatus.Pending
-        });
+        var invoice = new Payment.API.Domain.Entities.Invoice { Id = invoiceId, Status = InvoiceStatus.Pending };
+        context.Invoices.Add(invoice);
         await context.SaveChangesAsync();
 
         var consumer = new InvoiceCreatedConsumer(context, Mock.Of<ILogger<InvoiceCreatedConsumer>>());

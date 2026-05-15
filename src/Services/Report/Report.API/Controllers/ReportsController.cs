@@ -1,34 +1,30 @@
 using Microsoft.AspNetCore.Mvc;
-using Report.API.Application.Services;
-using Report.API.DTOs;
+using Report.API.Application.Queries;
+using Report.API.Application.DTOs;
 using Microsoft.AspNetCore.Authorization;
 using Asp.Versioning;
+using MediatR;
 
-namespace Report.API.Controllers
+namespace Report.API.Controllers;
+
+[ApiController]
+[Route("api/v{version:apiVersion}/report")]
+[ApiVersion("1.0")]
+[Authorize(Policy = "Report.View")]
+public class ReportsController : ControllerBase
 {
-    [ApiController]
-    [Route("api/v{version:apiVersion}/report")]
-    [ApiVersion("1.0")]
-    [Authorize(Policy = "Report.View")]
-    public class ReportsController : ControllerBase
+    private readonly IMediator _mediator;
+
+    public ReportsController(IMediator mediator)
     {
-        private readonly IReportService _reportService;
-        private readonly ILogger<ReportsController> _logger;
+        _mediator = mediator;
+    }
 
-        public ReportsController(IReportService reportService, ILogger<ReportsController> logger)
-        {
-            _reportService = reportService;
-            _logger = logger;
-        }
-
-        [HttpGet("summary")]
-        public async Task<ActionResult<DashboardStatsDto>> GetDashboardStats()
-        {
-            _logger.LogInformation("Retrieving dashboard summary");
-            var stats = await _reportService.GetDashboardStatsAsync();
-            _logger.LogInformation("Dashboard summary retrieved: TotalInvoices={TotalInvoices}, TotalRevenue={TotalRevenue}",
-                stats.TotalInvoices, stats.TotalRevenue);
-            return Ok(stats);
-        }
+    [HttpGet("summary")]
+    [ProducesResponseType(typeof(DashboardStatsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetDashboardStats(CancellationToken ct)
+    {
+        var result = await _mediator.Send(new GetDashboardStatsQuery(), ct);
+        return Ok(result);
     }
 }

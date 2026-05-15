@@ -1,6 +1,7 @@
 using Invoice.API.Domain.Entities;
 using Invoice.API.Infrastructure.Data.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 namespace Invoice.API.Infrastructure.Data
 {
@@ -18,6 +19,7 @@ namespace Invoice.API.Infrastructure.Data
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
             modelBuilder.ConfigureMassTransitOutbox();
+            modelBuilder.ApplyBaseEntityConfiguration();
         }
     }
 }

@@ -38,7 +38,7 @@ namespace Admin.API.Domain.Entities.Settings
             if (IsReadOnly)
                 throw new InvalidOperationException($"Setting '{SettingKey}' is read-only and cannot be modified.");
             SettingValue = newValue;
-            UpdateTimestamp();
+            UpdateState();
 
         }
     }

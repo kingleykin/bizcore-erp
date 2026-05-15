@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Orchestration.API.Domain.Entities;
 using Orchestration.API.Infrastructure.Data.Extensions;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 namespace Orchestration.API.Infrastructure.Data;
 
@@ -20,5 +21,6 @@ public class AppDbContext : DbContext
 
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         modelBuilder.ConfigureMassTransitOutbox();
+        modelBuilder.ApplyBaseEntityConfiguration();
     }
 }

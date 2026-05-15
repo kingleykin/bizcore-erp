@@ -1,18 +1,27 @@
 using Bizcore.BuildingBlocks.Contracts;
 using MassTransit;
-using Orchestration.API.Application.Services;
+using MediatR;
+using Orchestration.API.Application.Commands;
+using Orchestration.API.Domain;
 
 namespace Orchestration.API.Application.Consumers;
 
 public class InvoiceCreatedOrchestrationConsumer : IConsumer<IInvoiceCreatedEvent>
 {
-    private readonly IProcessOrchestrationService _orchestration;
+    private readonly IMediator _mediator;
 
-    public InvoiceCreatedOrchestrationConsumer(IProcessOrchestrationService orchestration)
+    public InvoiceCreatedOrchestrationConsumer(IMediator mediator)
     {
-        _orchestration = orchestration;
+        _mediator = mediator;
     }
 
-    public Task Consume(ConsumeContext<IInvoiceCreatedEvent> context)
-        => _orchestration.RecordInvoiceCreatedAsync(context.Message, context.CancellationToken);
+    public async Task Consume(ConsumeContext<IInvoiceCreatedEvent> context)
+    {
+        await _mediator.Send(new RecordOrchestrationStepCommand(
+            context.Message.Id,
+            InvoicePaymentFlow.Steps.InvoiceCreatedObserved,
+            InvoicePaymentFlow.States.InvoiceIndexed,
+            context.Message
+        ), context.CancellationToken);
+    }
 }

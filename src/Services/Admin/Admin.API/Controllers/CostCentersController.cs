@@ -1,52 +1,57 @@
 using Asp.Versioning;
+using Bizcore.BuildingBlocks;
+using Bizcore.BuildingBlocks.Authorization;
 using Admin.API.Application.DTOs;
-using Admin.API.Application.Services;
+using Admin.API.Application.Commands;
+using Admin.API.Application.Queries;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MediatR;
 
-namespace Admin.API.Controllers
+namespace Admin.API.Controllers;
+
+/// <summary>
+/// Quản lý Trung tâm chi phí (CostCenter).
+/// </summary>
+[ApiController]
+[ApiVersion("1.0")]
+[Route("api/v{version:apiVersion}/org/cost-centers")]
+[Authorize]
+public class CostCentersController : ControllerBase
 {
-    /// <summary>
-    /// Quản lý Trung tâm chi phí (CostCenter).
-    /// </summary>
-    [ApiController]
-    [ApiVersion("1.0")]
-    [Route("api/v{version:apiVersion}/org/cost-centers")]
-    [Authorize]
-    public class CostCentersController : ControllerBase
+    private readonly IMediator _mediator;
+
+    public CostCentersController(IMediator mediator)
     {
-        private readonly IOrganizationService _service;
+        _mediator = mediator;
+    }
 
-        public CostCentersController(IOrganizationService service)
-            => _service = service;
+    /// <summary>Lấy danh sách cost center. Filter theo legalEntityId nếu cung cấp.</summary>
+    [HttpGet]
+    [RequirePermission(Permissions.Admin.OrgView)]
+    [ProducesResponseType(typeof(IEnumerable<CostCenterResponse>), 200)]
+    public async Task<IActionResult> GetAll([FromQuery] Guid? legalEntityId = null)
+    {
+        var result = await _mediator.Send(new GetCostCentersQuery(legalEntityId));
+        return Ok(result);
+    }
 
-        /// <summary>Lấy danh sách cost center. Filter theo legalEntityId nếu cung cấp.</summary>
-        [HttpGet]
-        [Authorize(Policy = "Admin.OrgView")]
-        [ProducesResponseType(typeof(IEnumerable<CostCenterResponse>), 200)]
-        public async Task<IActionResult> GetAll([FromQuery] Guid? legalEntityId = null)
+    /// <summary>Tạo cost center mới.</summary>
+    [HttpPost]
+    [RequirePermission(Permissions.Admin.SysAdmin)]
+    [ProducesResponseType(typeof(CostCenterResponse), 201)]
+    [ProducesResponseType(400)]
+    [ProducesResponseType(409)]
+    public async Task<IActionResult> Create([FromBody] CreateCostCenterRequest request)
+    {
+        try
         {
-            var result = await _service.GetCostCentersAsync(legalEntityId);
-            return Ok(result);
+            var result = await _mediator.Send(new CreateCostCenterCommand(request));
+            return StatusCode(201, result);
         }
-
-        /// <summary>Tạo cost center mới.</summary>
-        [HttpPost]
-        [Authorize(Policy = "Admin.SysAdmin")]
-        [ProducesResponseType(typeof(CostCenterResponse), 201)]
-        [ProducesResponseType(400)]
-        [ProducesResponseType(409)]
-        public async Task<IActionResult> Create([FromBody] CreateCostCenterRequest request)
+        catch (InvalidOperationException ex)
         {
-            try
-            {
-                var result = await _service.CreateCostCenterAsync(request);
-                return StatusCode(201, result);
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Conflict(new { message = ex.Message });
-            }
+            return Conflict(new { message = ex.Message });
         }
     }
 }

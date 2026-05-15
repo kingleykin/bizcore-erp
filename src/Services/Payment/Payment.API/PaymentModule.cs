@@ -16,12 +16,11 @@ namespace Payment.API
             // 1. Database
             var connStr = builder.Configuration.GetConnectionString("DefaultConnection")!;
             DatabaseExtensions.PreCreateDatabase(connStr);
-            services.AddDbContext<AppDbContext>(options => options.UseSqlServer(connStr));
+            services.AddBizcoreDbContext<AppDbContext>(connStr);
 
             // 2. Business Services
             services.AddScoped<IUnitOfWork, PaymentUnitOfWork>();
             services.AddScoped<IIdempotencyService, IdempotencyService>();
-            services.AddScoped<IPaymentService, PaymentService>();
             services.AddSingleton<Payment.API.Infrastructure.Telemetry.PaymentMetrics>();
 
             // 3. MediatR with Transaction Pipeline

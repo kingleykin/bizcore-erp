@@ -1,5 +1,6 @@
 using Bizcore.BuildingBlocks.Audit;
 using Bizcore.BuildingBlocks.Contracts;
+using Invoice.API.Application.DTOs;
 using Invoice.API.Domain.Entities;
 using Invoice.API.Infrastructure.Data;
 using MassTransit;
@@ -7,7 +8,7 @@ using MediatR;
 
 namespace Invoice.API.Application.Commands
 {
-    public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand, Invoice.API.Domain.Entities.Invoice>
+    public class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand, InvoiceResponseDto>
     {
         private readonly AppDbContext _context;
         private readonly IPublishEndpoint _publishEndpoint;
@@ -26,13 +27,13 @@ namespace Invoice.API.Application.Commands
             _logger = logger;
         }
 
-        public async Task<Invoice.API.Domain.Entities.Invoice> Handle(CreateInvoiceCommand request, CancellationToken cancellationToken)
+        public async Task<InvoiceResponseDto> Handle(CreateInvoiceCommand request, CancellationToken cancellationToken)
         {
-            var invoice = Invoice.API.Domain.Entities.Invoice.Create(request.CustomerName, request.Amount);
+            var invoice = Domain.Entities.Invoice.Create(request.CustomerName, request.Amount);
             
             _context.Invoices.Add(invoice);
 
-            // Publish Event (BÊN TRONG transaction - saved to Outbox)
+            // Publish Event
             await _publishEndpoint.Publish<IInvoiceCreatedEvent>(new
             {
                 invoice.Id,
@@ -41,7 +42,7 @@ namespace Invoice.API.Application.Commands
                 invoice.CreatedAt
             }, cancellationToken);
 
-            // Publish Explicit Audit Log
+            // Publish Audit Log
             await _audit.PublishAsync(
                 AuditActions.Invoice.Created,
                 entityType: "Invoice",
@@ -51,18 +52,9 @@ namespace Invoice.API.Application.Commands
                 classification: DataClassification.Financial,
                 ct: cancellationToken);
 
-            // Do NOT call SaveChangesAsync here.
-            // TransactionBehavior commits the Invoice and OutboxMessage together.
+            _logger.LogInformation("InvoiceCreated InvoiceId={InvoiceId}", invoice.Id);
 
-            _logger.LogInformation("InvoiceCreated {@InvoiceEvent}", new 
-            { 
-                InvoiceId = invoice.Id, 
-                Customer = invoice.CustomerName, 
-                Amount = invoice.Amount,
-                Status = invoice.Status.ToString()
-            });
-
-            return invoice;
+            return invoice.ToDto();
         }
     }
 }

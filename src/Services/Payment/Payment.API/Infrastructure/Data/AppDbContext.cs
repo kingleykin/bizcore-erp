@@ -1,6 +1,7 @@
 using Payment.API.Domain.Entities;
 using Payment.API.Infrastructure.Data.Extensions;
 using Microsoft.EntityFrameworkCore;
+using Bizcore.BuildingBlocks.Infrastructure;
 
 namespace Payment.API.Infrastructure.Data
 {
@@ -20,6 +21,7 @@ namespace Payment.API.Infrastructure.Data
 
             modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
             modelBuilder.ConfigureMassTransitOutbox();
+            modelBuilder.ApplyBaseEntityConfiguration();
         }
     }
 }

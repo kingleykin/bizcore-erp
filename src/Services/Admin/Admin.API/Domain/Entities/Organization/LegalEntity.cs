@@ -67,11 +67,11 @@ namespace Admin.API.Domain.Entities.Organization
             Address            = address?.Trim();
             if (!string.IsNullOrWhiteSpace(baseCurrencyCode))
                 BaseCurrencyCode = baseCurrencyCode.Trim().ToUpperInvariant();
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
-        public void Deactivate() { Status = 0; UpdateTimestamp(); }
-        public void Activate()   { Status = 1; UpdateTimestamp(); }
+        public void Deactivate() { Status = 0; UpdateState(); }
+        public void Activate()   { Status = 1; UpdateState(); }
     }
 }

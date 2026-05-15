@@ -9,6 +9,8 @@ using Moq;
 using Report.API.Application.Consumers;
 using ReportInvoiceEntity = Report.API.Domain.Entities.Invoice;
 
+using Microsoft.Data.Sqlite;
+
 namespace Bizcore.UnitTests;
 
 public class ReportConsumersTests
@@ -48,8 +50,8 @@ public class ReportConsumersTests
     [Fact]
     public async Task InvoiceCreatedConsumer_Consume_AddsPendingInvoice()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateReportDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreateReportDbContext(connection);
 
         var consumer = new InvoiceCreatedConsumer(context);
 
@@ -75,18 +77,19 @@ public class ReportConsumersTests
     [Fact]
     public async Task PaymentCompletedConsumer_Consume_UpdatesInvoiceToPaid()
     {
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateReportDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreateReportDbContext(connection);
 
         var invoiceId = Guid.NewGuid();
-        context.Invoices.Add(new ReportInvoiceEntity
+        var invoice = new ReportInvoiceEntity
         {
             Id = invoiceId,
             CustomerName = "Cust",
             Amount = 50m,
             Status = InvoiceStatus.Pending,
             CreatedAt = DateTime.UtcNow.AddDays(-1)
-        });
+        };
+        context.Invoices.Add(invoice);
         await context.SaveChangesAsync();
 
         var consumer = new PaymentCompletedConsumer(context, Microsoft.Extensions.Logging.Abstractions.NullLogger<PaymentCompletedConsumer>.Instance);

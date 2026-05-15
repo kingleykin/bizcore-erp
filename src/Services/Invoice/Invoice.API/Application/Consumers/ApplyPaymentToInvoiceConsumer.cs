@@ -51,7 +51,7 @@ namespace Invoice.API.Application.Consumers
                 return;
             }
 
-            invoice!.Status = InvoiceStatus.Paid;
+            invoice!.UpdateStatus(InvoiceStatus.Paid);
             await _context.SaveChangesAsync();
 
             _logger.LogInformation(

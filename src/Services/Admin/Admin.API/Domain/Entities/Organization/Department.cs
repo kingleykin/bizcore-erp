@@ -48,7 +48,7 @@ namespace Admin.API.Domain.Entities.Organization
                 throw new ArgumentException("Name is required.", nameof(name));
             Name      = name.Trim();
             ParentId  = parentId;
-            UpdateTimestamp();
+            UpdateState();
 
         }
     }

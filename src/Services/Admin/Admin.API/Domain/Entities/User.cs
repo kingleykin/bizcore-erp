@@ -53,7 +53,7 @@ namespace Admin.API.Domain.Entities
         public void UpdateAvatar(string? avatarUrl)
         {
             AvatarUrl = avatarUrl;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
@@ -63,7 +63,7 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Email is required.", nameof(email));
 
             Email = email.Trim().ToLowerInvariant();
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
@@ -73,7 +73,7 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Language code is required.", nameof(languageCode));
 
             PreferredLanguage = languageCode;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
@@ -83,21 +83,21 @@ namespace Admin.API.Domain.Entities
                 throw new ArgumentException("Password hash is required.", nameof(newPasswordHash));
 
             PasswordHash = newPasswordHash;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
         public void Deactivate()
         {
             IsActive = false;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
         public void Activate()
         {
             IsActive = true;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
@@ -111,7 +111,7 @@ namespace Admin.API.Domain.Entities
             {
                 LockoutEnd = DateTime.UtcNow.AddMinutes(lockoutMinutes);
             }
-            UpdateTimestamp();
+            UpdateState();
 
         }
 
@@ -122,7 +122,7 @@ namespace Admin.API.Domain.Entities
         {
             FailedLoginAttempts = 0;
             LockoutEnd = null;
-            UpdateTimestamp();
+            UpdateState();
 
         }
 

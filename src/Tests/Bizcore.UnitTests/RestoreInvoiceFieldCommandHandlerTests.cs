@@ -8,6 +8,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Bizcore.BuildingBlocks.Audit;
 
+using Microsoft.Data.Sqlite;
+
 namespace Bizcore.UnitTests;
 
 public class RestoreInvoiceFieldCommandHandlerTests
@@ -16,8 +18,8 @@ public class RestoreInvoiceFieldCommandHandlerTests
     public async Task Handle_ValidRequest_PublishesAuditEvent()
     {
         // Arrange
-        var dbName = Guid.NewGuid().ToString();
-        using var context = TestDbContextFactory.CreateInvoiceDbContext(dbName);
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
 
         var invoice = Invoice.API.Domain.Entities.Invoice.Create("Old Name", 1000);
         context.Invoices.Add(invoice);

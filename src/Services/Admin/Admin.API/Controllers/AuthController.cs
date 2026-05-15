@@ -1,7 +1,7 @@
 using Asp.Versioning;
-using Bizcore.BuildingBlocks;
 using Admin.API.Application.DTOs;
-using Admin.API.Application.Services;
+using Admin.API.Application.Commands;
+using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -13,11 +13,11 @@ namespace Admin.API.Controllers
     [Route("api/v{version:apiVersion}/auth")]
     public class AuthController : ControllerBase
     {
-        private readonly IAuthService _authService;
+        private readonly IMediator _mediator;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IMediator mediator)
         {
-            _authService = authService;
+            _mediator = mediator;
         }
 
         /// <summary>Đăng nhập và nhận JWT + Refresh Token.</summary>
@@ -26,7 +26,8 @@ namespace Admin.API.Controllers
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-            var result = await _authService.LoginAsync(request, ip);
+            var command = new LoginCommand(request, ip);
+            var result = await _mediator.Send(command);
             return Ok(result);
         }
 
@@ -36,7 +37,8 @@ namespace Admin.API.Controllers
         public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequest request)
         {
             var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
-            var result = await _authService.RefreshTokenAsync(request.RefreshToken, ip);
+            var command = new RefreshTokenCommand(request.RefreshToken, ip);
+            var result = await _mediator.Send(command);
             return Ok(result);
         }
 
@@ -45,7 +47,8 @@ namespace Admin.API.Controllers
         [Authorize]
         public async Task<IActionResult> Logout([FromBody] RefreshTokenRequest request)
         {
-            await _authService.LogoutAsync(request.RefreshToken);
+            var command = new LogoutCommand(request.RefreshToken);
+            await _mediator.Send(command);
             return NoContent();
         }
 
@@ -58,7 +61,8 @@ namespace Admin.API.Controllers
                 ?? User.FindFirstValue("sub")
                 ?? throw new InvalidOperationException("User ID not found in token."));
 
-            await _authService.ChangePasswordAsync(userId, request);
+            var command = new ChangePasswordCommand(userId, request);
+            await _mediator.Send(command);
             return NoContent();
         }
     }

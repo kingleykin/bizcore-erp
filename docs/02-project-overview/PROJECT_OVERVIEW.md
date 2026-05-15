@@ -60,10 +60,10 @@ bizcore-erp/
   **Giải pháp:**
   * Audit: Sử dụng cả Application Layer (Business Events) để publish `AuditEvent` qua RabbitMQ tới `Audit.API`.
   * Integrity Check: Áp dụng Hash chain (SHA-256) và chế độ Append-Only để đảm bảo tính bất biến của lịch sử.
-  * **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`RowVersion`) để tránh Stale Data.
+  * **Audit-Assisted Recovery**: Việc khôi phục (Restore) không ghi đè Snapshot mù quáng. Thay vào đó, Audit Service cung cấp `BeforeJson` để `RestoreDiffEngine` so sánh và đưa ra gợi ý (Restore Suggestion). Việc thực thi Restore do chính Domain Service (ví dụ Invoice) đảm nhiệm thông qua các "Semantic Domain Commands" (ví dụ `RestoreCustomerName()`), kết hợp với `IReversalPolicy` (chặn khôi phục trường Tài chính) và Concurrency Token (`Version`) để tránh Stale Data.
   * **Data Classification & Sanitization**: Tự động nhận diện và che giấu dữ liệu nhạy cảm (PII) trong logs thông qua `SensitiveDataAttribute` với các mức độ bảo mật (Public, Internal, Sensitive, Restricted). Dữ liệu Restricted sẽ không bao giờ được ghi log, đảm bảo tuân thủ các tiêu chuẩn bảo mật (GDPR/Compliance). Chi tiết: [LOGGING GUIDE](../05-observability/LOGGING_GUIDE.md).
   * **Multi-tenancy Foundation**: Thiết lập nền tảng đa người thuê (Multi-tenancy) với cơ chế tự động lan truyền Tenant Context qua Middleware và Header `X-Tenant-ID`.
-  * **Standardized Persistence Model**: Sử dụng `BaseEntity` (Id, Audit Props, RowVersion) và `IUnitOfWork` để chuẩn hóa toàn bộ tầng persistence, đảm bảo tính nhất quán dữ liệu và hỗ trợ xử lý concurrency tự động.
+  * **Standardized Persistence Model**: Sử dụng `BaseEntity` (Id, Audit Props, Version), `IAggregateRoot` (marker) và `IUnitOfWork` để chuẩn hóa toàn bộ tầng persistence, đảm bảo tính nhất quán dữ liệu và hỗ trợ xử lý concurrency tự động tại Aggregate Root.
 * * **Enterprise Localization & Error Governance**: Hệ thống sử dụng cơ chế Error Code tập trung kết hợp với i18next (Frontend) và Culture Propagation (Backend/MassTransit). Đảm bảo trải nghiệm người dùng nhất quán và quốc tế hóa sẵn sàng.
 
 * Compliance: Che giấu (mask) các trường nhạy cảm bằng `SensitiveFieldMasker`.
@@ -117,7 +117,7 @@ Hệ thống đang dùng **Eventual Consistency**, nên không có rollback tran
   "Id": "guid",
   "CreatedAt": "datetime",
   "UpdatedAt": "datetime",
-  "RowVersion": "byte[] (Concurrency Token)"
+  "Version": "long (Concurrency Token)"
 }
 ```
 
@@ -269,4 +269,4 @@ Hệ thống tích hợp đầy đủ monitoring stack:
 **Xem chi tiết**: Tham khảo [MONITORING_GUIDE.md](../07-operations/MONITORING_GUIDE.md)
 
 ---
-*Cập nhật lần cuối: 14/05/2026 - Chuẩn hóa hạ tầng (ServiceDefaults), Bảo mật dữ liệu (Data Classification) và Multi-tenancy Foundation.*
+*Cập nhật lần cuối: 15/05/2026 - Chuẩn hóa Concurrency Token logic (AggregateRoot mutation + Explicit child registration).*

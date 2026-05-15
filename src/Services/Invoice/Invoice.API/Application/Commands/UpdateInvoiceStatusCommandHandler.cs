@@ -21,7 +21,10 @@ namespace Invoice.API.Application.Commands
             var invoice = await _context.Invoices.FindAsync(new object[] { request.Id }, cancellationToken);
             if (invoice is null) return false;
 
-            invoice.Status = request.Status;
+            invoice.UpdateStatus(request.Status);
+
+            // Set the original version for concurrency check to detect if another user changed it
+            _context.Entry(invoice).Property(x => x.Version).OriginalValue = request.Version;
 
             // Do NOT call SaveChangesAsync here.
             // TransactionBehavior will call it via UnitOfWork.CommitAsync.
