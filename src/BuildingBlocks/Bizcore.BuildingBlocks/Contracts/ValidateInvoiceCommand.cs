@@ -6,6 +6,7 @@ namespace Bizcore.BuildingBlocks.Contracts
     /// </summary>
     public interface IValidateInvoiceCommand
     {
+        Guid CustomerId { get; }
         Guid PaymentId { get; }
         Guid InvoiceId { get; }
         decimal Amount { get; }

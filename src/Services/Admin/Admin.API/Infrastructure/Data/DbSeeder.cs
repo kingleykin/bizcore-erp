@@ -36,6 +36,12 @@ namespace Admin.API.Infrastructure.Data
             new(Permissions.Invoice.Create, "Tạo Invoice mới",         "Invoice", PermissionScope.Action),
             new(Permissions.Invoice.Update, "Cập nhật Invoice",        "Invoice", PermissionScope.Action),
             new(Permissions.Invoice.Delete, "Xóa Invoice",             "Invoice", PermissionScope.Action),
+            
+            // Customer
+            new(Permissions.Customer.View,   "Xem danh sách Customer",   "Customer", PermissionScope.Page),
+            new(Permissions.Customer.Create, "Tạo Customer mới",         "Customer", PermissionScope.Action),
+            new(Permissions.Customer.Update, "Cập nhật Customer",        "Customer", PermissionScope.Action),
+            new(Permissions.Customer.Delete, "Xóa Customer",             "Customer", PermissionScope.Action),
 
             // Invoice — field level
             new(Permissions.Invoice.AmountView,      "Xem trường Amount",       "Invoice.Amount",       PermissionScope.Field),

@@ -62,7 +62,7 @@ public class InvoicesController : ControllerBase
         _logger.LogInformation("Creating invoice for CustomerName={CustomerName}, Amount={Amount}",
             request.CustomerName, request.Amount);
 
-        var command = new CreateInvoiceCommand(request.CustomerName, request.Amount);
+        var command = new CreateInvoiceCommand(request.CustomerId, request.CustomerName, request.Amount);
         var created = await _mediator.Send(command);
 
         _logger.LogInformation("Invoice created successfully InvoiceId={InvoiceId}", created.Id);

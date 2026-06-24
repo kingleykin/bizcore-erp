@@ -14,27 +14,27 @@ namespace Payment.API.Application.Commands;
 /// Creates a payment with Processing status and publishes PaymentInitiatedEvent.
 /// Transaction is managed by TransactionBehavior pipeline.
 /// </summary>
-    public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentCommand, InitiatePaymentResult>
-    {
-        private readonly AppDbContext _context;
-        private readonly IPublishEndpoint _publishEndpoint;
-        private readonly IIdempotencyService _idempotencyService;
-        private readonly IAuditPublisher _audit;
-        private readonly ILogger<InitiatePaymentCommandHandler> _logger;
+public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentCommand, InitiatePaymentResult>
+{
+    private readonly AppDbContext _context;
+    private readonly IPublishEndpoint _publishEndpoint;
+    private readonly IIdempotencyService _idempotencyService;
+    private readonly IAuditPublisher _audit;
+    private readonly ILogger<InitiatePaymentCommandHandler> _logger;
 
-        public InitiatePaymentCommandHandler(
-            AppDbContext context,
-            IPublishEndpoint publishEndpoint,
-            IIdempotencyService idempotencyService,
-            IAuditPublisher audit,
-            ILogger<InitiatePaymentCommandHandler> logger)
-        {
-            _context = context;
-            _publishEndpoint = publishEndpoint;
-            _idempotencyService = idempotencyService;
-            _audit = audit;
-            _logger = logger;
-        }
+    public InitiatePaymentCommandHandler(
+        AppDbContext context,
+        IPublishEndpoint publishEndpoint,
+        IIdempotencyService idempotencyService,
+        IAuditPublisher audit,
+        ILogger<InitiatePaymentCommandHandler> logger)
+    {
+        _context = context;
+        _publishEndpoint = publishEndpoint;
+        _idempotencyService = idempotencyService;
+        _audit = audit;
+        _logger = logger;
+    }
 
     public async Task<InitiatePaymentResult> Handle(
         InitiatePaymentCommand request,
@@ -45,6 +45,7 @@ namespace Payment.API.Application.Commands;
         {
             return new InitiatePaymentResult(false, null, "Idempotency key is required.");
         }
+
 
         // Check if invoice exists in Payment service's read model
         var invoiceExists = await _context.Invoices.AnyAsync(

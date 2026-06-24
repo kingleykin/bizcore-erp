@@ -30,6 +30,7 @@ namespace Orchestration.API.Application.Sagas
             Event(() => InvoiceValidationFailed, x => x.CorrelateById(ctx => ctx.Message.PaymentId));
             Event(() => PaymentConfirmed, x => x.CorrelateById(ctx => ctx.Message.PaymentId));
             Event(() => PaymentRejected, x => x.CorrelateById(ctx => ctx.Message.PaymentId));
+            Event(() => CustomerPointAdded, x => x.CorrelateById(ctx => ctx.Message.PaymentId));
 
             // Timeout event
             Schedule(() => ValidationTimeout, x => x.ValidationTimeoutTokenId, s =>
@@ -47,6 +48,7 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.PaymentId = ctx.Message.PaymentId;
                         ctx.Saga.InvoiceId = ctx.Message.InvoiceId;
                         ctx.Saga.Amount = ctx.Message.Amount;
+                        ctx.Saga.CustomerId = ctx.Message.CustomerId;
                         ctx.Saga.IdempotencyKey = ctx.Message.IdempotencyKey;
                         ctx.Saga.CreatedAt = ctx.Message.InitiatedAt;
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
@@ -59,6 +61,7 @@ namespace Orchestration.API.Application.Sagas
                     }))
                     .SendAsync(ctx => ctx.Init<IValidateInvoiceCommand>(new
                     {
+                        CustomerId = ctx.Saga.CustomerId,
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId,
                         Amount = ctx.Saga.Amount
@@ -135,6 +138,8 @@ namespace Orchestration.API.Application.Sagas
         public State Confirmed { get; private set; } = null!;
         public State Rejected { get; private set; } = null!;
         public State TimedOut { get; private set; } = null!;
+        public State Confirming { get; private set; } = null!;
+        public State UpdatingPoints { get; private set; } = null!;
 
         // Events
         public Event<IPaymentInitiatedEvent> PaymentInitiated { get; private set; } = null!;
@@ -142,6 +147,7 @@ namespace Orchestration.API.Application.Sagas
         public Event<IInvoiceValidationFailedEvent> InvoiceValidationFailed { get; private set; } = null!;
         public Event<IPaymentConfirmedEvent> PaymentConfirmed { get; private set; } = null!;
         public Event<IPaymentRejectedEvent> PaymentRejected { get; private set; } = null!;
+        public Event<ICustomerPointAddedEvent> CustomerPointAdded { get; private set; } = null!;
 
         // Timeout schedule
         public Schedule<PaymentSagaState, PaymentValidationTimeout> ValidationTimeout { get; private set; } = null!;

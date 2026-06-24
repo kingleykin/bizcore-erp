@@ -9,6 +9,7 @@ namespace Bizcore.BuildingBlocks.Contracts
         Guid PaymentId { get; }
         Guid InvoiceId { get; }
         decimal Amount { get; }
+        Guid CustomerId { get; }
         string IdempotencyKey { get; }
         DateTime InitiatedAt { get; }
     }

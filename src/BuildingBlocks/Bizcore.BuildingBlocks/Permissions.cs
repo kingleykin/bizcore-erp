@@ -91,6 +91,14 @@ namespace Bizcore.BuildingBlocks
             public const string SysAdmin = "Admin.SysAdmin";
             public const string SystemView = "Admin.SystemView";
         }
+
+        public static class Customer
+        {
+            public const string View = "Customer.View";
+            public const string Create = "Customer.Create";
+            public const string Update = "Customer.Update";
+            public const string Delete = "Customer.Delete";
+        }
     }
 
     /// <summary>

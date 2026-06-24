@@ -24,6 +24,9 @@ namespace Orchestration.API.Domain.Entities
         /// <summary>Amount cần validate với invoice.</summary>
         public decimal Amount { get; set; }
 
+        /// <summary>Customer cần update point.</summary>
+        public Guid CustomerId { get; set; }
+
         /// <summary>Idempotency key từ client request.</summary>
         public string IdempotencyKey { get; set; } = string.Empty;
 

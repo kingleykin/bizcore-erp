@@ -28,18 +28,19 @@ namespace Invoice.API.Infrastructure.Data
             if (!await context.Invoices.AnyAsync())
             {
                 logger.LogInformation("No invoices found. Starting seeding process...");
-                var invoice1 = Invoice.API.Domain.Entities.Invoice.Create("Công ty Công nghệ ABC", 1500);
+                var invoice1 = Invoice.API.Domain.Entities.Invoice.Create(Guid.Parse("6e5ecabd-b4b3-40ef-81e9-79f95994d520"), "Nguyen van A", 1500);
                 invoice1.Id = Guid.Parse("f1d2c3b4-a5e6-4d7f-8e9a-0b1c2d3e4f5a");
-                
-                var invoice2 = Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn ABC", 3200);
-                invoice2.Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d");
-                
-                var invoice3 = Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450);
-                invoice3.Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f");
 
-                context.Invoices.AddRange(invoice1, invoice2, invoice3);
+                // var invoice2 = Invoice.API.Domain.Entities.Invoice.Create("Tập đoàn ABC", 3200);
+                // invoice2.Id = Guid.Parse("a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d");
+
+                // var invoice3 = Invoice.API.Domain.Entities.Invoice.Create("Cửa hàng Bán lẻ XYZ", 450);
+                // invoice3.Id = Guid.Parse("9e8d7c6b-5a4b-3c2d-1e0f-9a8b7c6d5e4f");
+
+                // context.Invoices.AddRange(invoice1, invoice2, invoice3);
+                context.Invoices.Add(invoice1);
                 await context.SaveChangesAsync();
-                
+
                 logger.LogInformation("Successfully seeded initial invoices.");
             }
         }

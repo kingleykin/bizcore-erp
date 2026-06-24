@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { 
-  LayoutDashboard, 
-  FileText, 
-  CreditCard, 
-  BarChart3, 
-  Plus, 
-  DollarSign, 
-  CheckCircle2, 
+import {
+  LayoutDashboard,
+  FileText,
+  CreditCard,
+  BarChart3,
+  Plus,
+  DollarSign,
+  CheckCircle2,
   Clock,
   LogOut,
   Workflow,
@@ -21,7 +21,11 @@ import {
   RefreshCcw,
   UserPlus,
   Upload,
-  User as UserIcon
+  User as UserIcon,
+  Contact,
+  Mail,
+  Phone,
+  MapPin
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -85,9 +89,9 @@ const OrchestrationFlow = ({ api }) => {
             </thead>
             <tbody>
               {flows.map(flow => (
-                <tr key={flow.id} 
-                    style={{ cursor: 'pointer', background: selectedFlow?.id === flow.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
-                    onClick={() => setSelectedFlow(flow)}>
+                <tr key={flow.id}
+                  style={{ cursor: 'pointer', background: selectedFlow?.id === flow.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                  onClick={() => setSelectedFlow(flow)}>
                   <td style={{ fontSize: '0.75rem', opacity: 0.6 }}>{flow.invoiceId.substring(0, 8)}...</td>
                   <td>{flow.flowType}</td>
                   <td>
@@ -162,7 +166,7 @@ const IdentityManager = ({ api }) => {
 
   const handleAvatarUpload = async (userId, file) => {
     if (!file) return;
-    
+
     const formData = new FormData();
     formData.append('file', file);
 
@@ -173,7 +177,7 @@ const IdentityManager = ({ api }) => {
       const uploadRes = await api.post('/api/v1/files/upload?isPublic=true', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
-      
+
       // The updated backend returns the permanent URL directly if isPublic is true
       const avatarUrl = uploadRes.data.url;
 
@@ -251,8 +255,8 @@ const IdentityManager = ({ api }) => {
   const toggleUserRole = (roleName) => {
     setUserForm(prev => ({
       ...prev,
-      roleNames: prev.roleNames.includes(roleName) 
-        ? prev.roleNames.filter(r => r !== roleName) 
+      roleNames: prev.roleNames.includes(roleName)
+        ? prev.roleNames.filter(r => r !== roleName)
         : [...prev.roleNames, roleName]
     }));
   };
@@ -278,7 +282,7 @@ const IdentityManager = ({ api }) => {
   };
 
   const togglePermission = (id) => {
-    setSelectedPermissionIds(prev => 
+    setSelectedPermissionIds(prev =>
       prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
     );
   };
@@ -307,7 +311,7 @@ const IdentityManager = ({ api }) => {
   };
 
   const toggleRoleAssignment = (roleId) => {
-    setSelectedRoleIds(prev => 
+    setSelectedRoleIds(prev =>
       prev.includes(roleId) ? prev.filter(id => id !== roleId) : [...prev, roleId]
     );
   };
@@ -350,11 +354,11 @@ const IdentityManager = ({ api }) => {
                 <tr key={user.id}>
                   <td>
                     <div style={{ position: 'relative', width: '36px', height: '36px' }}>
-                      <div style={{ 
-                        width: '36px', 
-                        height: '36px', 
-                        borderRadius: '50%', 
-                        overflow: 'hidden', 
+                      <div style={{
+                        width: '36px',
+                        height: '36px',
+                        borderRadius: '50%',
+                        overflow: 'hidden',
                         background: 'rgba(255,255,255,0.05)',
                         display: 'flex',
                         alignItems: 'center',
@@ -367,26 +371,26 @@ const IdentityManager = ({ api }) => {
                           <UserIcon size={16} color="#64748b" />
                         )}
                       </div>
-                      <label style={{ 
-                        position: 'absolute', 
-                        bottom: '-2px', 
-                        right: '-2px', 
-                        background: '#2563eb', 
-                        borderRadius: '50%', 
-                        width: '16px', 
-                        height: '16px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
+                      <label style={{
+                        position: 'absolute',
+                        bottom: '-2px',
+                        right: '-2px',
+                        background: '#2563eb',
+                        borderRadius: '50%',
+                        width: '16px',
+                        height: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
                         justifyContent: 'center',
                         cursor: 'pointer',
                         border: '2px solid #0f172a'
                       }}>
                         <Plus size={10} color="white" />
-                        <input 
-                          type="file" 
-                          hidden 
-                          accept="image/*" 
-                          onChange={(e) => handleAvatarUpload(user.id, e.target.files[0])} 
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          onChange={(e) => handleAvatarUpload(user.id, e.target.files[0])}
                         />
                       </label>
                     </div>
@@ -406,8 +410,8 @@ const IdentityManager = ({ api }) => {
                     </span>
                   </td>
                   <td>
-                    <button 
-                      className="btn btn-outline" 
+                    <button
+                      className="btn btn-outline"
                       style={{ padding: '4px 8px' }}
                       onClick={() => openUserRolesModal(user)}
                     >
@@ -439,8 +443,8 @@ const IdentityManager = ({ api }) => {
                     </span>
                   </td>
                   <td>
-                    <button 
-                      className="btn btn-outline" 
+                    <button
+                      className="btn btn-outline"
                       style={{ padding: '4px 8px' }}
                       onClick={() => openPermissionModal(role)}
                     >
@@ -462,32 +466,32 @@ const IdentityManager = ({ api }) => {
             <form onSubmit={handleCreateUser}>
               <div className="form-group">
                 <label className="form-label">Tên đăng nhập</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <input
+                  type="text"
+                  className="form-input"
                   value={userForm.username}
-                  onChange={e => setUserForm({...userForm, username: e.target.value})}
-                  required 
+                  onChange={e => setUserForm({ ...userForm, username: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">Email</label>
-                <input 
-                  type="email" 
-                  className="form-input" 
+                <input
+                  type="email"
+                  className="form-input"
                   value={userForm.email}
-                  onChange={e => setUserForm({...userForm, email: e.target.value})}
-                  required 
+                  onChange={e => setUserForm({ ...userForm, email: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">Mật khẩu</label>
-                <input 
-                  type="password" 
-                  className="form-input" 
+                <input
+                  type="password"
+                  className="form-input"
                   value={userForm.password}
-                  onChange={e => setUserForm({...userForm, password: e.target.value})}
-                  required 
+                  onChange={e => setUserForm({ ...userForm, password: e.target.value })}
+                  required
                 />
               </div>
               <div className="form-group">
@@ -495,8 +499,8 @@ const IdentityManager = ({ api }) => {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', marginTop: '0.5rem' }}>
                   {roles.map(role => (
                     <label key={role.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-                      <input 
-                        type="checkbox" 
+                      <input
+                        type="checkbox"
                         checked={userForm.roleNames.includes(role.name)}
                         onChange={() => toggleUserRole(role.name)}
                       />
@@ -522,22 +526,22 @@ const IdentityManager = ({ api }) => {
             <form onSubmit={handleCreateRole}>
               <div className="form-group">
                 <label className="form-label">Tên vai trò</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <input
+                  type="text"
+                  className="form-input"
                   value={roleForm.name}
-                  onChange={e => setRoleForm({...roleForm, name: e.target.value})}
+                  onChange={e => setRoleForm({ ...roleForm, name: e.target.value })}
                   placeholder="Ví dụ: Accountant, Manager..."
-                  required 
+                  required
                 />
               </div>
               <div className="form-group">
                 <label className="form-label">Mô tả</label>
-                <textarea 
-                  className="form-input" 
+                <textarea
+                  className="form-input"
                   style={{ minHeight: '80px', paddingTop: '0.5rem' }}
                   value={roleForm.description}
-                  onChange={e => setRoleForm({...roleForm, description: e.target.value})}
+                  onChange={e => setRoleForm({ ...roleForm, description: e.target.value })}
                   placeholder="Mô tả chức năng của vai trò này"
                 />
               </div>
@@ -556,22 +560,22 @@ const IdentityManager = ({ api }) => {
           <div className="modal-content" style={{ maxWidth: '600px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
             <h2 style={{ marginBottom: '0.5rem' }}>Quản lý quyền: {selectedRole?.name}</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Chọn các quyền hạn được phép cho vai trò này.</p>
-            
+
             <div style={{ flex: 1, overflowY: 'auto', marginBottom: '1.5rem', paddingRight: '0.5rem' }}>
               {/* Group by Resource */}
               {Array.from(new Set(allPermissions.map(p => p.resource))).sort().map(resource => {
                 const resourcePerms = allPermissions.filter(p => p.resource === resource);
                 return (
-                  <div key={resource} style={{ 
-                    marginBottom: '2rem', 
-                    background: 'rgba(255,255,255,0.02)', 
-                    padding: '1rem', 
+                  <div key={resource} style={{
+                    marginBottom: '2rem',
+                    background: 'rgba(255,255,255,0.02)',
+                    padding: '1rem',
                     borderRadius: '0.75rem',
                     border: '1px solid rgba(255,255,255,0.05)'
                   }}>
-                    <h3 style={{ 
-                      color: '#38bdf8', 
-                      fontSize: '1rem', 
+                    <h3 style={{
+                      color: '#38bdf8',
+                      fontSize: '1rem',
                       marginBottom: '1rem',
                       display: 'flex',
                       alignItems: 'center',
@@ -587,11 +591,11 @@ const IdentityManager = ({ api }) => {
                       if (scopePerms.length === 0) return null;
                       return (
                         <div key={scope} style={{ marginBottom: '1rem', marginLeft: '1rem' }}>
-                          <h4 style={{ 
-                            color: '#94a3b8', 
-                            fontSize: '0.7rem', 
-                            textTransform: 'uppercase', 
-                            letterSpacing: '0.05em', 
+                          <h4 style={{
+                            color: '#94a3b8',
+                            fontSize: '0.7rem',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
                             marginBottom: '0.5rem',
                             display: 'flex',
                             alignItems: 'center',
@@ -601,18 +605,18 @@ const IdentityManager = ({ api }) => {
                           </h4>
                           <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.4rem' }}>
                             {scopePerms.map(p => (
-                              <label key={p.id} style={{ 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '0.75rem', 
-                                padding: '0.6rem', 
-                                borderRadius: '0.5rem', 
-                                cursor: 'pointer', 
+                              <label key={p.id} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.75rem',
+                                padding: '0.6rem',
+                                borderRadius: '0.5rem',
+                                cursor: 'pointer',
                                 background: 'rgba(255,255,255,0.03)',
                                 transition: 'all 0.2s'
                               }} className="permission-item-hover">
-                                <input 
-                                  type="checkbox" 
+                                <input
+                                  type="checkbox"
                                   checked={selectedPermissionIds.includes(p.id)}
                                   onChange={() => togglePermission(p.id)}
                                   style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
@@ -646,22 +650,22 @@ const IdentityManager = ({ api }) => {
           <div className="modal-content" style={{ maxWidth: '500px' }}>
             <h2 style={{ marginBottom: '0.5rem' }}>Phân vai trò: {selectedUser?.username}</h2>
             <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1.5rem' }}>Chọn các vai trò áp dụng cho người dùng này.</p>
-            
+
             <div style={{ maxHeight: '400px', overflowY: 'auto', marginBottom: '1.5rem' }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
                 {roles.map(role => (
-                  <label key={role.id} style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '0.75rem', 
-                    padding: '0.75rem', 
-                    borderRadius: '0.5rem', 
-                    cursor: 'pointer', 
+                  <label key={role.id} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    padding: '0.75rem',
+                    borderRadius: '0.5rem',
+                    cursor: 'pointer',
                     background: 'rgba(255,255,255,0.03)',
                     border: '1px solid rgba(255,255,255,0.05)'
                   }}>
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={selectedRoleIds.includes(role.id)}
                       onChange={() => toggleRoleAssignment(role.id)}
                       style={{ width: '18px', height: '18px', accentColor: '#2563eb' }}
@@ -721,7 +725,7 @@ const AuditLogViewer = ({ api }) => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <h2 style={{ fontSize: '1.25rem' }}>Nhật ký hệ thống (Audit Logs)</h2>
         <div style={{ display: 'flex', gap: '1rem' }}>
-           <button className="btn btn-outline" onClick={() => api.get('/api/v1/audit/verify-integrity').then(() => toast.success('Xác thực chuỗi Hash thành công!'))}>
+          <button className="btn btn-outline" onClick={() => api.get('/api/v1/audit/verify-integrity').then(() => toast.success('Xác thực chuỗi Hash thành công!'))}>
             <ShieldCheck size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
             Kiểm tra tính toàn vẹn
           </button>
@@ -746,9 +750,9 @@ const AuditLogViewer = ({ api }) => {
             </thead>
             <tbody>
               {logs.map(log => (
-                <tr key={log.id} 
-                    style={{ cursor: 'pointer', background: selectedLog?.id === log.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
-                    onClick={() => setSelectedLog(log)}>
+                <tr key={log.id}
+                  style={{ cursor: 'pointer', background: selectedLog?.id === log.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                  onClick={() => setSelectedLog(log)}>
                   <td style={{ fontSize: '0.875rem', whiteSpace: 'nowrap' }}>{new Date(log.performedAt).toLocaleString()}</td>
                   <td>{log.performedByName || 'System'}</td>
                   <td>
@@ -770,7 +774,7 @@ const AuditLogViewer = ({ api }) => {
               <h3 style={{ marginBottom: '1.5rem', color: '#94a3b8' }}>Chi tiết thay đổi</h3>
               <button className="btn btn-outline" style={{ padding: '4px' }} onClick={() => setSelectedLog(null)}>×</button>
             </div>
-            
+
             <div style={{ marginBottom: '1.5rem' }}>
               <div style={{ color: '#94a3b8', fontSize: '0.75rem', marginBottom: '0.25rem' }}>CORRELATION ID</div>
               <div style={{ fontFamily: 'monospace', fontSize: '0.875rem' }}>{selectedLog.correlationId}</div>
@@ -798,6 +802,294 @@ const AuditLogViewer = ({ api }) => {
   );
 };
 
+// ── Customer Manager Component ────────────────────────────────────────────────
+const CustomerManager = ({ api }) => {
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [customerForm, setCustomerForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    address: ''
+  });
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/customer');
+      setCustomers(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách khách hàng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/api/v1/customer', customerForm);
+      toast.success('Tạo khách hàng thành công!');
+      setShowCreateModal(false);
+      setCustomerForm({ firstName: '', lastName: '', email: '', phone: '', address: '' });
+      fetchCustomers();
+    } catch (error) {
+      const data = error.response?.data;
+      const msg = typeof data === 'string' ? data : data?.message || data?.title || JSON.stringify(data);
+      toast.error('Lỗi khi tạo khách hàng: ' + msg);
+    }
+  };
+
+  const getStatusInfo = (status) => {
+    switch (status) {
+      case 0: return { label: 'Hoạt động', color: '#22c55e' };
+      case 1: return { label: 'Đã tạo TK', color: '#38bdf8' };
+      case 2: return { label: 'Đã khóa', color: '#ef4444' };
+      default: return { label: 'N/A', color: '#94a3b8' };
+    }
+  };
+
+  const filteredCustomers = customers.filter(c => {
+    const term = searchTerm.toLowerCase();
+    return (
+      c.firstName?.toLowerCase().includes(term) ||
+      c.lastName?.toLowerCase().includes(term) ||
+      c.email?.toLowerCase().includes(term) ||
+      c.phone?.includes(term)
+    );
+  });
+
+  return (
+    <>
+      <div className="card">
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.25rem' }}>Quản lý khách hàng</h2>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <div style={{ position: 'relative' }}>
+              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+              <input
+                type="text"
+                placeholder="Tìm kiếm khách hàng..."
+                value={searchTerm}
+                onChange={e => setSearchTerm(e.target.value)}
+                className="form-input"
+                style={{ paddingLeft: '36px', width: '260px', margin: 0 }}
+              />
+            </div>
+            <button className="btn btn-outline" onClick={fetchCustomers} disabled={loading}>
+              <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Làm mới
+            </button>
+            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+              <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+              Thêm khách hàng
+            </button>
+          </div>
+        </div>
+
+        {/* Stats Row */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ background: 'rgba(34, 197, 94, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Tổng khách hàng</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{customers.length}</div>
+          </div>
+          <div style={{ background: 'rgba(56, 189, 248, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đang hoạt động</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#38bdf8' }}>{customers.filter(c => c.status === 0).length}</div>
+          </div>
+          <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đã khóa</div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>{customers.filter(c => c.status === 2).length}</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: selectedCustomer ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+          <div className="table-wrapper">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Họ tên</th>
+                  <th>Email</th>
+                  <th>SĐT</th>
+                  <th>Trạng thái</th>
+                  <th>Ngày tạo</th>
+                  <th>Điểm tích lũy</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Đang tải...</td></tr>
+                ) : filteredCustomers.length === 0 ? (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Không có khách hàng nào</td></tr>
+                ) : filteredCustomers.map(cust => {
+                  const statusInfo = getStatusInfo(cust.status);
+                  return (
+                    <tr key={cust.id}
+                      style={{ cursor: 'pointer', background: selectedCustomer?.id === cust.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                      onClick={() => setSelectedCustomer(cust)}>
+                      <td style={{ fontWeight: 500 }}>{cust.firstName} {cust.lastName}</td>
+                      <td style={{ fontSize: '0.875rem' }}>{cust.email}</td>
+                      <td style={{ fontSize: '0.875rem' }}>{cust.phone}</td>
+                      <td>
+                        <span className="status-badge" style={{ background: `${statusInfo.color}20`, color: statusInfo.color }}>
+                          {statusInfo.label}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: '0.875rem' }}>{new Date(cust.createdAt).toLocaleDateString()}</td>
+                      <td style={{ fontSize: '0.875rem' }}>{cust.customerPoint}</td>
+                      <td><ChevronRight size={16} /></td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {selectedCustomer && (
+            <div style={{ borderLeft: '1px solid rgba(255, 255, 255, 0.1)', paddingLeft: '2rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <h3 style={{ marginBottom: '1.5rem', color: '#94a3b8' }}>Chi tiết khách hàng</h3>
+                <button className="btn btn-outline" style={{ padding: '4px' }} onClick={() => setSelectedCustomer(null)}>×</button>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, #2563eb, #38bdf8)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.25rem', fontWeight: 700, color: 'white' }}>
+                  {selectedCustomer.firstName?.charAt(0)}{selectedCustomer.lastName?.charAt(0)}
+                </div>
+                <div>
+                  <div style={{ fontSize: '1.125rem', fontWeight: 600 }}>{selectedCustomer.firstName} {selectedCustomer.lastName}</div>
+                  <div style={{ fontSize: '0.75rem', color: '#64748b', fontFamily: 'monospace' }}>ID: {selectedCustomer.id?.substring(0, 8)}...</div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+                  <Mail size={16} color="#64748b" />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Email</div>
+                    <div style={{ fontSize: '0.875rem' }}>{selectedCustomer.email}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+                  <Phone size={16} color="#64748b" />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Số điện thoại</div>
+                    <div style={{ fontSize: '0.875rem' }}>{selectedCustomer.phone}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+                  <MapPin size={16} color="#64748b" />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Địa chỉ</div>
+                    <div style={{ fontSize: '0.875rem' }}>{selectedCustomer.address || 'Chưa cập nhật'}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+                  <Clock size={16} color="#64748b" />
+                  <div>
+                    <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Ngày tạo</div>
+                    <div style={{ fontSize: '0.875rem' }}>{new Date(selectedCustomer.createdAt).toLocaleString()}</div>
+                  </div>
+                </div>
+              </div>
+
+              {(() => {
+                const si = getStatusInfo(selectedCustomer.status);
+                return (
+                  <div style={{ marginTop: '1.5rem', padding: '0.75rem 1rem', background: `${si.color}10`, borderRadius: '0.5rem', border: `1px solid ${si.color}30` }}>
+                    <span style={{ fontSize: '0.75rem', color: si.color, fontWeight: 600 }}>Trạng thái: {si.label}</span>
+                  </div>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Modal Tạo Khách Hàng */}
+      {showCreateModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>Thêm khách hàng mới</h2>
+            <form onSubmit={handleCreateCustomer}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Họ</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={customerForm.firstName}
+                    onChange={e => setCustomerForm({ ...customerForm, firstName: e.target.value })}
+                    placeholder="Nguyễn"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Tên</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={customerForm.lastName}
+                    onChange={e => setCustomerForm({ ...customerForm, lastName: e.target.value })}
+                    placeholder="Văn A"
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={customerForm.email}
+                  onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+                  placeholder="email@example.com"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Số điện thoại</label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  value={customerForm.phone}
+                  onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                  placeholder="0901234567"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Địa chỉ</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.address}
+                  onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
+                  placeholder="123 Đường ABC, Quận 1, TP.HCM"
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowCreateModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Xác nhận tạo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
@@ -814,6 +1106,7 @@ function App() {
   });
   const [showModal, setShowModal] = useState(false);
   const [newInvoice, setNewInvoice] = useState({ customerName: '', amount: '' });
+  const [customers, setCustomers] = useState([]);
 
   // Axios configuration with token
   const api = axios.create({
@@ -828,7 +1121,7 @@ function App() {
   const getErrorDetail = (error) => {
     if (error.response) {
       const data = error.response.data;
-      
+
       // Handle standardized error response
       if (data.code) {
         return t(`errors:${data.code}`, data.params || {});
@@ -849,7 +1142,7 @@ function App() {
     if (user && token) {
       try {
         await api.put(`/api/v1/users/${user.id}/language`, JSON.stringify(lng), {
-            headers: { 'Content-Type': 'application/json' }
+          headers: { 'Content-Type': 'application/json' }
         });
       } catch (err) {
         console.error('Failed to sync language preference to backend', err);
@@ -857,13 +1150,29 @@ function App() {
     }
   };
 
+  const fetchCustomersForInvoice = async () => {
+    try {
+      const res = await api.get('/api/v1/customer');
+      setCustomers(res.data || []);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
   useEffect(() => {
     if (token) {
       fetchData();
+      fetchCustomersForInvoice();
       const interval = setInterval(fetchData, 5000);
       return () => clearInterval(interval);
     }
   }, [token]);
+
+  useEffect(() => {
+    if (showModal && token) {
+      fetchCustomersForInvoice();
+    }
+  }, [showModal, token]);
 
   const fetchData = async () => {
     try {
@@ -884,7 +1193,7 @@ function App() {
     try {
       const res = await axios.post(`${GATEWAY_URL}/api/v1/auth/login`, loginData);
       const { accessToken, id, username, avatarUrl, roles, permissions } = res.data;
-      
+
       const userData = { id, username, avatarUrl, roles, permissions };
       setToken(accessToken);
       setUser(userData);
@@ -937,7 +1246,7 @@ function App() {
     try {
       // 1. Submit Request with Idempotency Key
       const idempotencyKey = `pay_${invoiceId}_${new Date().getTime()}`;
-      
+
       const res = await api.post('/api/v1/payment/pay', {
         invoiceId,
         amount,
@@ -947,7 +1256,7 @@ function App() {
           'X-Idempotency-Key': idempotencyKey
         }
       });
-      
+
       const { paymentId } = res.data;
 
       // 2. Thiết lập SignalR
@@ -984,7 +1293,7 @@ function App() {
             try {
               const statusRes = await api.get(`/api/v1/payment/${paymentId}`);
               const statusData = statusRes.data;
-              
+
               if (statusData.status === 'Completed') {
                 isResolved = true;
                 connection.stop();
@@ -995,7 +1304,7 @@ function App() {
                 connection.stop();
                 return reject(new Error(statusData.failureReason));
               }
-              
+
               // Exponential backoff wait
               await new Promise(r => setTimeout(r, (statusData.retryAfter || 2) * 1000));
             } catch (pollErr) {
@@ -1003,7 +1312,7 @@ function App() {
               await new Promise(r => setTimeout(r, 2000));
             }
           }
-          
+
           if (!isResolved) {
             connection.stop();
             reject(new Error("Timeout: Giao dịch đang xử lý quá lâu, vui lòng kiểm tra lại sau."));
@@ -1030,35 +1339,35 @@ function App() {
             <h1 style={{ fontSize: '1.5rem', fontWeight: 700, color: '#1e293b' }}>BizCore ERP</h1>
             <p style={{ color: '#64748b', marginTop: '0.5rem' }}>Đăng nhập để quản trị hệ thống</p>
           </div>
-          
+
           <form onSubmit={handleLogin}>
             <div className="form-group" style={{ marginBottom: '1.25rem' }}>
               <label className="form-label">Tên đăng nhập</label>
-              <input 
-                type="text" 
-                className="form-input" 
+              <input
+                type="text"
+                className="form-input"
                 value={loginData.username}
-                onChange={e => setLoginData({...loginData, username: e.target.value})}
-                required 
+                onChange={e => setLoginData({ ...loginData, username: e.target.value })}
+                required
               />
             </div>
             <div className="form-group" style={{ marginBottom: '1.5rem' }}>
               <label className="form-label">Mật khẩu</label>
-              <input 
-                type="password" 
-                className="form-input" 
+              <input
+                type="password"
+                className="form-input"
                 value={loginData.password}
-                onChange={e => setLoginData({...loginData, password: e.target.value})}
-                required 
+                onChange={e => setLoginData({ ...loginData, password: e.target.value })}
+                required
               />
             </div>
-            
+
             {authError && <div style={{ color: '#ef4444', fontSize: '0.875rem', marginBottom: '1rem', textAlign: 'center' }}>{authError}</div>}
-            
+
             <button type="submit" className="btn btn-primary" style={{ width: '100%', padding: '0.75rem', fontSize: '1rem' }}>
               Đăng nhập ngay
             </button>
-            
+
             <div style={{ marginTop: '1.5rem', textAlign: 'center', fontSize: '0.875rem', color: '#94a3b8' }}>
               Demo: admin / Admin@123
             </div>
@@ -1086,9 +1395,9 @@ function App() {
 
           {/* Language Switcher */}
           <div style={{ marginBottom: '2rem', display: 'flex', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '4px', borderRadius: '8px' }}>
-            <button 
+            <button
               onClick={() => changeLanguage('vi')}
-              style={{ 
+              style={{
                 flex: 1, padding: '4px', border: 'none', borderRadius: '6px', cursor: 'pointer',
                 background: i18n.language === 'vi' ? '#2563eb' : 'transparent',
                 color: i18n.language === 'vi' ? 'white' : '#94a3b8',
@@ -1097,9 +1406,9 @@ function App() {
             >
               TIẾNG VIỆT
             </button>
-            <button 
+            <button
               onClick={() => changeLanguage('en')}
-              style={{ 
+              style={{
                 flex: 1, padding: '4px', border: 'none', borderRadius: '6px', cursor: 'pointer',
                 background: i18n.language === 'en' ? '#2563eb' : 'transparent',
                 color: i18n.language === 'en' ? 'white' : '#94a3b8',
@@ -1127,6 +1436,10 @@ function App() {
               <ShieldCheck size={20} />
               {t('common:roles')}
             </div>
+            <div className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveTab('customers')}>
+              <Contact size={20} />
+              Khách hàng
+            </div>
             <div className={`nav-item ${activeTab === 'audit' ? 'active' : ''}`} onClick={() => setActiveTab('audit')}>
               <Search size={20} />
               {t('common:audit')}
@@ -1146,6 +1459,7 @@ function App() {
             {activeTab === 'invoices' && t('common:invoices')}
             {activeTab === 'orchestration' && t('common:orchestration')}
             {activeTab === 'identity' && t('common:roles')}
+            {activeTab === 'customers' && 'Khách hàng'}
             {activeTab === 'audit' && t('common:audit')}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
@@ -1258,6 +1572,8 @@ function App() {
           <OrchestrationFlow api={api} />
         ) : activeTab === 'identity' ? (
           <IdentityManager api={api} />
+        ) : activeTab === 'customers' ? (
+          <CustomerManager api={api} />
         ) : activeTab === 'audit' ? (
           <AuditLogViewer api={api} />
         ) : null}
@@ -1271,24 +1587,31 @@ function App() {
             <form onSubmit={handleCreateInvoice}>
               <div className="form-group">
                 <label className="form-label">Tên khách hàng</label>
-                <input 
-                  type="text" 
-                  className="form-input" 
+                <select
+                  className="form-input"
                   value={newInvoice.customerName}
-                  onChange={e => setNewInvoice({...newInvoice, customerName: e.target.value})}
-                  required 
-                />
+                  onChange={e => setNewInvoice({ ...newInvoice, customerName: e.target.value })}
+                  required
+                  style={{ background: '#0f172a', color: 'white' }}
+                >
+                  <option value="">-- Chọn khách hàng --</option>
+                  {customers.map(cust => (
+                    <option key={cust.id} value={`${cust.firstName} ${cust.lastName}`} style={{ background: '#0f172a', color: 'white' }}>
+                      {cust.firstName} {cust.lastName} {cust.phone ? `(${cust.phone})` : ''}
+                    </option>
+                  ))}
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Số tiền ($)</label>
-                <input 
-                  type="number" 
-                  className="form-input" 
+                <input
+                  type="number"
+                  className="form-input"
                   value={newInvoice.amount}
                   min="0.01"
                   step="0.01"
-                  onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
-                  required 
+                  onChange={e => setNewInvoice({ ...newInvoice, amount: e.target.value })}
+                  required
                 />
               </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>

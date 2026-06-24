@@ -72,5 +72,12 @@ namespace Bizcore.BuildingBlocks.Audit
         {
             public const string Initiated = "payment.initiated";
         }
+
+        public static class Customer
+        {
+            public const string Created = "customer.created";
+            public const string Updated = "customer.updated";
+            public const string StatusUpdated = "customer.status.updated";
+        }
     }
 }

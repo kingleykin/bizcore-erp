@@ -29,14 +29,15 @@ namespace Invoice.API.Application.Commands
 
         public async Task<InvoiceResponseDto> Handle(CreateInvoiceCommand request, CancellationToken cancellationToken)
         {
-            var invoice = Domain.Entities.Invoice.Create(request.CustomerName, request.Amount);
-            
+            var invoice = Domain.Entities.Invoice.Create(request.CustomerId, request.CustomerName, request.Amount);
+
             _context.Invoices.Add(invoice);
 
             // Publish Event
             await _publishEndpoint.Publish<IInvoiceCreatedEvent>(new
             {
                 invoice.Id,
+                invoice.CustomerId,
                 invoice.CustomerName,
                 invoice.Amount,
                 invoice.CreatedAt

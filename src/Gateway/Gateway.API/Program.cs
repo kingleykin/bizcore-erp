@@ -49,7 +49,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-XSS-Protection"] = "1; mode=block";
     context.Response.Headers["Content-Security-Policy"] =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-        "connect-src 'self' http://localhost:5001 http://localhost:3000; object-src 'none';";
+        "connect-src 'self' http://localhost:5001 object-src 'none';";
     await next();
 });
 

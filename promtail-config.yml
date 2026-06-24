@@ -39,6 +39,10 @@ scrape_configs:
         target_label: 'job'
         replacement: 'invoice-api'
       - source_labels: ['__meta_docker_container_name']
+        regex: '/.*customer.*'
+        target_label: 'job'
+        replacement: 'customer-api'
+      - source_labels: ['__meta_docker_container_name']
         regex: '/.*payment.*'
         target_label: 'job'
         replacement: 'payment-api'
