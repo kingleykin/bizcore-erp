@@ -28,7 +28,7 @@ public class ApplyPaymentToInvoiceConsumerTests
     {
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
-        var invoice = InvoiceEntity.Create("Alice", 1_000m);
+        var invoice = InvoiceEntity.Create(Guid.NewGuid(), "Alice", 1_000m);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
@@ -79,7 +79,7 @@ public class ApplyPaymentToInvoiceConsumerTests
     {
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
-        var invoice = InvoiceEntity.Create("Bob", 500m);
+        var invoice = InvoiceEntity.Create(Guid.NewGuid(), "Bob", 500m);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 
@@ -106,7 +106,7 @@ public class ApplyPaymentToInvoiceConsumerTests
     {
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
-        var invoice = InvoiceEntity.Create("Carol", 300m);
+        var invoice = InvoiceEntity.Create(Guid.NewGuid(), "Carol", 300m);
         invoice.UpdateStatus(InvoiceStatus.Paid);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
@@ -133,7 +133,7 @@ public class ApplyPaymentToInvoiceConsumerTests
     {
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
-        var invoice = InvoiceEntity.Create("Dave", 150m);
+        var invoice = InvoiceEntity.Create(Guid.NewGuid(), "Dave", 150m);
         invoice.UpdateStatus(InvoiceStatus.Cancelled);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();

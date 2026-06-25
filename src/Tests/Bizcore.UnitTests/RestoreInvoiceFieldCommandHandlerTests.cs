@@ -21,7 +21,7 @@ public class RestoreInvoiceFieldCommandHandlerTests
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
 
-        var invoice = Invoice.API.Domain.Entities.Invoice.Create("Old Name", 1000);
+        var invoice = Invoice.API.Domain.Entities.Invoice.Create(Guid.NewGuid(), "Old Name", 1000);
         context.Invoices.Add(invoice);
         await context.SaveChangesAsync();
 

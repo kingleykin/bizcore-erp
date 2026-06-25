@@ -13,5 +13,8 @@ public record CustomerResponseDto
     string Address,
     CustomerStatus Status,
     int CustomerPoint,
+    int SoTienTrongTaiKhoan,
+    int SoTienTongHoaDon,
+    Guid? CustomerGroupId,
     DateTime CreatedAt
 );

@@ -30,6 +30,9 @@ public class GetCustomersHandler : IRequestHandler<GetCustomersQuery, IEnumerabl
             e.Address,
             e.Status,
             e.CustomerPoint,
+            e.SoTienTrongTaiKhoan,
+            e.SoTienTongHoaDon,
+            e.CustomerGroupId,
             e.CreatedAt
         ));
     }
@@ -59,6 +62,9 @@ public class GetCustomerByIdHandler : IRequestHandler<GetCustomerByIdQuery, Cust
             entity.Address,
             entity.Status,
             entity.CustomerPoint,
+            entity.SoTienTrongTaiKhoan,
+            entity.SoTienTongHoaDon,
+            entity.CustomerGroupId,
             entity.CreatedAt
         );
     }

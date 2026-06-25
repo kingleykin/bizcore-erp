@@ -26,7 +26,8 @@ public class OrchestrationModule : IServiceModule
         services.AddScoped<IUnitOfWork, OrchestrationUnitOfWork>();
 
         // 2. MediatR
-        services.AddMediatR(cfg => {
+        services.AddMediatR(cfg =>
+        {
             cfg.RegisterServicesFromAssembly(typeof(OrchestrationModule).Assembly);
             cfg.AddOpenBehavior(typeof(LoggingBehavior<,>));
             cfg.AddOpenBehavior(typeof(TransactionBehavior<,>));
@@ -55,6 +56,11 @@ public class OrchestrationModule : IServiceModule
                 x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                 x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                 x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
+                x.MapBusinessCommand<IAddCustomerPointCommand>(QueueNames.CustomerService);
+                x.MapBusinessCommand<IDeductCustomerBalanceCommand>(QueueNames.CustomerService);
+                x.MapBusinessCommand<IRefundCustomerBalanceCommand>(QueueNames.CustomerService);
+                x.MapBusinessCommand<IRefundPaymentCommand>(QueueNames.PaymentService);
+                x.MapBusinessCommand<IRevertInvoicePaymentCommand>(QueueNames.InvoiceService);
             });
     }
 }

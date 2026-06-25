@@ -247,6 +247,9 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
 
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("FailureReason")
                         .HasMaxLength(512)
                         .HasColumnType("nvarchar(512)");

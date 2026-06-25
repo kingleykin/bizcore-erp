@@ -22,4 +22,6 @@ namespace Bizcore.BuildingBlocks.Contracts
         string Reason { get; }
         DateTime RejectedAt { get; }
     }
+
+
 }

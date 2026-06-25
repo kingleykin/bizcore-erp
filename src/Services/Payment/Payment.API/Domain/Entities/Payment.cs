@@ -28,6 +28,7 @@ namespace Payment.API.Domain.Entities
 
     public class Invoice : BaseEntity
     {
+        public Guid CustomerId { get; set; }
         public InvoiceStatus Status { get; set; }
     }
 }

@@ -24,7 +24,7 @@ public class ImplicitAuditRemovalTests
             
         using var context = new AppDbContext(options);
         
-        var invoice = Invoice.API.Domain.Entities.Invoice.Create("Test Customer", 500);
+        var invoice = Invoice.API.Domain.Entities.Invoice.Create(Guid.NewGuid(), "Test Customer", 500);
         context.Invoices.Add(invoice);
 
         // Act

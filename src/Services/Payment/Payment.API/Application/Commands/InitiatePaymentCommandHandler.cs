@@ -48,12 +48,12 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
 
 
         // Check if invoice exists in Payment service's read model
-        var invoiceExists = await _context.Invoices.AnyAsync(
+        var invoice = await _context.Invoices.FirstOrDefaultAsync(
             i => i.Id == request.InvoiceId,
             cancellationToken
         );
 
-        if (!invoiceExists)
+        if (invoice == null)
         {
             _logger.LogWarning(
                 "Invoice not found in Payment read model. InvoiceId: {InvoiceId}",
@@ -128,6 +128,7 @@ public class InitiatePaymentCommandHandler : IRequestHandler<InitiatePaymentComm
             PaymentId = payment.Id,
             InvoiceId = payment.InvoiceId,
             Amount = payment.Amount,
+            CustomerId = invoice.CustomerId,
             IdempotencyKey = request.IdempotencyKey,
             InitiatedAt = payment.PaymentDate
         }, cancellationToken);

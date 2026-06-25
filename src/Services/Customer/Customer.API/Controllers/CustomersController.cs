@@ -68,20 +68,39 @@ public class CustomersController : ControllerBase
         return CreatedAtAction(nameof(GetCustomer), new { id = created.Id }, created);
     }
 
-    // [HttpPut("{id}/status")]
-    // [RequirePermission(Permissions.Customer.Update)]
-    // public async Task<IActionResult> UpdateStatus(Guid id, [FromBody] UpdateCustomerStatusRequest request)
-    // {
-    //     var command = new UpdateCustomerStatusCommand(id, request.Status, request.Version);
-    //     var success = await _mediator.Send(command);
-    //     if (!success)
-    //     {
-    //         _logger.LogWarning("Invoice not found or concurrency conflict for status update InvoiceId={InvoiceId}", id);
-    //         return NotFound();
-    //     }
-    //     _logger.LogInformation("Invoice status updated InvoiceId={InvoiceId}, Status={Status}", id, request.Status);
-    //     return NoContent();
-    // }
+    [HttpPut("{id}")]
+    [RequirePermission(Permissions.Customer.Update)]
+    public async Task<ActionResult<CustomerResponseDto>> UpdateCustomer(Guid id, [FromBody] UpdateCustomerRequest request)
+    {
+        var command = new UpdateCustomerCommand(id, request.FirstName, request.LastName, request.Phone, request.Address);
+        try
+        {
+            var updated = await _mediator.Send(command);
+            return Ok(updated);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Update customer failed CustomerId={CustomerId}", id);
+            return NotFound(new { error = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    [RequirePermission(Permissions.Customer.Delete)]
+    public async Task<IActionResult> DeleteCustomer(Guid id)
+    {
+        var command = new DeleteCustomerCommand(id);
+        try
+        {
+            await _mediator.Send(command);
+            return NoContent();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Delete customer failed CustomerId={CustomerId}", id);
+            return NotFound(new { error = ex.Message });
+        }
+    }
 
     // ── Reversal Endpoints ────────────────────────────────────────────────
 

@@ -33,6 +33,7 @@
     <ProjectReference Include="..\..\Services\Admin\Admin.API\Admin.API.csproj" />
     <ProjectReference Include="..\..\Services\Audit\Audit.API\Audit.API.csproj" />
     <ProjectReference Include="..\..\Services\File\File.API\File.API.csproj" />
+    <ProjectReference Include="..\..\Services\Customer\Customer.API\Customer.API.csproj" />
   </ItemGroup>
 
 </Project>

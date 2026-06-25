@@ -73,10 +73,7 @@ namespace Customer.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("CustomerGroupId")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("CustomerGroupId1")
+                    b.Property<Guid?>("CustomerGroupId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("CustomerPoint")
@@ -102,6 +99,12 @@ namespace Customer.API.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("nvarchar(128)");
 
+                    b.Property<int>("SoTienTongHoaDon")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SoTienTrongTaiKhoan")
+                        .HasColumnType("int");
+
                     b.Property<int>("Status")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -115,7 +118,7 @@ namespace Customer.API.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerGroupId1");
+                    b.HasIndex("CustomerGroupId");
 
                     b.ToTable("Customers");
                 });
@@ -296,7 +299,7 @@ namespace Customer.API.Migrations
                 {
                     b.HasOne("Customer.API.Domain.Entities.CustomerGroup", "CustomerGroup")
                         .WithMany()
-                        .HasForeignKey("CustomerGroupId1");
+                        .HasForeignKey("CustomerGroupId");
 
                     b.Navigation("CustomerGroup");
                 });

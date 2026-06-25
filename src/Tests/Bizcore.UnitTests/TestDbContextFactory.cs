@@ -41,6 +41,13 @@ internal static class TestDbContextFactory
         return context;
     }
 
+    public static Customer.API.Infrastructure.Data.CustomerDbContext CreateCustomerDbContext(SqliteConnection connection)
+    {
+        var context = new Customer.API.Infrastructure.Data.CustomerDbContext(CreateSqliteOptions<Customer.API.Infrastructure.Data.CustomerDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
+    }
+
     public static SqliteConnection CreateOpenConnection()
     {
         var connection = new SqliteConnection("DataSource=:memory:");

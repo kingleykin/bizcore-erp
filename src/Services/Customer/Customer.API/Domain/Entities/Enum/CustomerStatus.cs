@@ -1,4 +1,5 @@
 namespace Customer.API.Domain.Entities;
+
 public enum CustomerStatus
 {
     /// <summary>Khách hàng hoạt động bình thường</summary>
@@ -7,4 +8,4 @@ public enum CustomerStatus
     CreatedUser = 1,
     /// <summary>Khách hàng đã bị khóa tài khoản</summary>
     Blocked = 2
-}   
+}

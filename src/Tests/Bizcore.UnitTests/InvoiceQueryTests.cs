@@ -20,8 +20,8 @@ public class InvoiceQueryTests
         await connection.OpenAsync();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
 
-        var invoice1 = InvoiceEntity.Create("Alice", 123_000m);
-        var invoice2 = InvoiceEntity.Create("Bob", 50_000m);
+        var invoice1 = InvoiceEntity.Create(Guid.NewGuid(), "Alice", 123_000m);
+        var invoice2 = InvoiceEntity.Create(Guid.NewGuid(), "Bob", 50_000m);
         await context.Invoices.AddRangeAsync(invoice1, invoice2);
         await context.SaveChangesAsync();
 
@@ -41,7 +41,7 @@ public class InvoiceQueryTests
         await connection.OpenAsync();
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
 
-        var invoice = InvoiceEntity.Create("Alice", 123_000m);
+        var invoice = InvoiceEntity.Create(Guid.NewGuid(), "Alice", 123_000m);
         await context.Invoices.AddAsync(invoice);
         await context.SaveChangesAsync();
 

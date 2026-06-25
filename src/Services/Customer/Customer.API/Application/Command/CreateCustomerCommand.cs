@@ -9,5 +9,6 @@ public record CreateCustomerCommand(
     string LastName,
     string Email,
     string Phone,
-    string Address
+    string Address,
+    Guid? CustomerGroupId = null
 ) : IRequest<CustomerResponseDto>, ITransactionalCommand;

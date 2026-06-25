@@ -23,6 +23,7 @@ namespace Bizcore.UnitTests
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
+                    x.MapBusinessCommand<IAddCustomerPointCommand>(QueueNames.CustomerService);
                     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>();
                 })
                 .BuildServiceProvider(true);
@@ -35,11 +36,13 @@ namespace Bizcore.UnitTests
             var amount = 1500m;
 
             // Act
+            var customerId = Guid.NewGuid();
             await harness.Bus.Publish<IPaymentInitiatedEvent>(new
             {
                 PaymentId = paymentId,
                 InvoiceId = invoiceId,
                 Amount = amount,
+                CustomerId = customerId,
                 IdempotencyKey = "test-key",
                 InitiatedAt = DateTime.UtcNow
             });
@@ -73,6 +76,7 @@ namespace Bizcore.UnitTests
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
+                    x.MapBusinessCommand<IAddCustomerPointCommand>(QueueNames.CustomerService);
                     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>();
                 })
                 .BuildServiceProvider(true);
@@ -84,11 +88,13 @@ namespace Bizcore.UnitTests
             var invoiceId = Guid.NewGuid();
 
             // 1. Start Saga
+            var customerId = Guid.NewGuid();
             await harness.Bus.Publish<IPaymentInitiatedEvent>(new
             {
                 PaymentId = paymentId,
                 InvoiceId = invoiceId,
                 Amount = 1000m,
+                CustomerId = customerId,
                 IdempotencyKey = "test-key",
                 InitiatedAt = DateTime.UtcNow
             });
@@ -110,10 +116,37 @@ namespace Bizcore.UnitTests
             // 3. Check if ConfirmPaymentCommand was sent
             (await harness.Sent.Any<IConfirmPaymentCommand>()).Should().BeTrue();
             
-            // 4. Check if Saga instance is finalized (Completed)
+            // 4. Check if Saga instance is in Confirming state
             var instance = sagaHarness.Sagas.Contains(paymentId);
             instance.Should().NotBeNull();
-            instance!.CurrentState.Should().Be("Confirmed");
+            instance!.CurrentState.Should().Be("Confirming");
+
+            // 5. Simulate Payment Confirmed
+            await harness.Bus.Publish<IPaymentConfirmedEvent>(new
+            {
+                PaymentId = paymentId,
+                InvoiceId = invoiceId,
+                ConfirmedAt = DateTime.UtcNow
+            });
+
+            (await sagaHarness.Consumed.Any<IPaymentConfirmedEvent>()).Should().BeTrue();
+            (await harness.Sent.Any<IAddCustomerPointCommand>()).Should().BeTrue();
+            instance.CurrentState.Should().Be("UpdatingPoints");
+
+            // 6. Simulate Customer Point Added
+            await harness.Bus.Publish<ICustomerPointAddedEvent>(new
+            {
+                PaymentId = paymentId,
+                CustomerId = instance.CustomerId,
+                Points = 100
+            });
+
+            (await sagaHarness.Consumed.Any<ICustomerPointAddedEvent>()).Should().BeTrue();
+
+            // 7. Check if Saga instance is finalized (transitions to Final state)
+            var finalizedInstance = sagaHarness.Sagas.Contains(paymentId);
+            finalizedInstance.Should().NotBeNull();
+            finalizedInstance!.CurrentState.Should().Be("Final");
         }
 
         [Fact]
@@ -126,6 +159,7 @@ namespace Bizcore.UnitTests
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
+                    x.MapBusinessCommand<IAddCustomerPointCommand>(QueueNames.CustomerService);
                     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>();
                 })
                 .BuildServiceProvider(true);
@@ -137,11 +171,13 @@ namespace Bizcore.UnitTests
             var invoiceId = Guid.NewGuid();
 
             // 1. Start Saga
+            var customerId = Guid.NewGuid();
             await harness.Bus.Publish<IPaymentInitiatedEvent>(new
             {
                 PaymentId = paymentId,
                 InvoiceId = invoiceId,
                 Amount = 1000m,
+                CustomerId = customerId,
                 IdempotencyKey = "test-key",
                 InitiatedAt = DateTime.UtcNow
             });
@@ -180,6 +216,7 @@ namespace Bizcore.UnitTests
                     x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
                     x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                     x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
+                    x.MapBusinessCommand<IAddCustomerPointCommand>(QueueNames.CustomerService);
                     x.AddSagaStateMachine<PaymentSaga, PaymentSagaState>();
                 })
                 .BuildServiceProvider(true);
@@ -191,11 +228,13 @@ namespace Bizcore.UnitTests
             var invoiceId = Guid.NewGuid();
 
             // 1. Start Saga
+            var customerId = Guid.NewGuid();
             await harness.Bus.Publish<IPaymentInitiatedEvent>(new
             {
                 PaymentId = paymentId,
                 InvoiceId = invoiceId,
                 Amount = 1000m,
+                CustomerId = customerId,
                 IdempotencyKey = "timeout-test",
                 InitiatedAt = DateTime.UtcNow
             });

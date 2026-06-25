@@ -32,6 +32,7 @@ namespace Payment.API.Application.Consumers
             _context.Invoices.Add(new Invoice
             {
                 Id = message.Id,
+                CustomerId = message.CustomerId,
                 Status = InvoiceStatus.Pending
             });
 

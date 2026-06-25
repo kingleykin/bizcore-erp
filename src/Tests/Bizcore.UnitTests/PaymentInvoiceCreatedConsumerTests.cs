@@ -17,15 +17,17 @@ public class PaymentInvoiceCreatedConsumerTests
 {
     private sealed class InvoiceCreatedEventFake : IInvoiceCreatedEvent
     {
-        public InvoiceCreatedEventFake(Guid id, string customerName, decimal amount, DateTime createdAt)
+        public InvoiceCreatedEventFake(Guid id, Guid customerId, string customerName, decimal amount, DateTime createdAt)
         {
             Id = id;
+            CustomerId = customerId;
             CustomerName = customerName;
             Amount = amount;
             CreatedAt = createdAt;
         }
 
         public Guid Id { get; }
+        public Guid CustomerId { get; }
         public string CustomerName { get; }
         public decimal Amount { get; }
         public DateTime CreatedAt { get; }
@@ -39,17 +41,19 @@ public class PaymentInvoiceCreatedConsumerTests
 
         var consumer = new InvoiceCreatedConsumer(context, Mock.Of<ILogger<InvoiceCreatedConsumer>>());
         var invoiceId = Guid.NewGuid();
+        var customerId = Guid.NewGuid();
 
         var consumeContext = new Mock<ConsumeContext<IInvoiceCreatedEvent>>();
         consumeContext
             .SetupGet(x => x.Message)
-            .Returns(new InvoiceCreatedEventFake(invoiceId, "Cust", 100m, DateTime.UtcNow));
+            .Returns(new InvoiceCreatedEventFake(invoiceId, customerId, "Cust", 100m, DateTime.UtcNow));
 
         await consumer.Consume(consumeContext.Object);
 
         context.Invoices.Count().Should().Be(1);
         var saved = context.Invoices.Single();
         saved.Id.Should().Be(invoiceId);
+        saved.CustomerId.Should().Be(customerId);
         saved.Status.Should().Be(InvoiceStatus.Pending);
     }
 
@@ -69,7 +73,7 @@ public class PaymentInvoiceCreatedConsumerTests
         var consumeContext = new Mock<ConsumeContext<IInvoiceCreatedEvent>>();
         consumeContext
             .SetupGet(x => x.Message)
-            .Returns(new InvoiceCreatedEventFake(invoiceId, "Cust", 100m, DateTime.UtcNow));
+            .Returns(new InvoiceCreatedEventFake(invoiceId, Guid.NewGuid(), "Cust", 100m, DateTime.UtcNow));
 
         await consumer.Consume(consumeContext.Object);
 

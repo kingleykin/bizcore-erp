@@ -29,7 +29,7 @@ namespace Customer.API.Application.Commands
 
         public async Task<CustomerResponseDto> Handle(CreateCustomerCommand request, CancellationToken cancellationToken)
         {
-            var customer = Customers.Create(request.FirstName, request.LastName, request.Email, request.Phone, request.Address);
+            var customer = Customers.Create(request.FirstName, request.LastName, request.Email, request.Phone, request.Address, request.CustomerGroupId);
 
             _context.Customers.Add(customer);
 
@@ -67,6 +67,9 @@ namespace Customer.API.Application.Commands
                 customer.Address,
                 customer.Status,
                 customer.CustomerPoint,
+                customer.SoTienTrongTaiKhoan,
+                customer.SoTienTongHoaDon,
+                customer.CustomerGroupId,
                 customer.CreatedAt
             );
         }

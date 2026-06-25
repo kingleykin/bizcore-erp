@@ -41,7 +41,7 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string UserDeactivated = "identity.user.deactivated";
             public const string UserUnlocked = "identity.user.unlocked";
             public const string UserRolesAssigned = "identity.user.roles.assigned";
-            
+
             public const string RoleCreated = "identity.role.created";
             public const string RoleUpdated = "identity.role.updated";
             public const string RoleDeleted = "identity.role.deleted";
@@ -78,6 +78,11 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string Created = "customer.created";
             public const string Updated = "customer.updated";
             public const string StatusUpdated = "customer.status.updated";
+
+            public const string CustomerPointAdded = "customer.point.added";
+            public const string CustomerBalanceDeducted = "customer.balance.deducted";
+            public const string BlockCustomer = "customer.block";
+            public const string UnBlockCustomer = "customer.unblock";
         }
     }
 }

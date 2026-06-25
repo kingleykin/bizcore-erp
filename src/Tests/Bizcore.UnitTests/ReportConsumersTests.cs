@@ -17,15 +17,17 @@ public class ReportConsumersTests
 {
     private sealed class InvoiceCreatedEventFake : IInvoiceCreatedEvent
     {
-        public InvoiceCreatedEventFake(Guid id, string customerName, decimal amount, DateTime createdAt)
+        public InvoiceCreatedEventFake(Guid id, Guid customerId, string customerName, decimal amount, DateTime createdAt)
         {
             Id = id;
+            CustomerId = customerId;
             CustomerName = customerName;
             Amount = amount;
             CreatedAt = createdAt;
         }
 
         public Guid Id { get; }
+        public Guid CustomerId { get; }
         public string CustomerName { get; }
         public decimal Amount { get; }
         public DateTime CreatedAt { get; }
@@ -57,7 +59,7 @@ public class ReportConsumersTests
 
         var id = Guid.NewGuid();
         var createdAt = DateTime.UtcNow.AddMinutes(-5);
-        var message = new InvoiceCreatedEventFake(id, "Cust", 123m, createdAt);
+        var message = new InvoiceCreatedEventFake(id, Guid.NewGuid(), "Cust", 123m, createdAt);
 
         var consumeContext = new Mock<ConsumeContext<IInvoiceCreatedEvent>>();
         consumeContext.SetupGet(x => x.Message).Returns(message);

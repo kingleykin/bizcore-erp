@@ -804,22 +804,49 @@ const AuditLogViewer = ({ api }) => {
 
 // ── Customer Manager Component ────────────────────────────────────────────────
 const CustomerManager = ({ api }) => {
+  const [activeSubTab, setActiveSubTab] = useState('customers');
   const [customers, setCustomers] = useState([]);
+  const [customerGroups, setCustomerGroups] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showGroupModal, setShowGroupModal] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selectedGroup, setSelectedGroup] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  
   const [customerForm, setCustomerForm] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    address: ''
+    address: '',
+    customerGroupId: ''
+  });
+
+  const [editCustomerForm, setEditCustomerForm] = useState({
+    firstName: '',
+    lastName: '',
+    phone: '',
+    address: '',
+    customerGroupId: ''
+  });
+
+  const [groupForm, setGroupForm] = useState({
+    nameCustomerGroup: '',
+    code: '',
+    description: '',
+    status: 0
   });
 
   useEffect(() => {
-    fetchCustomers();
-  }, []);
+    if (activeSubTab === 'customers') {
+      fetchCustomers();
+      if (customerGroups.length === 0) fetchCustomerGroups();
+    } else {
+      fetchCustomerGroups();
+    }
+  }, [activeSubTab]);
 
   const fetchCustomers = async () => {
     try {
@@ -833,19 +860,109 @@ const CustomerManager = ({ api }) => {
     }
   };
 
+  const fetchCustomerGroups = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/customergroup');
+      setCustomerGroups(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách nhóm khách hàng');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateCustomer = async (e) => {
     e.preventDefault();
     try {
-      await api.post('/api/v1/customer', customerForm);
+      const payload = { ...customerForm };
+      if (!payload.customerGroupId) payload.customerGroupId = null;
+
+      await api.post('/api/v1/customer', payload);
       toast.success('Tạo khách hàng thành công!');
       setShowCreateModal(false);
-      setCustomerForm({ firstName: '', lastName: '', email: '', phone: '', address: '' });
+      setCustomerForm({ firstName: '', lastName: '', email: '', phone: '', address: '', customerGroupId: '' });
       fetchCustomers();
     } catch (error) {
       const data = error.response?.data;
       const msg = typeof data === 'string' ? data : data?.message || data?.title || JSON.stringify(data);
       toast.error('Lỗi khi tạo khách hàng: ' + msg);
     }
+  };
+
+  const openEditCustomerModal = (cust) => {
+    setEditCustomerForm({
+      firstName: cust.firstName || '',
+      lastName: cust.lastName || '',
+      phone: cust.phone || '',
+      address: cust.address || '',
+      customerGroupId: cust.customerGroupId || ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = { ...editCustomerForm };
+      if (!payload.customerGroupId) payload.customerGroupId = null;
+
+      await api.put(`/api/v1/customer/${selectedCustomer.id}`, payload);
+      toast.success('Cập nhật khách hàng thành công!');
+      setShowEditModal(false);
+      // refresh and update selectedCustomer
+      const res = await api.get('/api/v1/customer');
+      setCustomers(res.data);
+      const updated = res.data.find(c => c.id === selectedCustomer.id);
+      if (updated) setSelectedCustomer(updated);
+    } catch (error) {
+      const data = error.response?.data;
+      const msg = typeof data === 'string' ? data : data?.message || data?.title || JSON.stringify(data);
+      toast.error('Lỗi khi cập nhật khách hàng: ' + msg);
+    }
+  };
+
+  const handleSaveGroup = async (e) => {
+    e.preventDefault();
+    try {
+      if (selectedGroup) {
+        await api.put(`/api/v1/customergroup/${selectedGroup.id}`, { id: selectedGroup.id, ...groupForm });
+        toast.success('Cập nhật nhóm khách hàng thành công!');
+      } else {
+        await api.post('/api/v1/customergroup', groupForm);
+        toast.success('Tạo nhóm khách hàng thành công!');
+      }
+      setShowGroupModal(false);
+      setSelectedGroup(null);
+      setGroupForm({ nameCustomerGroup: '', code: '', description: '', status: 0 });
+      fetchCustomerGroups();
+    } catch (error) {
+      const data = error.response?.data;
+      const msg = typeof data === 'string' ? data : data?.message || data?.title || JSON.stringify(data);
+      toast.error('Lỗi khi lưu nhóm khách hàng: ' + msg);
+    }
+  };
+
+  const handleDeleteGroup = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa nhóm này không?')) return;
+    try {
+      await api.delete(`/api/v1/customergroup/${id}`);
+      toast.success('Xóa nhóm thành công!');
+      fetchCustomerGroups();
+    } catch (error) {
+      toast.error('Lỗi khi xóa nhóm khách hàng');
+    }
+  };
+
+  const openEditGroupModal = (group) => {
+    setSelectedGroup(group);
+    setGroupForm({
+      nameCustomerGroup: group.nameCustomerGroup,
+      code: group.code,
+      description: group.description || '',
+      status: group.status
+    });
+    setShowGroupModal(true);
   };
 
   const getStatusInfo = (status) => {
@@ -870,88 +987,163 @@ const CustomerManager = ({ api }) => {
   return (
     <>
       <div className="card">
+        <div className="tab-header" style={{ marginBottom: '1.5rem' }}>
+          <div className={`tab-btn ${activeSubTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveSubTab('customers')}>
+            <Users size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+            Khách hàng
+          </div>
+          <div className={`tab-btn ${activeSubTab === 'groups' ? 'active' : ''}`} onClick={() => setActiveSubTab('groups')}>
+            <LayoutDashboard size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+            Nhóm khách hàng
+          </div>
+        </div>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h2 style={{ fontSize: '1.25rem' }}>Quản lý khách hàng</h2>
+          <h2 style={{ fontSize: '1.25rem' }}>{activeSubTab === 'customers' ? 'Quản lý khách hàng' : 'Nhóm khách hàng'}</h2>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <div style={{ position: 'relative' }}>
-              <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
-              <input
-                type="text"
-                placeholder="Tìm kiếm khách hàng..."
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-                className="form-input"
-                style={{ paddingLeft: '36px', width: '260px', margin: 0 }}
-              />
-            </div>
-            <button className="btn btn-outline" onClick={fetchCustomers} disabled={loading}>
+            {activeSubTab === 'customers' && (
+              <div style={{ position: 'relative' }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm khách hàng..."
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="form-input"
+                  style={{ paddingLeft: '36px', width: '260px', margin: 0 }}
+                />
+              </div>
+            )}
+            <button className="btn btn-outline" onClick={activeSubTab === 'customers' ? fetchCustomers : fetchCustomerGroups} disabled={loading}>
               <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
               Làm mới
             </button>
-            <button className="btn btn-primary" onClick={() => setShowCreateModal(true)}>
+            <button className="btn btn-primary" onClick={() => {
+              if (activeSubTab === 'customers') {
+                setShowCreateModal(true);
+              } else {
+                setSelectedGroup(null);
+                setGroupForm({ nameCustomerGroup: '', code: '', description: '', status: 0 });
+                setShowGroupModal(true);
+              }
+            }}>
               <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
-              Thêm khách hàng
+              {activeSubTab === 'customers' ? 'Thêm khách hàng' : 'Thêm nhóm KH'}
             </button>
           </div>
         </div>
 
         {/* Stats Row */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
-          <div style={{ background: 'rgba(34, 197, 94, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Tổng khách hàng</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{customers.length}</div>
+        {activeSubTab === 'customers' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ background: 'rgba(34, 197, 94, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(34, 197, 94, 0.15)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Tổng khách hàng</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{customers.length}</div>
+            </div>
+            <div style={{ background: 'rgba(56, 189, 248, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đang hoạt động</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#38bdf8' }}>{customers.filter(c => c.status === 0).length}</div>
+            </div>
+            <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đã khóa</div>
+              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>{customers.filter(c => c.status === 2).length}</div>
+            </div>
           </div>
-          <div style={{ background: 'rgba(56, 189, 248, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(56, 189, 248, 0.15)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đang hoạt động</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#38bdf8' }}>{customers.filter(c => c.status === 0).length}</div>
-          </div>
-          <div style={{ background: 'rgba(239, 68, 68, 0.08)', padding: '1rem 1.25rem', borderRadius: '0.75rem', border: '1px solid rgba(239, 68, 68, 0.15)' }}>
-            <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.25rem' }}>Đã khóa</div>
-            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: '#ef4444' }}>{customers.filter(c => c.status === 2).length}</div>
-          </div>
-        </div>
+        )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: selectedCustomer ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: (activeSubTab === 'customers' && selectedCustomer) ? '1fr 1fr' : '1fr', gap: '2rem' }}>
           <div className="table-wrapper">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Họ tên</th>
-                  <th>Email</th>
-                  <th>SĐT</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày tạo</th>
-                  <th>Điểm tích lũy</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Đang tải...</td></tr>
-                ) : filteredCustomers.length === 0 ? (
-                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Không có khách hàng nào</td></tr>
-                ) : filteredCustomers.map(cust => {
-                  const statusInfo = getStatusInfo(cust.status);
-                  return (
-                    <tr key={cust.id}
-                      style={{ cursor: 'pointer', background: selectedCustomer?.id === cust.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
-                      onClick={() => setSelectedCustomer(cust)}>
-                      <td style={{ fontWeight: 500 }}>{cust.firstName} {cust.lastName}</td>
-                      <td style={{ fontSize: '0.875rem' }}>{cust.email}</td>
-                      <td style={{ fontSize: '0.875rem' }}>{cust.phone}</td>
-                      <td>
-                        <span className="status-badge" style={{ background: `${statusInfo.color}20`, color: statusInfo.color }}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: '0.875rem' }}>{new Date(cust.createdAt).toLocaleDateString()}</td>
-                      <td style={{ fontSize: '0.875rem' }}>{cust.customerPoint}</td>
-                      <td><ChevronRight size={16} /></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            {activeSubTab === 'customers' ? (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Họ tên</th>
+                    <th>Email</th>
+                    <th>SĐT</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                    <th>Điểm tích lũy</th>
+                    <th>Số tiền trong tài khoản</th>
+                    <th>Số tiền tổng hóa đơn</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Đang tải...</td></tr>
+                  ) : filteredCustomers.length === 0 ? (
+                    <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Không có khách hàng nào</td></tr>
+                  ) : filteredCustomers.map(cust => {
+                    const statusInfo = getStatusInfo(cust.status);
+                    return (
+                      <tr key={cust.id}
+                        style={{ cursor: 'pointer', background: selectedCustomer?.id === cust.id ? 'rgba(56, 189, 248, 0.05)' : 'transparent' }}
+                        onClick={() => setSelectedCustomer(cust)}>
+                        <td style={{ fontWeight: 500 }}>{cust.firstName} {cust.lastName}</td>
+                        <td style={{ fontSize: '0.875rem' }}>{cust.email}</td>
+                        <td style={{ fontSize: '0.875rem' }}>{cust.phone}</td>
+                        <td>
+                          <span className="status-badge" style={{ background: `${statusInfo.color}20`, color: statusInfo.color }}>
+                            {statusInfo.label}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.875rem' }}>{new Date(cust.createdAt).toLocaleDateString()}</td>
+                        <td style={{ fontSize: '0.875rem' }}>{cust.customerPoint}</td>
+                        <td style={{ fontSize: '0.875rem' }}>{cust.soTienTrongTaiKhoan}</td>
+                        <td style={{ fontSize: '0.875rem' }}>{cust.soTienTongHoaDon}</td>
+                        <td><ChevronRight size={16} /></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Tên nhóm</th>
+                    <th>Mã nhóm</th>
+                    <th>Mô tả</th>
+                    <th>Trạng thái</th>
+                    <th>Ngày tạo</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Đang tải...</td></tr>
+                  ) : customerGroups.length === 0 ? (
+                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94a3b8' }}>Không có nhóm khách hàng nào</td></tr>
+                  ) : customerGroups.map(group => {
+                    const isBlocked = group.status === 1;
+                    const statusColor = isBlocked ? '#ef4444' : '#22c55e';
+                    return (
+                      <tr key={group.id}>
+                        <td style={{ fontWeight: 500 }}>{group.nameCustomerGroup}</td>
+                        <td style={{ fontSize: '0.875rem', fontFamily: 'monospace' }}>{group.code}</td>
+                        <td style={{ fontSize: '0.875rem', color: '#94a3b8' }}>{group.description || 'Không có mô tả'}</td>
+                        <td>
+                          <span className="status-badge" style={{ background: `${statusColor}20`, color: statusColor }}>
+                            {isBlocked ? 'Đã khóa' : 'Hoạt động'}
+                          </span>
+                        </td>
+                        <td style={{ fontSize: '0.875rem' }}>{new Date(group.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={(e) => { e.stopPropagation(); openEditGroupModal(group); }}>
+                              Sửa
+                            </button>
+                            <button className="btn btn-outline" style={{ padding: '4px 8px', borderColor: 'rgba(239, 68, 68, 0.5)', color: '#ef4444' }} onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}>
+                              Xóa
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
           </div>
 
           {selectedCustomer && (
@@ -1000,7 +1192,20 @@ const CustomerManager = ({ api }) => {
                     <div style={{ fontSize: '0.875rem' }}>{new Date(selectedCustomer.createdAt).toLocaleString()}</div>
                   </div>
                 </div>
-              </div>
+              {/* Group info */}
+              {selectedCustomer.customerGroupId && (() => {
+                const grp = customerGroups.find(g => g.id === selectedCustomer.customerGroupId);
+                return grp ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.75rem 1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+                    <LayoutDashboard size={16} color="#64748b" />
+                    <div>
+                      <div style={{ fontSize: '0.7rem', color: '#64748b', textTransform: 'uppercase' }}>Nhóm KH</div>
+                      <div style={{ fontSize: '0.875rem' }}>{grp.nameCustomerGroup}</div>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+            </div>
 
               {(() => {
                 const si = getStatusInfo(selectedCustomer.status);
@@ -1010,6 +1215,14 @@ const CustomerManager = ({ api }) => {
                   </div>
                 );
               })()}
+
+              <button
+                className="btn btn-primary"
+                style={{ marginTop: '1rem', width: '100%' }}
+                onClick={() => openEditCustomerModal(selectedCustomer)}
+              >
+                Sửa thông tin khách hàng
+              </button>
             </div>
           )}
         </div>
@@ -1078,9 +1291,155 @@ const CustomerManager = ({ api }) => {
                   required
                 />
               </div>
+              <div className="form-group">
+                <label className="form-label">Nhóm khách hàng (Tùy chọn)</label>
+                <select
+                  className="form-input"
+                  value={customerForm.customerGroupId}
+                  onChange={e => setCustomerForm({ ...customerForm, customerGroupId: e.target.value })}
+                  style={{ background: '#0f172a' }}
+                >
+                  <option value="">-- Chọn nhóm --</option>
+                  {customerGroups.map(group => (
+                    <option key={group.id} value={group.id}>{group.nameCustomerGroup}</option>
+                  ))}
+                </select>
+              </div>
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
                 <button type="button" className="btn btn-outline" onClick={() => setShowCreateModal(false)}>Hủy</button>
                 <button type="submit" className="btn btn-primary">Xác nhận tạo</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Sửa Khách Hàng */}
+      {showEditModal && selectedCustomer && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>Sửa khách hàng: {selectedCustomer.firstName} {selectedCustomer.lastName}</h2>
+            <form onSubmit={handleUpdateCustomer}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                <div className="form-group">
+                  <label className="form-label">Họ</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editCustomerForm.firstName}
+                    onChange={e => setEditCustomerForm({ ...editCustomerForm, firstName: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Tên</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    value={editCustomerForm.lastName}
+                    onChange={e => setEditCustomerForm({ ...editCustomerForm, lastName: e.target.value })}
+                    required
+                  />
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Số điện thoại</label>
+                <input
+                  type="tel"
+                  className="form-input"
+                  value={editCustomerForm.phone}
+                  onChange={e => setEditCustomerForm({ ...editCustomerForm, phone: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Địa chỉ</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={editCustomerForm.address}
+                  onChange={e => setEditCustomerForm({ ...editCustomerForm, address: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Nhóm khách hàng</label>
+                <select
+                  className="form-input"
+                  value={editCustomerForm.customerGroupId}
+                  onChange={e => setEditCustomerForm({ ...editCustomerForm, customerGroupId: e.target.value })}
+                  style={{ background: '#0f172a' }}
+                >
+                  <option value="">-- Không thuộc nhóm --</option>
+                  {customerGroups.map(group => (
+                    <option key={group.id} value={group.id}>{group.nameCustomerGroup}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowEditModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Lưu thay đổi</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Quản Lý Nhóm Khách Hàng */}
+      {showGroupModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>{selectedGroup ? 'Sửa nhóm khách hàng' : 'Thêm nhóm mới'}</h2>
+            <form onSubmit={handleSaveGroup}>
+              <div className="form-group">
+                <label className="form-label">Tên nhóm</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupForm.nameCustomerGroup}
+                  onChange={e => setGroupForm({ ...groupForm, nameCustomerGroup: e.target.value })}
+                  placeholder="Khách VIP"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mã nhóm</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupForm.code}
+                  onChange={e => setGroupForm({ ...groupForm, code: e.target.value })}
+                  placeholder="VIP"
+                  disabled={!!selectedGroup}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mô tả</label>
+                <textarea
+                  className="form-input"
+                  style={{ minHeight: '80px', paddingTop: '0.5rem' }}
+                  value={groupForm.description}
+                  onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
+                  placeholder="Mô tả nhóm..."
+                />
+              </div>
+              {selectedGroup && (
+                <div className="form-group">
+                  <label className="form-label">Trạng thái</label>
+                  <select
+                    className="form-input"
+                    value={groupForm.status}
+                    onChange={e => setGroupForm({ ...groupForm, status: parseInt(e.target.value) })}
+                    style={{ background: '#0f172a' }}
+                  >
+                    <option value={0}>Hoạt động</option>
+                    <option value={1}>Đã khóa</option>
+                  </select>
+                </div>
+              )}
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowGroupModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">{selectedGroup ? 'Lưu thay đổi' : 'Xác nhận tạo'}</button>
               </div>
             </form>
           </div>
@@ -1105,7 +1464,7 @@ function App() {
     pendingInvoices: 0
   });
   const [showModal, setShowModal] = useState(false);
-  const [newInvoice, setNewInvoice] = useState({ customerName: '', amount: '' });
+  const [newInvoice, setNewInvoice] = useState({ customerId: '', customerName: '', amount: '' });
   const [customers, setCustomers] = useState([]);
 
   // Axios configuration with token
@@ -1228,11 +1587,12 @@ function App() {
       }
 
       await api.post('/api/v1/invoice', {
+        customerId: newInvoice.customerId,
         customerName: newInvoice.customerName.trim(),
         amount
       });
       setShowModal(false);
-      setNewInvoice({ customerName: '', amount: '' });
+      setNewInvoice({ customerId: '', customerName: '', amount: '' });
       fetchData();
       toast.success('Hóa đơn đã được tạo thành công');
     } catch (error) {
@@ -1271,10 +1631,13 @@ function App() {
         // Lắng nghe Push Event (Real-time UX)
         connection.on("PaymentStatusUpdated", (event) => {
           if (isResolved) return;
-          isResolved = true;
-          connection.stop();
-          if (event.status === 'Completed') resolve(event);
-          else reject(new Error(event.failureReason || 'Thanh toán thất bại'));
+          // We no longer resolve early on 'Completed' because we need to wait for the entire Saga
+          // to finish (CustomerPointAdded) or fail (Compensating). The polling loop will handle it.
+          if (event.status === 'Failed') {
+            isResolved = true;
+            connection.stop();
+            reject(new Error(event.failureReason || 'Thanh toán thất bại'));
+          }
         });
 
         try {
@@ -1291,22 +1654,25 @@ function App() {
         const pollStatus = async () => {
           while (!isResolved && Date.now() - startTime < maxTimeout) {
             try {
-              const statusRes = await api.get(`/api/v1/payment/${paymentId}`);
+              const statusRes = await api.get(`/api/v1/orchestration/flows/${invoiceId}`);
               const statusData = statusRes.data;
 
-              if (statusData.status === 'Completed') {
+              const hasCompletedStep = statusData?.steps?.some(s => s.stepName === 'CustomerPointAddedObserved');
+              if (statusData && (statusData.currentState === 'CustomerPointAdded' || hasCompletedStep)) {
                 isResolved = true;
                 connection.stop();
                 return resolve(statusData);
               }
-              if (statusData.status === 'Failed') {
+              if (statusData && (statusData.currentState === 'Failed' || statusData.currentState === 'Compensating' || statusData.currentState === 'Reverting' || statusData.currentState === 'Refunded')) {
                 isResolved = true;
                 connection.stop();
-                return reject(new Error(statusData.failureReason));
+                // Get the last step to find the reason
+                const lastStep = statusData.steps && statusData.steps.length > 0 ? statusData.steps[statusData.steps.length - 1] : null;
+                return reject(new Error((lastStep && lastStep.eventData && lastStep.eventData.reason) || 'Giao dịch thất bại (Bù trừ tự động).'));
               }
 
               // Exponential backoff wait
-              await new Promise(r => setTimeout(r, (statusData.retryAfter || 2) * 1000));
+              await new Promise(r => setTimeout(r, 2000));
             } catch (pollErr) {
               console.error("Polling error:", pollErr);
               await new Promise(r => setTimeout(r, 2000));
@@ -1589,14 +1955,22 @@ function App() {
                 <label className="form-label">Tên khách hàng</label>
                 <select
                   className="form-input"
-                  value={newInvoice.customerName}
-                  onChange={e => setNewInvoice({ ...newInvoice, customerName: e.target.value })}
+                  value={newInvoice.customerId}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    const selectedCust = customers.find(c => c.id === selectedId);
+                    setNewInvoice({
+                      ...newInvoice,
+                      customerId: selectedId,
+                      customerName: selectedCust ? `${selectedCust.firstName} ${selectedCust.lastName}` : ''
+                    });
+                  }}
                   required
                   style={{ background: '#0f172a', color: 'white' }}
                 >
                   <option value="">-- Chọn khách hàng --</option>
                   {customers.map(cust => (
-                    <option key={cust.id} value={`${cust.firstName} ${cust.lastName}`} style={{ background: '#0f172a', color: 'white' }}>
+                    <option key={cust.id} value={cust.id} style={{ background: '#0f172a', color: 'white' }}>
                       {cust.firstName} {cust.lastName} {cust.phone ? `(${cust.phone})` : ''}
                     </option>
                   ))}
