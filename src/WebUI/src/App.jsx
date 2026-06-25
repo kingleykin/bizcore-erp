@@ -829,7 +829,8 @@ const CustomerManager = ({ api }) => {
     lastName: '',
     phone: '',
     address: '',
-    customerGroupId: ''
+    customerGroupId: '',
+    version: 0
   });
 
   const [groupForm, setGroupForm] = useState({
@@ -896,7 +897,8 @@ const CustomerManager = ({ api }) => {
       lastName: cust.lastName || '',
       phone: cust.phone || '',
       address: cust.address || '',
-      customerGroupId: cust.customerGroupId || ''
+      customerGroupId: cust.customerGroupId || '',
+      version: cust.version || 0
     });
     setShowEditModal(true);
   };
@@ -917,7 +919,12 @@ const CustomerManager = ({ api }) => {
       if (updated) setSelectedCustomer(updated);
     } catch (error) {
       const data = error.response?.data;
-      const msg = typeof data === 'string' ? data : data?.message || data?.title || JSON.stringify(data);
+      let msg = '';
+      if (error.response?.status === 409) {
+        msg = data?.error || 'Dữ liệu khách hàng đã được chỉnh sửa bởi một người dùng khác. Vui lòng tải lại trang.';
+      } else {
+        msg = typeof data === 'string' ? data : data?.error || data?.message || data?.title || JSON.stringify(data);
+      }
       toast.error('Lỗi khi cập nhật khách hàng: ' + msg);
     }
   };

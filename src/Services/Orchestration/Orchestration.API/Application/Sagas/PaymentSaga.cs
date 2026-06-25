@@ -45,25 +45,25 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.CreatedAt = ctx.Message.InitiatedAt;
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     })
-                    .TransitionTo(DeductingBalance)
+                    .TransitionTo(Validating)
                     .Schedule(StepTimeout, ctx => ctx.Init<PaymentStepTimeout>(new { PaymentId = ctx.Saga.PaymentId, CurrentState = "DeductingBalance" }))
-                    .SendAsync(ctx => ctx.Init<IDeductCustomerBalanceCommand>(new
+                    .SendAsync(ctx => ctx.Init<IValidateInvoiceCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
                         CustomerId = ctx.Saga.CustomerId,
-                        Amount = ctx.Saga.Amount
+                        Amount = ctx.Saga.Amount,
+                        InvoiceId = ctx.Saga.InvoiceId
                     }))
             );
 
-            // ── STEP 2: Trừ tiền → Validate Invoice ─────────────────────────────
+            // ── STEP 3: Trừ tiền → Validate Invoice ─────────────────────────────
             During(DeductingBalance,
                 When(CustomerBalanceDeducted)
                     .Then(ctx => ctx.Saga.UpdatedAt = DateTime.UtcNow)
-                    .TransitionTo(Validating)
-                    .Schedule(StepTimeout, ctx => ctx.Init<PaymentStepTimeout>(new { PaymentId = ctx.Saga.PaymentId, CurrentState = "Validating" }))
-                    .SendAsync(ctx => ctx.Init<IValidateInvoiceCommand>(new
+                    .TransitionTo(Confirming)
+                    .Schedule(StepTimeout, ctx => ctx.Init<PaymentStepTimeout>(new { PaymentId = ctx.Saga.PaymentId, CurrentState = "Confirming" }))
+                    .SendAsync(ctx => ctx.Init<IConfirmPaymentCommand>(new
                     {
-                        CustomerId = ctx.Saga.CustomerId,
                         PaymentId = ctx.Saga.PaymentId,
                         InvoiceId = ctx.Saga.InvoiceId,
                         Amount = ctx.Saga.Amount
@@ -99,16 +99,17 @@ namespace Orchestration.API.Application.Sagas
                     .TransitionTo(TimedOut)
             );
 
-            // ── STEP 3: Validating Invoice ───────────────────────────────────────
+            // ── STEP 2: Validating Invoice ───────────────────────────────────────
             During(Validating,
                 When(InvoiceValidated)
                     .Then(ctx => ctx.Saga.UpdatedAt = DateTime.UtcNow)
-                    .TransitionTo(Confirming)
-                    .Schedule(StepTimeout, ctx => ctx.Init<PaymentStepTimeout>(new { PaymentId = ctx.Saga.PaymentId, CurrentState = "Confirming" }))
-                    .SendAsync(ctx => ctx.Init<IConfirmPaymentCommand>(new
+                    .TransitionTo(DeductingBalance)
+                    .Schedule(StepTimeout, ctx => ctx.Init<PaymentStepTimeout>(new { PaymentId = ctx.Saga.PaymentId, CurrentState = "DeductingBalance" }))
+                    .SendAsync(ctx => ctx.Init<IDeductCustomerBalanceCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
-                        InvoiceId = ctx.Saga.InvoiceId
+                        CustomerId = ctx.Saga.CustomerId,
+                        Amount = ctx.Saga.Amount
                     })),
 
                 When(InvoiceValidationFailed)
@@ -118,13 +119,6 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     })
                     .Unschedule(StepTimeout)
-                    .SendAsync(ctx => ctx.Init<IRefundCustomerBalanceCommand>(new
-                    {
-                        PaymentId = ctx.Saga.PaymentId,
-                        CustomerId = ctx.Saga.CustomerId,
-                        Amount = ctx.Saga.Amount,
-                        Reason = ctx.Saga.FailureReason ?? "Invoice validation failed"
-                    }))
                     .SendAsync(ctx => ctx.Init<IRejectPaymentCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,
@@ -139,13 +133,6 @@ namespace Orchestration.API.Application.Sagas
                         ctx.Saga.FailureReason = "Timeout during Validating Invoice after 30 seconds.";
                         ctx.Saga.UpdatedAt = DateTime.UtcNow;
                     })
-                    .SendAsync(ctx => ctx.Init<IRefundCustomerBalanceCommand>(new
-                    {
-                        PaymentId = ctx.Saga.PaymentId,
-                        CustomerId = ctx.Saga.CustomerId,
-                        Amount = ctx.Saga.Amount,
-                        Reason = "Invoice validation timeout"
-                    }))
                     .SendAsync(ctx => ctx.Init<IRejectPaymentCommand>(new
                     {
                         PaymentId = ctx.Saga.PaymentId,

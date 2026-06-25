@@ -16,5 +16,6 @@ public record CustomerResponseDto
     int SoTienTrongTaiKhoan,
     int SoTienTongHoaDon,
     Guid? CustomerGroupId,
-    DateTime CreatedAt
+    DateTime CreatedAt,
+    long Version
 );

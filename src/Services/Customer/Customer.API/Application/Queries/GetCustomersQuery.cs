@@ -33,7 +33,8 @@ public class GetCustomersHandler : IRequestHandler<GetCustomersQuery, IEnumerabl
             e.SoTienTrongTaiKhoan,
             e.SoTienTongHoaDon,
             e.CustomerGroupId,
-            e.CreatedAt
+            e.CreatedAt,
+            e.Version
         ));
     }
 }
@@ -53,6 +54,7 @@ public class GetCustomerByIdHandler : IRequestHandler<GetCustomerByIdQuery, Cust
     public async Task<CustomerResponseDto?> Handle(GetCustomerByIdQuery request, CancellationToken ct)
     {
         var entity = await _db.Customers.AsNoTracking().FirstOrDefaultAsync(x => x.Id == request.Id, ct);
+        if (entity == null) return null;
         return new CustomerResponseDto(
             entity.Id,
             entity.FirstName,
@@ -65,7 +67,8 @@ public class GetCustomerByIdHandler : IRequestHandler<GetCustomerByIdQuery, Cust
             entity.SoTienTrongTaiKhoan,
             entity.SoTienTongHoaDon,
             entity.CustomerGroupId,
-            entity.CreatedAt
+            entity.CreatedAt,
+            entity.Version
         );
     }
 }

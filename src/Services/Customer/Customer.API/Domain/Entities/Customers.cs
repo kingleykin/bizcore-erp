@@ -3,7 +3,7 @@ using Bizcore.BuildingBlocks.Abstractions;
 
 namespace Customer.API.Domain.Entities
 {
-    public class Customers : BaseEntity
+    public class Customers : AggregateRoot
     {
         public string FirstName { get; private set; }
         public string LastName { get; private set; }
@@ -92,16 +92,18 @@ namespace Customer.API.Domain.Entities
             LastName = lastName;
             Phone = phone;
             Address = address;
-            
+
             if (customerGroupId != null)
             {
                 CustomerGroupId = customerGroupId;
             }
+            MarkStateChanged();
         }
 
         public void MarkAsDeleted()
         {
             Status = CustomerStatus.Blocked;
+            MarkStateChanged();
         }
 
 
@@ -112,6 +114,7 @@ namespace Customer.API.Domain.Entities
                 throw new ArgumentException("Points to add cannot be negative.");
             }
             CustomerPoint += points;
+            MarkStateChanged();
         }
 
 
@@ -122,6 +125,7 @@ namespace Customer.API.Domain.Entities
                 throw new ArgumentException("Money to add cannot be negative.");
             }
             SoTienTrongTaiKhoan += money;
+            MarkStateChanged();
         }
 
         public void AddMoneyToTotal(int money)
@@ -131,6 +135,7 @@ namespace Customer.API.Domain.Entities
                 throw new ArgumentException("Money to add cannot be negative.");
             }
             SoTienTongHoaDon += money;
+            MarkStateChanged();
         }
 
         /// <summary>
@@ -145,6 +150,7 @@ namespace Customer.API.Domain.Entities
                 throw new InvalidOperationException(
                     $"Số dư tài khoản không đủ. Hiện tại: {SoTienTrongTaiKhoan}, Cần: {amount}");
             SoTienTrongTaiKhoan -= amount;
+            MarkStateChanged();
         }
 
         /// <summary>
@@ -155,6 +161,7 @@ namespace Customer.API.Domain.Entities
             if (amount <= 0)
                 throw new ArgumentException("Amount to refund must be positive.");
             SoTienTrongTaiKhoan += amount;
+            MarkStateChanged();
         }
     }
 }

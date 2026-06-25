@@ -9,5 +9,6 @@ namespace Customer.API.Application.Commands
         string LastName,
         string Phone,
         string Address,
-        Guid? CustomerGroupId = null) : IRequest<CustomerResponseDto>;
+        Guid? CustomerGroupId,
+        long Version) : IRequest<CustomerResponseDto>;
 }

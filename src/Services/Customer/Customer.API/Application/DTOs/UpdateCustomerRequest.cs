@@ -7,5 +7,6 @@ namespace Customer.API.Application.DTOs
         public string Phone { get; set; } = string.Empty;
         public string Address { get; set; } = string.Empty;
         public Guid? CustomerGroupId { get; set; } = null;
+        public long Version { get; set; }
     }
 }

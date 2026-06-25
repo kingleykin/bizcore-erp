@@ -70,7 +70,8 @@ namespace Customer.API.Application.Commands
                 customer.SoTienTrongTaiKhoan,
                 customer.SoTienTongHoaDon,
                 customer.CustomerGroupId,
-                customer.CreatedAt
+                customer.CreatedAt,
+                customer.Version
             );
         }
     }

@@ -31,6 +31,9 @@ namespace Customer.API.Application.Commands
 
             customer.Update(request.FirstName, request.LastName, request.Phone, request.Address, request.CustomerGroupId);
 
+            // Set original version to check for optimistic concurrency conflicts
+            _context.Entry(customer).Property(x => x.Version).OriginalValue = request.Version;
+
             await _context.SaveChangesAsync(cancellationToken);
 
             var afterState = new { customer.Id, customer.FirstName, customer.LastName, customer.Phone, customer.Address, customer.CustomerGroupId };
@@ -60,7 +63,8 @@ namespace Customer.API.Application.Commands
                 customer.SoTienTrongTaiKhoan,
                 customer.SoTienTongHoaDon,
                 customer.CustomerGroupId,
-                customer.CreatedAt
+                customer.CreatedAt,
+                customer.Version
             );
         }
     }

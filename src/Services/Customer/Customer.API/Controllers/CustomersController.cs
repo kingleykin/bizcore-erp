@@ -72,16 +72,21 @@ public class CustomersController : ControllerBase
     [RequirePermission(Permissions.Customer.Update)]
     public async Task<ActionResult<CustomerResponseDto>> UpdateCustomer(Guid id, [FromBody] UpdateCustomerRequest request)
     {
-        var command = new UpdateCustomerCommand(id, request.FirstName, request.LastName, request.Phone, request.Address);
+        var command = new UpdateCustomerCommand(id, request.FirstName, request.LastName, request.Phone, request.Address, request.CustomerGroupId, request.Version);
         try
         {
             var updated = await _mediator.Send(command);
             return Ok(updated);
         }
+        catch (Microsoft.EntityFrameworkCore.DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex, "Concurrency conflict during update customer CustomerId={CustomerId}", id);
+            return Conflict(new { error = "Dữ liệu khách hàng đã được chỉnh sửa bởi một người dùng khác. Vui lòng tải lại trang để cập nhật thông tin mới nhất." });
+        }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Update customer failed CustomerId={CustomerId}", id);
-            return NotFound(new { error = ex.Message });
+            return BadRequest(new { error = ex.Message });
         }
     }
 
