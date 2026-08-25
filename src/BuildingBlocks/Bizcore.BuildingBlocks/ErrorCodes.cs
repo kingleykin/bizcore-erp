@@ -48,5 +48,20 @@ namespace Bizcore.BuildingBlocks
             public const string NotFound = "CUSTOMER_GROUP.NOT_FOUND";
             public const string CodeAlreadyExists = "CUSTOMER_GROUP.CODE_ALREADY_EXISTS";
         }
+
+        public static class Order
+        {
+            public const string NotFound = "ORDER.NOT_FOUND";
+            public const string CustomerNotFound = "ORDER.CUSTOMER_NOT_FOUND";
+            public const string ProductNotFound = "ORDER.PRODUCT_NOT_FOUND";
+            public const string EmptyItems = "ORDER.EMPTY_ITEMS";
+            public const string InvalidStatus = "ORDER.INVALID_STATUS";
+        }
+
+        public static class Product
+        {
+            public const string NotFound = "PRODUCT.NOT_FOUND";
+            public const string InactiveProduct = "PRODUCT.INACTIVE";
+        }
     }
 }

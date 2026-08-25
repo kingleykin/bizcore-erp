@@ -10,6 +10,8 @@
   "orchestration": "Luồng điều phối",
   "customers": "Khách hàng",
   "customer_groups": "Nhóm khách hàng",
+  "orders": "Đơn hàng",
+  "products": "Sản phẩm",
   "actions": {
     "save": "Lưu thay đổi",
     "cancel": "Hủy",

@@ -47,4 +47,13 @@
   <Folder Name="/Services/File/">
     <Project Path="Services/File/File.API/File.API.csproj" />
   </Folder>
+  <Folder Name="/Services/Customer/">
+    <Project Path="Services/Customer/Customer.API/Customer.API.csproj" />
+  </Folder>
+  <Folder Name="/Services/Order/">
+    <Project Path="Services/Order/Order.API/Order.API.csproj" />
+  </Folder>
+  <Folder Name="/Services/Product/">
+    <Project Path="Services/Product/Product.API/Product.API.csproj" />
+  </Folder>
 </Solution>

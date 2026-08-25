@@ -171,6 +171,8 @@ services:
       - ReverseProxy__Clusters__audit-cluster__Destinations__d1__Address=http://audit-api:8080
       - ReverseProxy__Clusters__file-cluster__Destinations__d1__Address=http://file-api:8080
       - ReverseProxy__Clusters__customer-cluster__Destinations__d1__Address=http://customer-api:8080
+      - ReverseProxy__Clusters__order-cluster__Destinations__d1__Address=http://order-api:8080
+      - ReverseProxy__Clusters__product-cluster__Destinations__d1__Address=http://product-api:8080
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - ServiceName=Gateway.API
@@ -184,6 +186,8 @@ services:
       - audit-api
       - file-api
       - customer-api
+      - order-api
+      - product-api
       - loki
 
   invoice-api:
@@ -221,6 +225,52 @@ services:
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - ServiceName=Customer.API
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+    depends_on:
+      - sql-server
+      - rabbitmq
+      - redis
+      - loki
+
+  order-api:
+    image: bizcore-order-api
+    build:
+      context: .
+      dockerfile: src/Services/Order/Order.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=OrderDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - CustomerService__BaseUrl=http://customer-api:8080
+      - ProductService__BaseUrl=http://product-api:8080
+      - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Order.API
+      - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
+    depends_on:
+      - sql-server
+      - rabbitmq
+      - redis
+      - loki
+      - customer-api
+      - product-api
+
+  product-api:
+    image: bizcore-product-api
+    build:
+      context: .
+      dockerfile: src/Services/Product/Product.API/Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Server=sql-server;Database=ProductDb;User Id=sa;Password=Password123!;TrustServerCertificate=True
+      - ConnectionStrings__Redis=redis:6379
+      - RabbitMQ__Host=rabbitmq
+      - Loki__Url=http://loki:3100
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      - ServiceName=Product.API
       - Jwt__SecretKey=BizcoreERPSecretKeyMustBeVeryLongAndSecure!!!
     depends_on:
       - sql-server

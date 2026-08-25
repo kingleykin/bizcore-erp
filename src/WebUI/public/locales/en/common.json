@@ -10,6 +10,8 @@
   "orchestration": "Orchestration Flows",
   "customers": "Customers",
   "customer_groups": "Customer Groups",
+  "orders": "Orders",
+  "products": "Products",
   "actions": {
     "save": "Save Changes",
     "cancel": "Cancel",

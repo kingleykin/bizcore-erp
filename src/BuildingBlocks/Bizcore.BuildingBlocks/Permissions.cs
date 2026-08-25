@@ -17,6 +17,8 @@ namespace Bizcore.BuildingBlocks
             public const string Report = "Menu.Report";
             public const string Identity = "Menu.Identity";
             public const string Customer = "Menu.Customer";
+            public const string Order = "Menu.Order";
+            public const string Product = "Menu.Product";
         }
 
         // ── Customer ─────────────────────────────────────────────────────────────
@@ -35,6 +37,24 @@ namespace Bizcore.BuildingBlocks
             public const string Create = "CustomerGroup.Create";
             public const string Update = "CustomerGroup.Update";
             public const string Delete = "CustomerGroup.Delete";
+        }
+
+        // ── Order ────────────────────────────────────────────────────────────────
+        public static class Order
+        {
+            public const string View = "Order.View";
+            public const string Create = "Order.Create";
+            public const string Update = "Order.Update";
+            public const string Cancel = "Order.Cancel";
+        }
+
+        // ── Product ──────────────────────────────────────────────────────────────
+        public static class Product
+        {
+            public const string View = "Product.View";
+            public const string Create = "Product.Create";
+            public const string Update = "Product.Update";
+            public const string Delete = "Product.Delete";
         }
 
         // ── Invoice ──────────────────────────────────────────────────────────────

@@ -16,5 +16,16 @@
   "CUSTOMER_GROUP": {
     "NOT_FOUND": "Customer group not found.",
     "CODE_ALREADY_EXISTS": "Customer group code '{{code}}' already exists."
+  },
+  "ORDER": {
+    "NOT_FOUND": "Order not found.",
+    "CUSTOMER_NOT_FOUND": "Customer not found.",
+    "PRODUCT_NOT_FOUND": "Product not found.",
+    "EMPTY_ITEMS": "Order must contain at least one item.",
+    "INVALID_STATUS": "Order status is invalid for this action."
+  },
+  "PRODUCT": {
+    "NOT_FOUND": "Product not found.",
+    "INACTIVE": "Product is no longer active."
   }
 }
