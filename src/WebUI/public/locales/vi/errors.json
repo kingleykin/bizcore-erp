@@ -8,5 +8,13 @@
     "NOT_FOUND": "Không tìm thấy người dùng.",
     "USERNAME_TAKEN": "Tên đăng nhập '{{username}}' đã được sử dụng.",
     "EMAIL_TAKEN": "Email '{{email}}' đã được đăng ký."
+  },
+  "CUSTOMER": {
+    "NOT_FOUND": "Không tìm thấy khách hàng.",
+    "CODE_ALREADY_EXISTS": "Mã khách hàng '{{code}}' đã tồn tại."
+  },
+  "CUSTOMER_GROUP": {
+    "NOT_FOUND": "Không tìm thấy nhóm khách hàng.",
+    "CODE_ALREADY_EXISTS": "Mã nhóm khách hàng '{{code}}' đã tồn tại."
   }
 }

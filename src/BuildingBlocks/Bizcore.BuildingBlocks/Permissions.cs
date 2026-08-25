@@ -16,6 +16,25 @@ namespace Bizcore.BuildingBlocks
             public const string Orchestration = "Menu.Orchestration";
             public const string Report = "Menu.Report";
             public const string Identity = "Menu.Identity";
+            public const string Customer = "Menu.Customer";
+        }
+
+        // ── Customer ─────────────────────────────────────────────────────────────
+        public static class Customer
+        {
+            public const string View = "Customer.View";
+            public const string Create = "Customer.Create";
+            public const string Update = "Customer.Update";
+            public const string Delete = "Customer.Delete";
+        }
+
+        // ── CustomerGroup ────────────────────────────────────────────────────────
+        public static class CustomerGroup
+        {
+            public const string View = "CustomerGroup.View";
+            public const string Create = "CustomerGroup.Create";
+            public const string Update = "CustomerGroup.Update";
+            public const string Delete = "CustomerGroup.Delete";
         }
 
         // ── Invoice ──────────────────────────────────────────────────────────────

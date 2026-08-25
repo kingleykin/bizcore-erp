@@ -21,7 +21,8 @@ import {
   RefreshCcw,
   UserPlus,
   Upload,
-  User as UserIcon
+  User as UserIcon,
+  Building2
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
@@ -798,6 +799,401 @@ const AuditLogViewer = ({ api }) => {
   );
 };
 
+const CustomerManager = ({ api, getErrorDetail }) => {
+  const [activeSubTab, setActiveSubTab] = useState('customers');
+  const [customers, setCustomers] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const emptyCustomerForm = { code: '', name: '', customerGroupId: '', taxCode: '', email: '', phone: '', address: '' };
+  const emptyGroupForm = { code: '', name: '', description: '' };
+
+  const [showCustomerModal, setShowCustomerModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState(null);
+  const [customerForm, setCustomerForm] = useState(emptyCustomerForm);
+
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupForm, setGroupForm] = useState(emptyGroupForm);
+
+  useEffect(() => {
+    fetchGroups();
+    fetchCustomers();
+  }, []);
+
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/customers');
+      setCustomers(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách khách hàng: ' + getErrorDetail(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchGroups = async () => {
+    try {
+      const res = await api.get('/api/v1/customer-groups');
+      setGroups(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách nhóm khách hàng: ' + getErrorDetail(error));
+    }
+  };
+
+  const openCreateCustomer = () => {
+    if (groups.length === 0) {
+      toast.error('Vui lòng tạo Nhóm khách hàng trước khi thêm khách hàng');
+      return;
+    }
+    setEditingCustomer(null);
+    setCustomerForm({ ...emptyCustomerForm, customerGroupId: groups[0]?.id || '' });
+    setShowCustomerModal(true);
+  };
+
+  const openEditCustomer = (customer) => {
+    setEditingCustomer(customer);
+    setCustomerForm({
+      code: customer.code,
+      name: customer.name,
+      customerGroupId: customer.customerGroupId,
+      taxCode: customer.taxCode || '',
+      email: customer.email || '',
+      phone: customer.phone || '',
+      address: customer.address || ''
+    });
+    setShowCustomerModal(true);
+  };
+
+  const handleSaveCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingCustomer) {
+        await api.put(`/api/v1/customers/${editingCustomer.id}`, {
+          name: customerForm.name,
+          taxCode: customerForm.taxCode || null,
+          email: customerForm.email || null,
+          phone: customerForm.phone || null,
+          address: customerForm.address || null
+        });
+        if (customerForm.customerGroupId !== editingCustomer.customerGroupId) {
+          await api.put(`/api/v1/customers/${editingCustomer.id}/group`, {
+            customerGroupId: customerForm.customerGroupId
+          });
+        }
+        toast.success('Cập nhật khách hàng thành công');
+      } else {
+        await api.post('/api/v1/customers', {
+          code: customerForm.code,
+          name: customerForm.name,
+          customerGroupId: customerForm.customerGroupId,
+          taxCode: customerForm.taxCode || null,
+          email: customerForm.email || null,
+          phone: customerForm.phone || null,
+          address: customerForm.address || null
+        });
+        toast.success('Tạo khách hàng thành công');
+      }
+      setShowCustomerModal(false);
+      fetchCustomers();
+    } catch (error) {
+      toast.error(getErrorDetail(error));
+    }
+  };
+
+  const toggleCustomerStatus = async (customer) => {
+    try {
+      const action = customer.isActive ? 'deactivate' : 'activate';
+      await api.post(`/api/v1/customers/${customer.id}/${action}`);
+      toast.success(customer.isActive ? 'Đã ngừng hoạt động khách hàng' : 'Đã kích hoạt khách hàng');
+      fetchCustomers();
+    } catch (error) {
+      toast.error(getErrorDetail(error));
+    }
+  };
+
+  const openCreateGroup = () => {
+    setEditingGroup(null);
+    setGroupForm(emptyGroupForm);
+    setShowGroupModal(true);
+  };
+
+  const openEditGroup = (group) => {
+    setEditingGroup(group);
+    setGroupForm({ code: group.code, name: group.name, description: group.description || '' });
+    setShowGroupModal(true);
+  };
+
+  const handleSaveGroup = async (e) => {
+    e.preventDefault();
+    try {
+      if (editingGroup) {
+        await api.put(`/api/v1/customer-groups/${editingGroup.id}`, {
+          name: groupForm.name,
+          description: groupForm.description || null
+        });
+        toast.success('Cập nhật nhóm khách hàng thành công');
+      } else {
+        await api.post('/api/v1/customer-groups', {
+          code: groupForm.code,
+          name: groupForm.name,
+          description: groupForm.description || null
+        });
+        toast.success('Tạo nhóm khách hàng thành công');
+      }
+      setShowGroupModal(false);
+      fetchGroups();
+    } catch (error) {
+      toast.error(getErrorDetail(error));
+    }
+  };
+
+  const toggleGroupStatus = async (group) => {
+    try {
+      const action = group.isActive ? 'deactivate' : 'activate';
+      await api.post(`/api/v1/customer-groups/${group.id}/${action}`);
+      toast.success(group.isActive ? 'Đã ngừng hoạt động nhóm khách hàng' : 'Đã kích hoạt nhóm khách hàng');
+      fetchGroups();
+    } catch (error) {
+      toast.error(getErrorDetail(error));
+    }
+  };
+
+  return (
+    <div className="card">
+      <div className="tab-header">
+        <div className={`tab-btn ${activeSubTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveSubTab('customers')}>
+          <Users size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Khách hàng
+        </div>
+        <div className={`tab-btn ${activeSubTab === 'groups' ? 'active' : ''}`} onClick={() => setActiveSubTab('groups')}>
+          <Building2 size={18} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Nhóm khách hàng
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1rem' }}>
+        <button className="btn btn-outline" onClick={() => activeSubTab === 'customers' ? fetchCustomers() : fetchGroups()} disabled={loading}>
+          <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Làm mới
+        </button>
+        <button className="btn btn-primary" onClick={() => activeSubTab === 'customers' ? openCreateCustomer() : openCreateGroup()}>
+          <Plus size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Thêm {activeSubTab === 'customers' ? 'Khách hàng' : 'Nhóm khách hàng'}
+        </button>
+      </div>
+
+      <div className="table-wrapper">
+        {activeSubTab === 'customers' ? (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Tên khách hàng</th>
+                <th>Nhóm</th>
+                <th>Email</th>
+                <th>Điện thoại</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {customers.map(c => (
+                <tr key={c.id}>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{c.code}</td>
+                  <td style={{ fontWeight: 600 }}>{c.name}</td>
+                  <td>{c.customerGroupName}</td>
+                  <td>{c.email || '—'}</td>
+                  <td>{c.phone || '—'}</td>
+                  <td>
+                    <span className={`status-badge ${c.isActive ? 'status-paid' : 'status-pending'}`}>
+                      {c.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
+                    </span>
+                  </td>
+                  <td style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => openEditCustomer(c)}>
+                      Sửa
+                    </button>
+                    <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => toggleCustomerStatus(c)}>
+                      {c.isActive ? 'Ngừng' : 'Kích hoạt'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Mã</th>
+                <th>Tên nhóm</th>
+                <th>Mô tả</th>
+                <th>Trạng thái</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(g => (
+                <tr key={g.id}>
+                  <td style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{g.code}</td>
+                  <td style={{ fontWeight: 600 }}>{g.name}</td>
+                  <td style={{ color: '#94a3b8', fontSize: '0.875rem' }}>{g.description || '—'}</td>
+                  <td>
+                    <span className={`status-badge ${g.isActive ? 'status-paid' : 'status-pending'}`}>
+                      {g.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
+                    </span>
+                  </td>
+                  <td style={{ display: 'flex', gap: '0.5rem' }}>
+                    <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => openEditGroup(g)}>
+                      Sửa
+                    </button>
+                    <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => toggleGroupStatus(g)}>
+                      {g.isActive ? 'Ngừng' : 'Kích hoạt'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {/* Customer Create/Edit Modal */}
+      {showCustomerModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>{editingCustomer ? 'Cập nhật khách hàng' : 'Thêm khách hàng mới'}</h2>
+            <form onSubmit={handleSaveCustomer}>
+              <div className="form-group">
+                <label className="form-label">Mã khách hàng</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.code}
+                  onChange={e => setCustomerForm({ ...customerForm, code: e.target.value })}
+                  disabled={!!editingCustomer}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tên khách hàng</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.name}
+                  onChange={e => setCustomerForm({ ...customerForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Nhóm khách hàng</label>
+                <select
+                  className="form-input"
+                  value={customerForm.customerGroupId}
+                  onChange={e => setCustomerForm({ ...customerForm, customerGroupId: e.target.value })}
+                  required
+                >
+                  <option value="" disabled>Chọn nhóm khách hàng</option>
+                  {groups.map(g => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mã số thuế</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.taxCode}
+                  onChange={e => setCustomerForm({ ...customerForm, taxCode: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Email</label>
+                <input
+                  type="email"
+                  className="form-input"
+                  value={customerForm.email}
+                  onChange={e => setCustomerForm({ ...customerForm, email: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Điện thoại</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.phone}
+                  onChange={e => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Địa chỉ</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={customerForm.address}
+                  onChange={e => setCustomerForm({ ...customerForm, address: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowCustomerModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">{editingCustomer ? 'Lưu thay đổi' : 'Tạo khách hàng'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* CustomerGroup Create/Edit Modal */}
+      {showGroupModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>{editingGroup ? 'Cập nhật nhóm khách hàng' : 'Thêm nhóm khách hàng mới'}</h2>
+            <form onSubmit={handleSaveGroup}>
+              <div className="form-group">
+                <label className="form-label">Mã nhóm</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupForm.code}
+                  onChange={e => setGroupForm({ ...groupForm, code: e.target.value })}
+                  disabled={!!editingGroup}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Tên nhóm</label>
+                <input
+                  type="text"
+                  className="form-input"
+                  value={groupForm.name}
+                  onChange={e => setGroupForm({ ...groupForm, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Mô tả</label>
+                <textarea
+                  className="form-input"
+                  style={{ minHeight: '80px', paddingTop: '0.5rem' }}
+                  value={groupForm.description}
+                  onChange={e => setGroupForm({ ...groupForm, description: e.target.value })}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowGroupModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">{editingGroup ? 'Lưu thay đổi' : 'Tạo nhóm'}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 function App() {
   const [token, setToken] = useState(localStorage.getItem('token'));
   const [user, setUser] = useState(JSON.parse(localStorage.getItem('user') || 'null'));
@@ -1119,6 +1515,10 @@ function App() {
               <FileText size={20} />
               {t('common:invoices')}
             </div>
+            <div className={`nav-item ${activeTab === 'customers' ? 'active' : ''}`} onClick={() => setActiveTab('customers')}>
+              <Users size={20} />
+              {t('common:customers')}
+            </div>
             <div className={`nav-item ${activeTab === 'orchestration' ? 'active' : ''}`} onClick={() => setActiveTab('orchestration')}>
               <Activity size={20} />
               {t('common:orchestration')}
@@ -1144,6 +1544,7 @@ function App() {
           <h1 className="title">
             {activeTab === 'dashboard' && t('common:dashboard')}
             {activeTab === 'invoices' && t('common:invoices')}
+            {activeTab === 'customers' && t('common:customers')}
             {activeTab === 'orchestration' && t('common:orchestration')}
             {activeTab === 'identity' && t('common:roles')}
             {activeTab === 'audit' && t('common:audit')}
@@ -1254,6 +1655,8 @@ function App() {
               </tbody>
             </table>
           </div>
+        ) : activeTab === 'customers' ? (
+          <CustomerManager api={api} getErrorDetail={getErrorDetail} />
         ) : activeTab === 'orchestration' ? (
           <OrchestrationFlow api={api} />
         ) : activeTab === 'identity' ? (

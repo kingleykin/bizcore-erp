@@ -36,5 +36,17 @@ namespace Bizcore.BuildingBlocks
             public const string Timeout = "PAYMENT.TIMEOUT";
             public const string InsufficientFunds = "PAYMENT.INSUFFICIENT_FUNDS";
         }
+
+        public static class Customer
+        {
+            public const string NotFound = "CUSTOMER.NOT_FOUND";
+            public const string CodeAlreadyExists = "CUSTOMER.CODE_ALREADY_EXISTS";
+        }
+
+        public static class CustomerGroup
+        {
+            public const string NotFound = "CUSTOMER_GROUP.NOT_FOUND";
+            public const string CodeAlreadyExists = "CUSTOMER_GROUP.CODE_ALREADY_EXISTS";
+        }
     }
 }

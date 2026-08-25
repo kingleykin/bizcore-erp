@@ -8,5 +8,13 @@
     "NOT_FOUND": "User not found.",
     "USERNAME_TAKEN": "Username '{{username}}' is already taken.",
     "EMAIL_TAKEN": "Email '{{email}}' is already registered."
+  },
+  "CUSTOMER": {
+    "NOT_FOUND": "Customer not found.",
+    "CODE_ALREADY_EXISTS": "Customer code '{{code}}' already exists."
+  },
+  "CUSTOMER_GROUP": {
+    "NOT_FOUND": "Customer group not found.",
+    "CODE_ALREADY_EXISTS": "Customer group code '{{code}}' already exists."
   }
 }

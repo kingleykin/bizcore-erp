@@ -25,6 +25,7 @@ namespace Admin.API.Infrastructure.Data
             new(Permissions.Menu.Orchestration,"Xem menu Orchestration","Navigation.Orchestration",PermissionScope.Menu),
             new(Permissions.Menu.Report,       "Xem menu Report",       "Navigation.Report",       PermissionScope.Menu),
             new(Permissions.Menu.Identity,     "Xem menu Admin",        "Navigation.Admin",        PermissionScope.Menu),
+            new(Permissions.Menu.Customer,     "Xem menu Customer",     "Navigation.Customer",     PermissionScope.Menu),
 
             // Admin Service permissions
             new(Permissions.Admin.OrgView,     "Xem cấu trúc tổ chức",  "Admin.Org",     PermissionScope.Page),
@@ -73,6 +74,18 @@ namespace Admin.API.Infrastructure.Data
             new(Permissions.Identity.Roles.Update,            "Cập nhật Role",                "Identity.Roles", PermissionScope.Action),
             new(Permissions.Identity.Roles.Delete,            "Xóa Role",                     "Identity.Roles", PermissionScope.Action),
             new(Permissions.Identity.Roles.ManagePermissions, "Gán/Thu hồi Permission cho Role","Identity.Roles", PermissionScope.Action),
+
+            // Customer
+            new(Permissions.Customer.View,   "Xem danh sách Khách hàng", "Customer", PermissionScope.Page),
+            new(Permissions.Customer.Create, "Tạo Khách hàng mới",       "Customer", PermissionScope.Action),
+            new(Permissions.Customer.Update, "Cập nhật Khách hàng",      "Customer", PermissionScope.Action),
+            new(Permissions.Customer.Delete, "Xóa Khách hàng",           "Customer", PermissionScope.Action),
+
+            // CustomerGroup
+            new(Permissions.CustomerGroup.View,   "Xem danh sách Nhóm khách hàng", "Customer.Group", PermissionScope.Page),
+            new(Permissions.CustomerGroup.Create, "Tạo Nhóm khách hàng mới",       "Customer.Group", PermissionScope.Action),
+            new(Permissions.CustomerGroup.Update, "Cập nhật Nhóm khách hàng",      "Customer.Group", PermissionScope.Action),
+            new(Permissions.CustomerGroup.Delete, "Xóa Nhóm khách hàng",           "Customer.Group", PermissionScope.Action),
         ];
 
         // ── Navigation menu definitions ─────────────────────────────────────────
@@ -86,6 +99,7 @@ namespace Admin.API.Infrastructure.Data
             new("Orchestration", "/orchestration", Permissions.Menu.Orchestration, 40, "git-branch"),
             new("Audit",         "/audit",         Permissions.Menu.Audit,         50, "shield-check"),
             new("Admin",         "/admin",         Permissions.Menu.Identity,      60, "settings"),
+            new("Customer",      "/customer",      Permissions.Menu.Customer,      15, "users"),
         ];
 
         public static async Task SeedAsync(AdminDbContext context, ILogger logger)
@@ -151,23 +165,27 @@ namespace Admin.API.Infrastructure.Data
                 description: "Kế toán — xem và xử lý Invoice/Payment",
                 permCodes:
                 [
-                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report,
+                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report, Permissions.Menu.Customer,
                     Permissions.Invoice.View, Permissions.Invoice.Create, Permissions.Invoice.Update,
                     Permissions.Invoice.AmountView,
                     Permissions.Payment.View, Permissions.Payment.Create, Permissions.Payment.Process,
                     Permissions.Report.View,
                     Permissions.Admin.OrgView,
+                    Permissions.Customer.View, Permissions.Customer.Create, Permissions.Customer.Update,
+                    Permissions.CustomerGroup.View,
                 ]);
 
             await SeedRoleAsync(context, logger, permMap, "Viewer",
                 description: "Chỉ xem — không thao tác",
                 permCodes:
                 [
-                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report,
+                    Permissions.Menu.Invoice, Permissions.Menu.Payment, Permissions.Menu.Report, Permissions.Menu.Customer,
                     Permissions.Invoice.View, Permissions.Invoice.AmountView,
                     Permissions.Payment.View,
                     Permissions.Report.View,
                     Permissions.Admin.OrgView,
+                    Permissions.Customer.View,
+                    Permissions.CustomerGroup.View,
                 ]);
 
             // ── 6. Seed Default Users ──────────────────────────────────────────

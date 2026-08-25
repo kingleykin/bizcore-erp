@@ -8,6 +8,8 @@
   "roles": "Roles & Permissions",
   "audit": "Audit Logs",
   "orchestration": "Orchestration Flows",
+  "customers": "Customers",
+  "customer_groups": "Customer Groups",
   "actions": {
     "save": "Save Changes",
     "cancel": "Cancel",

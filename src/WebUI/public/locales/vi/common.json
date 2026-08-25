@@ -8,6 +8,8 @@
   "roles": "Vai trò & Quyền",
   "audit": "Nhật ký hệ thống",
   "orchestration": "Luồng điều phối",
+  "customers": "Khách hàng",
+  "customer_groups": "Nhóm khách hàng",
   "actions": {
     "save": "Lưu thay đổi",
     "cancel": "Hủy",
