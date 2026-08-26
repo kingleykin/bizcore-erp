@@ -41,6 +41,30 @@ internal static class TestDbContextFactory
         return context;
     }
 
+    public static Order.API.Infrastructure.Data.AppDbContext CreateOrderDbContext(SqliteConnection connection)
+    {
+        var context = new Order.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Order.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    public static Product.API.Infrastructure.Data.AppDbContext CreateProductDbContext(SqliteConnection connection)
+    {
+        var context = new Product.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Product.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    public static Inventory.API.Infrastructure.Data.AppDbContext CreateInventoryDbContext(SqliteConnection connection)
+    {
+        var context = new Inventory.API.Infrastructure.Data.AppDbContext(CreateSqliteOptions<Inventory.API.Infrastructure.Data.AppDbContext>(connection));
+        context.Database.EnsureCreated();
+        return context;
+    }
+
+    public static DbContextOptions<Inventory.API.Infrastructure.Data.AppDbContext> CreateInventoryDbContextOptions(SqliteConnection connection)
+        => CreateSqliteOptions<Inventory.API.Infrastructure.Data.AppDbContext>(connection);
+
     public static SqliteConnection CreateOpenConnection()
     {
         var connection = new SqliteConnection("DataSource=:memory:");
