@@ -11,7 +11,11 @@ public static class MassTransitExtensions
     public static void ApplyBusinessEndpointSettings(this IReceiveEndpointConfigurator configurator)
     {
         configurator.ConfigureConsumeTopology = true;
-        
+
+        // Retry tại chỗ (không requeue qua broker) cho các lỗi thoáng qua — ví dụ consumer phụ thuộc
+        // dữ liệu do một event khác (đến sau, cùng aggregate) tạo ra nhưng event đó chưa kịp xử lý.
+        configurator.UseMessageRetry(r => r.Intervals(200, 500, 1000, 2000, 5000));
+
         if (configurator is IRabbitMqReceiveEndpointConfigurator rmq)
         {
             // Durable and AutoDelete are already true/false by default for RabbitMQ.

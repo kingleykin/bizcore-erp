@@ -12,6 +12,7 @@
   "customer_groups": "Nhóm khách hàng",
   "orders": "Đơn hàng",
   "products": "Sản phẩm",
+  "inventory": "Tồn kho",
   "actions": {
     "save": "Lưu thay đổi",
     "cancel": "Hủy",

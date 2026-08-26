@@ -27,5 +27,9 @@
   "PRODUCT": {
     "NOT_FOUND": "Product not found.",
     "INACTIVE": "Product is no longer active."
+  },
+  "INVENTORY": {
+    "NOT_FOUND": "Stock record not found.",
+    "INVALID_QUANTITY": "Invalid quantity."
   }
 }

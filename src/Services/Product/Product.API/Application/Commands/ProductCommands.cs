@@ -1,7 +1,9 @@
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Audit;
+using Bizcore.BuildingBlocks.Contracts;
 using Bizcore.BuildingBlocks.Exceptions;
+using MassTransit;
 using Product.API.Application.DTOs;
 using Product.API.Infrastructure.Data;
 using MediatR;
@@ -15,12 +17,14 @@ public record CreateProductCommand(CreateProductRequest Request) : IRequest<Prod
 public class CreateProductHandler : IRequestHandler<CreateProductCommand, ProductResponseDto>
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly IAuditPublisher _audit;
     private readonly ILogger<CreateProductHandler> _logger;
 
-    public CreateProductHandler(AppDbContext db, IAuditPublisher audit, ILogger<CreateProductHandler> logger)
+    public CreateProductHandler(AppDbContext db, IPublishEndpoint publishEndpoint, IAuditPublisher audit, ILogger<CreateProductHandler> logger)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
         _audit = audit;
         _logger = logger;
     }
@@ -34,6 +38,14 @@ public class CreateProductHandler : IRequestHandler<CreateProductCommand, Produc
             command.Request.Description);
 
         _db.Products.Add(product);
+
+        // Inventory Service lắng nghe event này để tạo sẵn bản ghi tồn kho (OnHand=0) cho sản phẩm mới.
+        await _publishEndpoint.Publish<IProductCreatedEvent>(new
+        {
+            product.Id,
+            product.Name,
+            product.CreatedAt
+        }, ct);
 
         await _audit.PublishAsync(
             AuditActions.Product.Created,

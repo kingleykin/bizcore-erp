@@ -19,6 +19,7 @@ namespace Bizcore.BuildingBlocks
             public const string Customer = "Menu.Customer";
             public const string Order = "Menu.Order";
             public const string Product = "Menu.Product";
+            public const string Inventory = "Menu.Inventory";
         }
 
         // ── Customer ─────────────────────────────────────────────────────────────
@@ -55,6 +56,13 @@ namespace Bizcore.BuildingBlocks
             public const string Create = "Product.Create";
             public const string Update = "Product.Update";
             public const string Delete = "Product.Delete";
+        }
+
+        // ── Inventory ────────────────────────────────────────────────────────────
+        public static class Inventory
+        {
+            public const string View = "Inventory.View";
+            public const string Update = "Inventory.Update";
         }
 
         // ── Invoice ──────────────────────────────────────────────────────────────

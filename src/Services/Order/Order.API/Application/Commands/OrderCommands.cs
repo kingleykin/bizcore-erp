@@ -1,7 +1,9 @@
 using Bizcore.BuildingBlocks;
 using Bizcore.BuildingBlocks.Abstractions;
 using Bizcore.BuildingBlocks.Audit;
+using Bizcore.BuildingBlocks.Contracts;
 using Bizcore.BuildingBlocks.Exceptions;
+using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Order.API.Application.Clients;
@@ -71,12 +73,18 @@ public record PersistOrderCommand(
 public class PersistOrderHandler : IRequestHandler<PersistOrderCommand, OrderResponseDto>
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly IAuditPublisher _audit;
     private readonly ILogger<PersistOrderHandler> _logger;
 
-    public PersistOrderHandler(AppDbContext db, IAuditPublisher audit, ILogger<PersistOrderHandler> logger)
+    public PersistOrderHandler(
+        AppDbContext db,
+        IPublishEndpoint publishEndpoint,
+        IAuditPublisher audit,
+        ILogger<PersistOrderHandler> logger)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
         _audit = audit;
         _logger = logger;
     }
@@ -90,6 +98,17 @@ public class PersistOrderHandler : IRequestHandler<PersistOrderCommand, OrderRes
             command.Items);
 
         _db.Orders.Add(order);
+
+        // Inventory Service lắng nghe event này để giữ chỗ (reserve) tồn kho cho từng sản phẩm.
+        await _publishEndpoint.Publish(new OrderCreatedEvent(
+            order.Id,
+            order.CustomerId,
+            order.CustomerName,
+            order.OrderNumber,
+            order.TotalAmount,
+            order.Items.Select(i => new OrderEventItem(i.ProductId, i.Quantity)).ToList(),
+            order.CreatedAt
+        ), ct);
 
         await _audit.PublishAsync(
             AuditActions.Order.Created,
@@ -112,12 +131,18 @@ public record ConfirmOrderCommand(Guid Id) : IRequest<OrderResponseDto>, ITransa
 public class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, OrderResponseDto>
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly IAuditPublisher _audit;
     private readonly ILogger<ConfirmOrderHandler> _logger;
 
-    public ConfirmOrderHandler(AppDbContext db, IAuditPublisher audit, ILogger<ConfirmOrderHandler> logger)
+    public ConfirmOrderHandler(
+        AppDbContext db,
+        IPublishEndpoint publishEndpoint,
+        IAuditPublisher audit,
+        ILogger<ConfirmOrderHandler> logger)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
         _audit = audit;
         _logger = logger;
     }
@@ -128,7 +153,20 @@ public class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, OrderRes
         if (order == null)
             throw new NotFoundException(ErrorCodes.Order.NotFound, "Không tìm thấy đơn hàng.", new { id = command.Id });
 
+        var wasAlreadyConfirmed = order.Status == Bizcore.BuildingBlocks.OrderStatus.Confirmed;
         order.Confirm();
+
+        // Inventory Service lắng nghe event này để chốt số đã giữ chỗ thành trừ kho thật.
+        // Chỉ publish khi đây thực sự là lần chuyển trạng thái đầu tiên (tránh trừ kho lặp lại
+        // nếu Confirm được gọi nhiều lần trên đơn đã Confirmed — Order.Confirm() là idempotent).
+        if (!wasAlreadyConfirmed)
+        {
+            await _publishEndpoint.Publish(new OrderConfirmedEvent(
+                order.Id,
+                order.Items.Select(i => new OrderEventItem(i.ProductId, i.Quantity)).ToList(),
+                DateTime.UtcNow
+            ), ct);
+        }
 
         await _audit.PublishAsync(
             AuditActions.Order.Confirmed,
@@ -151,12 +189,18 @@ public record CancelOrderCommand(Guid Id, string Reason) : IRequest<OrderRespons
 public class CancelOrderHandler : IRequestHandler<CancelOrderCommand, OrderResponseDto>
 {
     private readonly AppDbContext _db;
+    private readonly IPublishEndpoint _publishEndpoint;
     private readonly IAuditPublisher _audit;
     private readonly ILogger<CancelOrderHandler> _logger;
 
-    public CancelOrderHandler(AppDbContext db, IAuditPublisher audit, ILogger<CancelOrderHandler> logger)
+    public CancelOrderHandler(
+        AppDbContext db,
+        IPublishEndpoint publishEndpoint,
+        IAuditPublisher audit,
+        ILogger<CancelOrderHandler> logger)
     {
         _db = db;
+        _publishEndpoint = publishEndpoint;
         _audit = audit;
         _logger = logger;
     }
@@ -168,6 +212,15 @@ public class CancelOrderHandler : IRequestHandler<CancelOrderCommand, OrderRespo
             throw new NotFoundException(ErrorCodes.Order.NotFound, "Không tìm thấy đơn hàng.", new { id = command.Id });
 
         order.Cancel(command.Reason);
+
+        // Order chỉ có thể Cancel khi đang Pending (đã giữ chỗ tồn kho từ lúc tạo, chưa commit),
+        // nên ở đây luôn cần trả lại (release) số đã giữ chỗ cho Inventory Service.
+        await _publishEndpoint.Publish(new OrderCancelledEvent(
+            order.Id,
+            order.Items.Select(i => new OrderEventItem(i.ProductId, i.Quantity)).ToList(),
+            command.Reason,
+            DateTime.UtcNow
+        ), ct);
 
         await _audit.PublishAsync(
             AuditActions.Order.Cancelled,

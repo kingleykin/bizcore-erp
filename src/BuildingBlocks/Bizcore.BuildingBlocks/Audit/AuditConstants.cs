@@ -85,5 +85,13 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string Created = "product.created";
             public const string Updated = "product.updated";
         }
+
+        public static class Inventory
+        {
+            public const string Reserved = "inventory.reserved";
+            public const string Committed = "inventory.committed";
+            public const string Released = "inventory.released";
+            public const string Adjusted = "inventory.adjusted";
+        }
     }
 }

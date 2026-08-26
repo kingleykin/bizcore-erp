@@ -63,5 +63,11 @@ namespace Bizcore.BuildingBlocks
             public const string NotFound = "PRODUCT.NOT_FOUND";
             public const string InactiveProduct = "PRODUCT.INACTIVE";
         }
+
+        public static class Inventory
+        {
+            public const string NotFound = "INVENTORY.NOT_FOUND";
+            public const string InvalidQuantity = "INVENTORY.INVALID_QUANTITY";
+        }
     }
 }

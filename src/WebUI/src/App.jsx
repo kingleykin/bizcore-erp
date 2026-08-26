@@ -25,6 +25,7 @@ import {
   Building2,
   ShoppingCart,
   Package,
+  Warehouse,
   X
 } from 'lucide-react';
 import { Toaster, toast } from 'react-hot-toast';
@@ -1388,6 +1389,204 @@ const ProductManager = ({ api, getErrorDetail }) => {
   );
 };
 
+const stockTransactionTypeLabel = {
+  Reserve: 'Giữ chỗ',
+  Commit: 'Xuất kho (đơn xác nhận)',
+  Release: 'Trả chỗ (đơn hủy)',
+  Adjust: 'Điều chỉnh thủ công'
+};
+
+const InventoryManager = ({ api, getErrorDetail }) => {
+  const [stocks, setStocks] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const [showModal, setShowModal] = useState(false);
+  const [editingStock, setEditingStock] = useState(null);
+  const [quantityOnHand, setQuantityOnHand] = useState('');
+
+  const [showHistory, setShowHistory] = useState(false);
+  const [historyProduct, setHistoryProduct] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  useEffect(() => {
+    fetchStocks();
+  }, []);
+
+  const fetchStocks = async () => {
+    try {
+      setLoading(true);
+      const res = await api.get('/api/v1/inventory');
+      setStocks(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải danh sách tồn kho: ' + getErrorDetail(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const openAdjust = (stock) => {
+    setEditingStock(stock);
+    setQuantityOnHand(stock.quantityOnHand);
+    setShowModal(true);
+  };
+
+  const openHistory = async (stock) => {
+    setHistoryProduct(stock || null);
+    setShowHistory(true);
+    try {
+      setHistoryLoading(true);
+      const res = await api.get('/api/v1/inventory/transactions', {
+        params: stock ? { productId: stock.productId } : {}
+      });
+      setTransactions(res.data);
+    } catch (error) {
+      toast.error('Lỗi khi tải lịch sử xuất nhập tồn: ' + getErrorDetail(error));
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    const qty = Number(quantityOnHand);
+    if (!Number.isFinite(qty) || qty < 0) {
+      toast.error('Tồn kho không hợp lệ');
+      return;
+    }
+    try {
+      await api.put(`/api/v1/inventory/${editingStock.productId}`, {
+        productName: editingStock.productName,
+        quantityOnHand: qty
+      });
+      toast.success('Cập nhật tồn kho thành công');
+      setShowModal(false);
+      fetchStocks();
+    } catch (error) {
+      toast.error(getErrorDetail(error));
+    }
+  };
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginBottom: '1rem' }}>
+        <button className="btn btn-outline" onClick={() => openHistory(null)}>
+          <Clock size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Lịch sử xuất nhập tồn
+        </button>
+        <button className="btn btn-outline" onClick={fetchStocks} disabled={loading}>
+          <RefreshCcw size={16} style={{ marginRight: '8px', verticalAlign: 'middle' }} />
+          Làm mới
+        </button>
+      </div>
+
+      <div className="table-wrapper">
+        <table className="table">
+          <thead>
+            <tr>
+              <th>Sản phẩm</th>
+              <th>Tồn kho</th>
+              <th>Đã giữ chỗ</th>
+              <th>Khả dụng</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {stocks.map(s => (
+              <tr key={s.id}>
+                <td style={{ fontWeight: 600 }}>{s.productName}</td>
+                <td>{s.quantityOnHand.toLocaleString()}</td>
+                <td>{s.quantityReserved.toLocaleString()}</td>
+                <td>
+                  <span className={`status-badge ${s.availableQuantity < 0 ? 'status-pending' : 'status-paid'}`}>
+                    {s.availableQuantity.toLocaleString()}
+                  </span>
+                </td>
+                <td style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => openAdjust(s)}>
+                    Điều chỉnh
+                  </button>
+                  <button className="btn btn-outline" style={{ padding: '4px 8px' }} onClick={() => openHistory(s)}>
+                    Lịch sử
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {showModal && (
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 style={{ marginBottom: '1.5rem' }}>Điều chỉnh tồn kho: {editingStock?.productName}</h2>
+            <form onSubmit={handleSave}>
+              <div className="form-group">
+                <label className="form-label">Tồn kho thực tế</label>
+                <input
+                  type="number"
+                  className="form-input"
+                  min="0"
+                  value={quantityOnHand}
+                  onChange={e => setQuantityOnHand(e.target.value)}
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Hủy</button>
+                <button type="submit" className="btn btn-primary">Lưu thay đổi</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showHistory && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ maxWidth: '720px' }}>
+            <h2 style={{ marginBottom: '1.5rem' }}>
+              Lịch sử xuất nhập tồn{historyProduct ? `: ${historyProduct.productName}` : ' (tất cả sản phẩm)'}
+            </h2>
+            <div className="table-wrapper" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Thời gian</th>
+                    {!historyProduct && <th>Sản phẩm</th>}
+                    <th>Loại</th>
+                    <th>Số lượng</th>
+                    <th>Tồn sau</th>
+                    <th>Giữ chỗ sau</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {historyLoading ? (
+                    <tr><td colSpan={historyProduct ? 5 : 6}>Đang tải...</td></tr>
+                  ) : transactions.length === 0 ? (
+                    <tr><td colSpan={historyProduct ? 5 : 6}>Chưa có lịch sử.</td></tr>
+                  ) : transactions.map(t => (
+                    <tr key={t.id}>
+                      <td style={{ fontSize: '0.8rem' }}>{new Date(t.createdAt).toLocaleString('vi-VN')}</td>
+                      {!historyProduct && <td>{t.productName}</td>}
+                      <td>{stockTransactionTypeLabel[t.type] || t.type}</td>
+                      <td>{t.quantity > 0 ? `+${t.quantity}` : t.quantity}</td>
+                      <td>{t.quantityOnHandAfter.toLocaleString()}</td>
+                      <td>{t.quantityReservedAfter.toLocaleString()}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+              <button type="button" className="btn btn-outline" onClick={() => setShowHistory(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const emptyOrderItem = () => ({ productId: '', quantity: 1, unitPrice: '' });
 
 const OrderManager = ({ api, getErrorDetail }) => {
@@ -2094,6 +2293,10 @@ function App() {
               <Package size={20} />
               {t('common:products')}
             </div>
+            <div className={`nav-item ${activeTab === 'inventory' ? 'active' : ''}`} onClick={() => setActiveTab('inventory')}>
+              <Warehouse size={20} />
+              {t('common:inventory')}
+            </div>
             <div className={`nav-item ${activeTab === 'orchestration' ? 'active' : ''}`} onClick={() => setActiveTab('orchestration')}>
               <Activity size={20} />
               {t('common:orchestration')}
@@ -2122,6 +2325,7 @@ function App() {
             {activeTab === 'customers' && t('common:customers')}
             {activeTab === 'orders' && t('common:orders')}
             {activeTab === 'products' && t('common:products')}
+            {activeTab === 'inventory' && t('common:inventory')}
             {activeTab === 'orchestration' && t('common:orchestration')}
             {activeTab === 'identity' && t('common:roles')}
             {activeTab === 'audit' && t('common:audit')}
@@ -2238,6 +2442,8 @@ function App() {
           <OrderManager api={api} getErrorDetail={getErrorDetail} />
         ) : activeTab === 'products' ? (
           <ProductManager api={api} getErrorDetail={getErrorDetail} />
+        ) : activeTab === 'inventory' ? (
+          <InventoryManager api={api} getErrorDetail={getErrorDetail} />
         ) : activeTab === 'orchestration' ? (
           <OrchestrationFlow api={api} />
         ) : activeTab === 'identity' ? (

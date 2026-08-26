@@ -12,6 +12,7 @@
   "customer_groups": "Customer Groups",
   "orders": "Orders",
   "products": "Products",
+  "inventory": "Inventory",
   "actions": {
     "save": "Save Changes",
     "cancel": "Cancel",

@@ -16,4 +16,5 @@ public static class QueueNames
     public const string CustomerService = "customer-service";
     public const string OrderService = "order-service";
     public const string ProductService = "product-service";
+    public const string InventoryService = "inventory-service";
 }

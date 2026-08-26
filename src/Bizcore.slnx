@@ -56,4 +56,7 @@
   <Folder Name="/Services/Product/">
     <Project Path="Services/Product/Product.API/Product.API.csproj" />
   </Folder>
+  <Folder Name="/Services/Inventory/">
+    <Project Path="Services/Inventory/Inventory.API/Inventory.API.csproj" />
+  </Folder>
 </Solution>

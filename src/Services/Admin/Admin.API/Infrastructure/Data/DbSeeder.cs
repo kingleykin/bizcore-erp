@@ -28,6 +28,7 @@ namespace Admin.API.Infrastructure.Data
             new(Permissions.Menu.Customer,     "Xem menu Customer",     "Navigation.Customer",     PermissionScope.Menu),
             new(Permissions.Menu.Order,        "Xem menu Order",        "Navigation.Order",        PermissionScope.Menu),
             new(Permissions.Menu.Product,      "Xem menu Product",      "Navigation.Product",      PermissionScope.Menu),
+            new(Permissions.Menu.Inventory,    "Xem menu Inventory",    "Navigation.Inventory",    PermissionScope.Menu),
 
             // Admin Service permissions
             new(Permissions.Admin.OrgView,     "Xem cấu trúc tổ chức",  "Admin.Org",     PermissionScope.Page),
@@ -100,6 +101,10 @@ namespace Admin.API.Infrastructure.Data
             new(Permissions.Product.Create, "Tạo Sản phẩm mới",       "Product", PermissionScope.Action),
             new(Permissions.Product.Update, "Cập nhật Sản phẩm",      "Product", PermissionScope.Action),
             new(Permissions.Product.Delete, "Xóa Sản phẩm",           "Product", PermissionScope.Action),
+
+            // Inventory
+            new(Permissions.Inventory.View,   "Xem tồn kho",       "Inventory", PermissionScope.Page),
+            new(Permissions.Inventory.Update, "Điều chỉnh tồn kho", "Inventory", PermissionScope.Action),
         ];
 
         // ── Navigation menu definitions ─────────────────────────────────────────
@@ -116,6 +121,7 @@ namespace Admin.API.Infrastructure.Data
             new("Customer",      "/customer",      Permissions.Menu.Customer,      15, "users"),
             new("Order",         "/orders",        Permissions.Menu.Order,         16, "shopping-cart"),
             new("Product",       "/products",      Permissions.Menu.Product,       17, "package"),
+            new("Inventory",     "/inventory",     Permissions.Menu.Inventory,     18, "warehouse"),
         ];
 
         public static async Task SeedAsync(AdminDbContext context, ILogger logger)

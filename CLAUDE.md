@@ -2,111 +2,114 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-> Full AI-oriented architecture context also lives at [docs/02-project-overview/PROJECT_INDEX.md](docs/02-project-overview/PROJECT_INDEX.md) — read it for deeper detail than this file covers. The doc tree under `docs/` is organized numerically (`01-getting-started` … `09-testing`); [docs/README.md](docs/README.md) is the index.
+> Deeper AI-oriented architecture context: [docs/02-project-overview/PROJECT_INDEX.md](docs/02-project-overview/PROJECT_INDEX.md). The `docs/` tree is numbered `01-getting-started` … `09-testing`; [docs/README.md](docs/README.md) is the index. This file stays intentionally shorter than those — read them for anything not covered here.
 
 ## Commands
 
-The solution file is `src/Bizcore.slnx` (new .NET `.slnx` format, not `.sln`). Run all `dotnet` commands from the repo root.
+Solution file is `src/Bizcore.slnx` (`.slnx` format, not `.sln`). Run `dotnet` commands from the repo root.
 
 ```bash
-# Build everything
-dotnet build src/Bizcore.slnx
+dotnet build src/Bizcore.slnx                              # build everything
+dotnet run --project src/Services/Invoice/Invoice.API      # run one service locally
+docker compose up -d --build                                # full stack: all services + SQL Server, RabbitMQ, Redis, MinIO, LGTM stack
 
-# Run one service locally (each service is self-contained ASP.NET Core)
-dotnet run --project src/Services/Invoice/Invoice.API
+dotnet test src/Tests/Bizcore.UnitTests                     # unit tests (InMemory/mocks, fast)
+dotnet test src/Tests/Bizcore.ApiTests                      # integration tests (Testcontainers — needs Docker running)
+dotnet test src/Tests/Bizcore.UnitTests --filter "FullyQualifiedName~CreateInvoiceCommandHandlerTests.CreateAsync_WithValidData_ReturnsInvoice"  # single test
 
-# Run the full stack (all services + SQL Server, RabbitMQ, Redis, MinIO, LGTM observability stack)
-docker compose up -d --build
-
-# Unit tests (fast, InMemory DB / mocks)
-dotnet test src/Tests/Bizcore.UnitTests
-
-# API/integration tests (Testcontainers spins up real SQL Server/Redis/RabbitMQ — requires Docker running)
-dotnet test src/Tests/Bizcore.ApiTests
-
-# Run a single test
-dotnet test src/Tests/Bizcore.UnitTests --filter "FullyQualifiedName~CreateInvoiceCommandHandlerTests.CreateAsync_WithValidData_ReturnsInvoice"
-
-# E2E tests (Playwright; requires the full stack already running via docker compose)
-dotnet build src/Tests/Bizcore.E2ETests
+dotnet build src/Tests/Bizcore.E2ETests                     # E2E (Playwright) — needs full stack already running
 pwsh src/Tests/Bizcore.E2ETests/bin/Debug/net10.0/playwright.ps1 install   # once, after first build
 dotnet test src/Tests/Bizcore.E2ETests
 
-# EF Core migrations (run against a specific service, e.g. Invoice)
-dotnet ef migrations add <MigrationName> --project src/Services/Invoice/Invoice.API --startup-project src/Services/Invoice/Invoice.API
+dotnet ef migrations add <Name> --project src/Services/Invoice/Invoice.API --startup-project src/Services/Invoice/Invoice.API
 dotnet ef database update --project src/Services/Invoice/Invoice.API --startup-project src/Services/Invoice/Invoice.API
 
-# Full test run + HTML coverage dashboard (ApiTests project)
-./run-tests.sh      # Linux/macOS
-./run-tests.ps1      # Windows
+./run-tests.sh   # or run-tests.ps1 — ApiTests + HTML coverage dashboard
 ```
 
-Frontend (`src/WebUI`, React/Vite) has its own `package.json` — use `npm install` / `npm run dev` inside that directory.
+Frontend (`src/WebUI`, React/Vite) is a separate `npm` project — `npm install` / `npm run dev` inside that directory.
 
 ## Architecture
 
-**Bizcore ERP** is an event-driven microservices ERP system (.NET 8). Core business flow: **Identity/Auth → Invoice → Payment → Report**, observed end-to-end by a centralized **Audit** service.
+Event-driven microservices ERP (.NET 8). Core flow: **Identity/Auth → Invoice → Payment → Report**, observed end-to-end by a centralized **Audit** service.
 
 ### Services (`src/Services/*/*.API`)
 
-Admin, Invoice, Payment, Report, Orchestration, Audit, File, Customer, Order, Product — each is an independently deployable ASP.NET Core Web API with its own SQL Server database (logical DBs on one shared instance: `InvoiceDb`, `PaymentDb`, etc.). All traffic enters through `src/Gateway/Gateway.API` (YARP reverse proxy), which also does centralized authentication. Routes/clusters for each service are registered in `Gateway.API/appsettings.json`, and each service container is wired into `docker-compose.yml`.
+Admin, Invoice, Payment, Report, Orchestration, Audit, File, Customer, Order, Product — each an independently deployable ASP.NET Core Web API with its own logical SQL Server database (`InvoiceDb`, `PaymentDb`, …, one shared instance). All traffic enters through `src/Gateway/Gateway.API` (YARP), which also does centralized authentication. Every service needs three registrations beyond its own folder — easy to miss one:
+1. `src/Bizcore.slnx` — a `/Services/{Name}/` `<Folder>` entry (cosmetic: solution/IDE visibility only, doesn't affect runtime).
+2. `Gateway.API/appsettings.json` — a route + cluster.
+3. `docker-compose.yml` — the service block.
 
-### Every service follows the same 4-layer DDD-Lite structure
+### 4-layer DDD-Lite structure, identical in every service
 
 ```
 {Service}.API/
-├── Domain/          # Entities, Enums, Exceptions — no framework dependencies, no DB context
-├── Application/      # Commands/Queries + Handlers (MediatR), Consumers (MassTransit), DTOs, Validators
-├── Infrastructure/    # AppDbContext, EF Core Migrations, EntityTypeConfigurations, external Clients
-└── Controllers/       # HTTP endpoints only — no business logic here
+├── Domain/           Entities, Enums, Exceptions — no framework/DB dependencies
+├── Application/       Commands/Queries + Handlers (MediatR), Consumers (MassTransit), DTOs, Validators
+├── Infrastructure/     AppDbContext, EF Migrations, Data/Configurations/{Entity}Configuration.cs, external Clients
+└── Controllers/        HTTP endpoints only — binds request, calls MediatR, returns result; no business logic
 ```
 
-- `Program.cs` is intentionally thin: it wires up `AddServiceDefaults()` (logging, OpenTelemetry, health checks) plus `AddBizcoreModule<{Service}Module>()`. All DI/service registration for a service lives in its `{Service}Module.cs` implementing `IServiceModule` — that's the file to read first to understand what a service depends on.
-- Aggregate roots inherit `AggregateRoot` (all entities inherit `BaseEntity` for `Id`/`CreatedAt`/`UpdatedAt`/`Version`). Version only increments when a business method calls `MarkStateChanged()` — this drives optimistic concurrency via `EntityVersionInterceptor`. Never assign `entity.Version` directly from a DTO; always set `.Property(x => x.Version).OriginalValue` on the EF entry.
-- Entity Framework config lives in per-entity `IEntityTypeConfiguration<T>` classes under `Infrastructure/Data/Configurations/`, not inline in `OnModelCreating`.
+`Program.cs` follows one fixed shape across every service (see `src/Services/Order/Order.API/Program.cs` for the canonical, current example — copy it rather than reconstructing from memory):
+
+```csharp
+builder.AddServiceDefaults("{Service}.API");                 // logging, OpenTelemetry, health checks
+builder.Services.AddBizcoreAuth(builder.Configuration);
+builder.Services.AddBizcoreVersioning();
+builder.Services.AddBizcoreSwagger("BizCore {Service} API", "description");
+builder.Services.AddBizcoreModule<{Service}Module>(builder);  // all DI for this service lives in {Service}Module : IServiceModule
+
+var app = builder.Build();
+app.MapDefaultEndpoints("BizCore {Service} API v1");
+
+await app.Services.MigrateDatabaseAsync<AppDbContext>();      // + DbSeeder.SeedAsync(...) for business-data seeding
+app.Run();
+
+public partial class Program { }                              // required for WebApplicationFactory in Bizcore.ApiTests
+```
+
+Read `{Service}Module.cs` first when exploring an unfamiliar service — that's where its dependencies are registered, not `Program.cs`.
+
+Aggregate roots inherit `AggregateRoot` (all entities inherit `BaseEntity`: `Id`/`CreatedAt`/`UpdatedAt`/`Version`). `Version` increments only when a business method calls `MarkStateChanged()`, which drives optimistic concurrency via `EntityVersionInterceptor`. Never assign `entity.Version` from a DTO — set `.Property(x => x.Version).OriginalValue = request.Version` on the EF entry instead. New child entities added to an aggregate's collection need explicit `_context.Set<TChild>().Add(child)` or EF may mistrack them as `Modified`.
 
 ### Shared code (`src/BuildingBlocks/`)
 
-- `Bizcore.BuildingBlocks` — cross-cutting contracts: `ErrorCodes`, `Permissions`, `QueueNames`, audit constants, shared events/exceptions, `IServiceModule`.
+- `Bizcore.BuildingBlocks` — `ErrorCodes`, `Permissions`, `QueueNames`, audit constants, shared events/exceptions, `IServiceModule`.
 - `Bizcore.BuildingBlocks.Grpc` — gRPC client/resilience helpers (`AddBizcoreGrpcClient`).
-- `Bizcore.BuildingBlocks.Storage` — MinIO (S3-compatible) client for file/object storage.
-- `Bizcore.Localization` — centralized i18n resource management.
+- `Bizcore.BuildingBlocks.Storage` — MinIO (S3-compatible) client.
+- `Bizcore.Localization` — centralized i18n resources.
 
-### Inter-service communication rules
+### Inter-service communication
 
-- **Default to async messaging** (RabbitMQ via MassTransit), not direct HTTP, between services.
-- **Transactional Inbox**: every MassTransit consumer is automatically wrapped in a DB transaction by the infrastructure. Never call `BeginTransactionAsync()` inside a `Consume`/`Handle` method — it's already open and nesting throws `InvalidOperationException`.
-- **Outbox Pattern**: publishing via `_publishEndpoint.Publish` writes to an `OutboxMessages` table in the same transaction as the business data; a background worker delivers it — this is how DB-write + message-publish stays atomic.
-- **gRPC is query-only** (synchronous reads between services, max 2 hops in a chain) — never used for commands/writes. Don't inject a raw gRPC client into a business service; wrap it in a proxy service (e.g. `AuditClientService`).
-- Handlers never call `SaveChangesAsync()` themselves — `TransactionBehavior` (MediatR pipeline) commits via `IUnitOfWork` after the handler succeeds.
+- Default to **async messaging** (RabbitMQ/MassTransit), not direct HTTP, between services.
+- **Transactional Inbox**: every MassTransit consumer is auto-wrapped in a DB transaction. Never call `BeginTransactionAsync()` inside `Consume`/`Handle` — nesting throws `InvalidOperationException`.
+- **Outbox**: `_publishEndpoint.Publish` writes to `OutboxMessages` in the same transaction as the business data; a background worker delivers it — this is what keeps DB-write + message-publish atomic.
+- **gRPC is query-only**, max 2 hops, never for commands. Wrap clients in a proxy service (e.g. `AuditClientService`) rather than injecting them directly into business logic.
+- Handlers never call `SaveChangesAsync()` — `TransactionBehavior` (MediatR pipeline) commits via `IUnitOfWork` after the handler succeeds.
 
 ### Saga orchestration
 
-Multi-step cross-service business processes (e.g. Payment → Invoice approval → notification) are modeled as MassTransit State Machine Sagas in `Orchestration.API` (`Application/Sagas/*Saga.cs` + `Domain/Entities/*SagaState.cs`). `Orchestration.API` itself carries no business logic — it only sequences events/commands and tracks `ProcessFlow`/`FlowStep` for observability.
+Multi-step cross-service flows (e.g. Payment → Invoice approval → notification) are MassTransit State Machine Sagas in `Orchestration.API` (`Application/Sagas/*Saga.cs` + `Domain/Entities/*SagaState.cs`). `Orchestration.API` carries no business logic itself — it sequences events/commands and records `ProcessFlow`/`FlowStep` for observability.
 
 ### Authorization
 
-Dynamic, permission-code-based (`Permissions` class in `Bizcore.BuildingBlocks`), backed by Redis cache with JWT-claims fallback. Every new endpoint (except public/auth ones) must carry `[RequirePermission(Permissions.X.Y)]`. Adding a new permission means: add the constant to `Permissions`, then seed it in the relevant service's `DbSeeder`.
+Dynamic permission-code checks (`Permissions` class in `Bizcore.BuildingBlocks`), backed by Redis cache with JWT-claims fallback — changes take effect immediately via cache invalidation, no re-login needed. Every endpoint except public/auth ones needs `[RequirePermission(Permissions.X.Y)]`. New permissions: add the constant to `Permissions.cs`, then seed it in `src/Services/Admin/Admin.API/Infrastructure/Data/DbSeeder.cs` — that's the single central permission catalog; other services' `DbSeeder.cs` files seed business data only, not permissions.
 
 ### Error handling & observability
 
-- Throw typed exceptions (`DomainException`, `NotFoundException`, etc.) carrying a code from `Bizcore.BuildingBlocks.ErrorCodes` — never return raw error strings. `GlobalExceptionMiddleware` translates these to standardized HTTP responses that the frontend (react-i18next) localizes.
-- PII/sensitive fields on DTOs must carry `[SensitiveData]` (`Sensitive` = masked, `Restricted` = stripped entirely from logs).
-- Every request carries `X-Correlation-ID` and `X-Culture`; both propagate automatically across HTTP and RabbitMQ — don't read/thread them manually.
-- Mutating endpoints must handle idempotency (`X-Idempotency-Key`), and RabbitMQ consumers must be safe to reprocess.
+- Throw typed exceptions (`DomainException`, `NotFoundException`, etc.) carrying an `ErrorCodes` constant — never a raw string. `GlobalExceptionMiddleware` standardizes the HTTP response; the frontend (react-i18next) localizes it.
+- PII fields on DTOs need `[SensitiveData]` (`Sensitive` = masked in logs, `Restricted` = stripped entirely).
+- `X-Correlation-ID` and `X-Culture` propagate automatically across HTTP and RabbitMQ — don't thread them manually.
+- Mutating endpoints handle idempotency (`X-Idempotency-Key`); RabbitMQ consumers must be safe to reprocess.
 
 ## Adding a new microservice
 
-Full walkthrough: [docs/01-getting-started/DEV_GUIDE.md](docs/01-getting-started/DEV_GUIDE.md). Checklist:
-
-1. New ASP.NET Core Web API project, referencing `Bizcore.BuildingBlocks`.
-2. Add a `{Service}Module : IServiceModule`; keep `Program.cs` to the standard template (`AddServiceDefaults`, `AddBizcoreTelemetry`, `AddBizcoreInfrastructure`, `AddBizcoreAuth`, `AddBizcoreModule<T>`).
-3. Register the project in `src/Bizcore.slnx` under a new `/Services/{Name}/` folder — easy to forget since it's not required for the service to run, only to show up in the IDE/solution.
-4. Add a route + cluster entry in `src/Gateway/Gateway.API/appsettings.json`.
-5. Add the service (and any Dockerfile) to `docker-compose.yml`.
-6. Define new permissions in `Bizcore.BuildingBlocks.Permissions` and seed them.
-7. Tag PII fields with `[SensitiveData]`.
+A [new-service skill](.claude/skills/new-service/SKILL.md) automates this checklist; full narrative in [docs/01-getting-started/DEV_GUIDE.md](docs/01-getting-started/DEV_GUIDE.md) — note its `Program.cs` template there predates the real one shown above, so prefer copying an existing service's actual `Program.cs`.
 
 ## Git workflow
 
-Reduced Git Flow: `main` (production, never commit directly) ← `develop` (integration) ← `feature/BC-{ID}-{desc}` / `bugfix/BC-{ID}-{desc}` / `hotfix/BC-{ID}-{desc}`. Commits follow Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `chore` — `type(scope): description`). PRs target `develop`, need ≥1 approval and passing CI, and merge via Squash and Merge. Full detail: [docs/06-conventions/GIT_WORKFLOW.md](docs/06-conventions/GIT_WORKFLOW.md).
+Reduced Git Flow: `main` (production, never commit directly) ← `develop` (integration) ← `feature/BC-{ID}-{desc}` / `bugfix/BC-{ID}-{desc}` / `hotfix/BC-{ID}-{desc}`. Conventional Commits (`feat`, `fix`, `docs`, `refactor`, `perf`, `test`, `chore` — `type(scope): description`). PRs target `develop`, need ≥1 approval and passing CI, merge via Squash and Merge. Detail: [docs/06-conventions/GIT_WORKFLOW.md](docs/06-conventions/GIT_WORKFLOW.md).
+
+## Project skills
+
+`.claude/skills/` — [new-service](.claude/skills/new-service/SKILL.md), [ef-migration](.claude/skills/ef-migration/SKILL.md), [add-permission](.claude/skills/add-permission/SKILL.md), [bizcore-code-review](.claude/skills/bizcore-code-review/SKILL.md). These trigger automatically on matching requests; invoke explicitly with `/new-service` etc. if needed.
