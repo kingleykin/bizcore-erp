@@ -17,7 +17,10 @@ namespace Payment.API.Domain.Entities
 
     public class Payment : AggregateRoot
     {
-        public Guid InvoiceId { get; set; }
+        /// <summary>Đúng một trong InvoiceId/OrderId được set — payment trả cho hóa đơn (luồng cũ)
+        /// hoặc trả cho đơn hàng (luồng Order), không bao giờ cả hai.</summary>
+        public Guid? InvoiceId { get; set; }
+        public Guid? OrderId { get; set; }
         public decimal Amount { get; set; }
         public string? PaymentMethod { get; set; }
         public DateTime PaymentDate { get; set; } = DateTime.UtcNow;
@@ -29,5 +32,14 @@ namespace Payment.API.Domain.Entities
     public class Invoice : BaseEntity
     {
         public InvoiceStatus Status { get; set; }
+    }
+
+    /// <summary>
+    /// Read-model tối giản mirror Order bên Order.API (đồng bộ qua OrderCreatedEvent), chỉ dùng
+    /// để kiểm tra tồn tại nhanh (fail-fast) tại bước Initiate — validate đầy đủ (trạng thái, số
+    /// tiền) do ValidateOrderCommandConsumer bên Order.API đảm nhiệm qua saga.
+    /// </summary>
+    public class Order : BaseEntity
+    {
     }
 }

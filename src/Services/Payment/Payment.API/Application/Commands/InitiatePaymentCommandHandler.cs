@@ -46,19 +46,31 @@ namespace Payment.API.Application.Commands;
             return new InitiatePaymentResult(false, null, "Idempotency key is required.");
         }
 
-        // Check if invoice exists in Payment service's read model
-        var invoiceExists = await _context.Invoices.AnyAsync(
-            i => i.Id == request.InvoiceId,
-            cancellationToken
-        );
-
-        if (!invoiceExists)
+        // Đúng một trong InvoiceId/OrderId phải được set.
+        var referenceCount = (request.InvoiceId.HasValue ? 1 : 0) + (request.OrderId.HasValue ? 1 : 0);
+        if (referenceCount != 1)
         {
-            _logger.LogWarning(
-                "Invoice not found in Payment read model. InvoiceId: {InvoiceId}",
-                request.InvoiceId
-            );
-            return new InitiatePaymentResult(false, null, "Invoice not found.");
+            return new InitiatePaymentResult(false, null, "Exactly one of InvoiceId or OrderId must be provided.");
+        }
+
+        // Check tồn tại trong read model tương ứng (fail-fast trước khi tạo Payment record).
+        if (request.InvoiceId.HasValue)
+        {
+            var invoiceExists = await _context.Invoices.AnyAsync(i => i.Id == request.InvoiceId.Value, cancellationToken);
+            if (!invoiceExists)
+            {
+                _logger.LogWarning("Invoice not found in Payment read model. InvoiceId: {InvoiceId}", request.InvoiceId);
+                return new InitiatePaymentResult(false, null, "Invoice not found.");
+            }
+        }
+        else
+        {
+            var orderExists = await _context.Orders.AnyAsync(o => o.Id == request.OrderId!.Value, cancellationToken);
+            if (!orderExists)
+            {
+                _logger.LogWarning("Order not found in Payment read model. OrderId: {OrderId}", request.OrderId);
+                return new InitiatePaymentResult(false, null, "Order not found.");
+            }
         }
 
         // Generate PaymentId before idempotency check
@@ -67,7 +79,7 @@ namespace Payment.API.Application.Commands;
         // Check idempotency (database-backed, thread-safe)
         var idempotencyCheck = await _idempotencyService.CheckOrCreateAsync(
             request.IdempotencyKey,
-            new { request.InvoiceId, request.Amount, request.PaymentMethod },
+            new { request.InvoiceId, request.OrderId, request.Amount, request.PaymentMethod },
             paymentId,
             TimeSpan.FromMinutes(30)
         );
@@ -110,6 +122,7 @@ namespace Payment.API.Application.Commands;
         {
             Id = paymentId,
             InvoiceId = request.InvoiceId,
+            OrderId = request.OrderId,
             Amount = request.Amount,
             PaymentMethod = request.PaymentMethod,
             PaymentDate = DateTime.UtcNow,
@@ -126,6 +139,7 @@ namespace Payment.API.Application.Commands;
         {
             PaymentId = payment.Id,
             InvoiceId = payment.InvoiceId,
+            OrderId = payment.OrderId,
             Amount = payment.Amount,
             IdempotencyKey = request.IdempotencyKey,
             InitiatedAt = payment.PaymentDate
@@ -138,7 +152,7 @@ namespace Payment.API.Application.Commands;
             AuditActions.Payment.Initiated,
             entityType: "Payment",
             entityId: payment.Id.ToString(),
-            after: new { payment.Id, payment.InvoiceId, payment.Amount, payment.PaymentMethod, payment.Status },
+            after: new { payment.Id, payment.InvoiceId, payment.OrderId, payment.Amount, payment.PaymentMethod, payment.Status },
             category: AuditCategory.Financial,
             classification: DataClassification.Financial,
             ct: cancellationToken);

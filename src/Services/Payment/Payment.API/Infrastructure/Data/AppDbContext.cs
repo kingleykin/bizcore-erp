@@ -13,6 +13,7 @@ namespace Payment.API.Infrastructure.Data
 
         public DbSet<Payment.API.Domain.Entities.Payment> Payments { get; set; }
         public DbSet<Payment.API.Domain.Entities.Invoice> Invoices { get; set; }
+        public DbSet<Payment.API.Domain.Entities.Order> Orders { get; set; }
         public DbSet<IdempotencyRecord> IdempotencyRecords { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -26,11 +26,16 @@ namespace Invoice.API.Application.Consumers
             var msg = context.Message;
             var correlationId = context.Headers?.Get<string>("X-Correlation-ID") ?? "N/A";
 
+            // IPaymentCompletedEvent dùng chung cho cả Invoice lẫn Order — bỏ qua nếu đây là
+            // thanh toán cho Order (không liên quan Invoice.API).
+            if (msg.InvoiceId is not { } invoiceId)
+                return;
+
             _logger.LogInformation(
                 "[Invoice] PaymentCompleted event received CorrelationId={CorrelationId} PaymentId={PaymentId} InvoiceId={InvoiceId}",
-                correlationId, msg.PaymentId, msg.InvoiceId);
+                correlationId, msg.PaymentId, invoiceId);
 
-            var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == msg.InvoiceId);
+            var invoice = await _context.Invoices.FirstOrDefaultAsync(i => i.Id == invoiceId);
             if (invoice == null)
             {
                 _logger.LogWarning(

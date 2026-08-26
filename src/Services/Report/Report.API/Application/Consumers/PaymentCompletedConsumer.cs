@@ -20,11 +20,16 @@ namespace Report.API.Application.Consumers
         {
             var msg = context.Message;
 
+            // IPaymentCompletedEvent dùng chung cho cả Invoice lẫn Order — bỏ qua nếu đây là
+            // thanh toán cho Order (Report read model hiện chỉ theo dõi Invoice).
+            if (msg.InvoiceId is not { } invoiceId)
+                return;
+
             _logger.LogInformation(
                 "Updating Report read model for PaymentId={PaymentId} InvoiceId={InvoiceId}",
-                msg.PaymentId, msg.InvoiceId);
+                msg.PaymentId, invoiceId);
 
-            var invoice = await _context.Invoices.FirstOrDefaultAsync(x => x.Id == msg.InvoiceId);
+            var invoice = await _context.Invoices.FirstOrDefaultAsync(x => x.Id == invoiceId);
             if (invoice == null)
             {
                 _logger.LogWarning(

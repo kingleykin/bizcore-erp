@@ -74,7 +74,7 @@ public class PaymentCommandTests
         var handler = BuildHandler(context, publishMock);
 
         var result = await handler.Handle(
-            new InitiatePaymentCommand(Guid.NewGuid(), 10_000m, "CreditCard", ""),
+            new InitiatePaymentCommand(Guid.NewGuid(), null, 10_000m, "CreditCard", ""),
             CancellationToken.None);
 
         result.Accepted.Should().BeFalse();
@@ -93,7 +93,7 @@ public class PaymentCommandTests
         var handler = BuildHandler(context, publishMock);
 
         var result = await handler.Handle(
-            new InitiatePaymentCommand(Guid.NewGuid(), 99_000m, "CreditCard", "idem-no-invoice"),
+            new InitiatePaymentCommand(Guid.NewGuid(), null, 99_000m, "CreditCard", "idem-no-invoice"),
             CancellationToken.None);
 
         result.Accepted.Should().BeFalse();
@@ -125,7 +125,7 @@ public class PaymentCommandTests
         var handler = BuildHandler(context, publishMock);
 
         var result = await handler.Handle(
-            new InitiatePaymentCommand(invoiceId, 10_500m, "CreditCard", idempotencyKey),
+            new InitiatePaymentCommand(invoiceId, null, 10_500m, "CreditCard", idempotencyKey),
             CancellationToken.None);
 
         // Manually save changes as TransactionBehavior is missing in unit test

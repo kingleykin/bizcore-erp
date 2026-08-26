@@ -15,6 +15,7 @@ namespace Orchestration.API.Infrastructure.Data.Configurations
             builder.Property(x => x.Amount).HasPrecision(18, 2);
             builder.HasIndex(x => x.PaymentId);
             builder.HasIndex(x => x.InvoiceId);
+            builder.HasIndex(x => x.OrderId);
         }
     }
 }

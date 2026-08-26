@@ -76,6 +76,7 @@ namespace Payment.API.Application.Consumers
             {
                 PaymentId = payment.Id,
                 InvoiceId = payment.InvoiceId,
+                OrderId = payment.OrderId,
                 ConfirmedAt = DateTime.UtcNow
             });
 
@@ -84,6 +85,7 @@ namespace Payment.API.Application.Consumers
             {
                 PaymentId = payment.Id,
                 InvoiceId = payment.InvoiceId,
+                OrderId = payment.OrderId,
                 Amount = payment.Amount,
                 PaymentDate = payment.PaymentDate
             });

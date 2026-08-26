@@ -11,6 +11,7 @@ public static class MappingExtensions
         var response = new PaymentResponseDto(
             PaymentId: entity.Id,
             InvoiceId: entity.InvoiceId,
+            OrderId: entity.OrderId,
             Amount: entity.Amount,
             Status: entity.Status.ToString(),
             PaymentDate: entity.PaymentDate,

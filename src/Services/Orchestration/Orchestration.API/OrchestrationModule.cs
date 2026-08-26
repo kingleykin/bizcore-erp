@@ -34,6 +34,7 @@ public class OrchestrationModule : IServiceModule
 
         // 3. Application Services
         services.AddScoped<IAuditClientService, AuditClientService>();
+        services.AddScoped<IOrchestrationStepRecorder, OrchestrationStepRecorder>();
 
         // 4. gRPC Client
         services.AddBizcoreGrpcClient<Bizcore.BuildingBlocks.Grpc.Protos.AuditGrpc.AuditGrpcClient>(
@@ -53,6 +54,7 @@ public class OrchestrationModule : IServiceModule
                     });
 
                 x.MapBusinessCommand<IValidateInvoiceCommand>(QueueNames.InvoiceService);
+                x.MapBusinessCommand<IValidateOrderCommand>(QueueNames.OrderService);
                 x.MapBusinessCommand<IConfirmPaymentCommand>(QueueNames.PaymentService);
                 x.MapBusinessCommand<IRejectPaymentCommand>(QueueNames.PaymentService);
             });

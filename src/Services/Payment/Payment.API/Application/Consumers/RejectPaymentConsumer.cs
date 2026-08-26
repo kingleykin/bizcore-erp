@@ -71,6 +71,7 @@ namespace Payment.API.Application.Consumers
             {
                 PaymentId = payment.Id,
                 InvoiceId = payment.InvoiceId,
+                OrderId = payment.OrderId,
                 Reason = cmd.Reason,
                 RejectedAt = DateTime.UtcNow
             });

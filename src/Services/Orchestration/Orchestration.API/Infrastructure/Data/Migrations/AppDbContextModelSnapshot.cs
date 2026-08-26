@@ -259,7 +259,10 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<Guid>("InvoiceId")
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("OrderId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("PaymentId")
@@ -277,6 +280,8 @@ namespace Orchestration.API.Infrastructure.Data.Migrations
                     b.HasKey("CorrelationId");
 
                     b.HasIndex("InvoiceId");
+
+                    b.HasIndex("OrderId");
 
                     b.HasIndex("PaymentId");
 

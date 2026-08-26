@@ -1589,12 +1589,13 @@ const InventoryManager = ({ api, getErrorDetail }) => {
 
 const emptyOrderItem = () => ({ productId: '', quantity: 1, unitPrice: '' });
 
-const OrderManager = ({ api, getErrorDetail }) => {
+const OrderManager = ({ api, getErrorDetail, onPay }) => {
   const [orders, setOrders] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [payingOrderId, setPayingOrderId] = useState(null);
 
   const emptyOrderForm = { customerId: '', note: '', items: [emptyOrderItem()] };
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -1723,6 +1724,33 @@ const OrderManager = ({ api, getErrorDetail }) => {
     }
   };
 
+  const handlePayOrder = async (order) => {
+    setPayingOrderId(order.id);
+    try {
+      const success = await onPay({ orderId: order.id }, order.totalAmount);
+      if (success) {
+        // Payment.Completed không đồng nghĩa Order đã Confirmed ngay: IPaymentConfirmedEvent đi
+        // qua Outbox (poll mỗi 1s) rồi mới tới Order.API xử lý — poll vài lần thay vì fetch 1 lần
+        // ngay lập tức (dễ bắt trúng lúc đơn chưa kịp cập nhật, trông như bug).
+        for (let attempt = 0; attempt < 6; attempt++) {
+          await new Promise(r => setTimeout(r, 1000));
+          try {
+            const res = await api.get(`/api/v1/orders/${order.id}`);
+            if (res.data.status !== 0) {
+              setSelectedOrder(res.data);
+              break;
+            }
+          } catch (pollErr) {
+            console.warn('Polling order status failed', pollErr);
+          }
+        }
+      }
+      fetchOrders();
+    } finally {
+      setPayingOrderId(null);
+    }
+  };
+
   const openCancelOrder = (order) => {
     setSelectedOrder(order);
     setCancelReason('');
@@ -1827,7 +1855,15 @@ const OrderManager = ({ api, getErrorDetail }) => {
 
             {selectedOrder.status === 0 && (
               <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem' }}>
-                <button className="btn btn-primary" onClick={() => handleConfirmOrder(selectedOrder)}>Xác nhận</button>
+                <button
+                  className="btn btn-primary"
+                  disabled={payingOrderId === selectedOrder.id}
+                  onClick={() => handlePayOrder(selectedOrder)}
+                >
+                  <DollarSign size={16} style={{ marginRight: '6px', verticalAlign: 'middle' }} />
+                  {payingOrderId === selectedOrder.id ? 'Đang thanh toán...' : 'Thanh toán'}
+                </button>
+                <button className="btn btn-outline" onClick={() => handleConfirmOrder(selectedOrder)}>Xác nhận (không thanh toán online)</button>
                 <button className="btn btn-outline" onClick={() => openCancelOrder(selectedOrder)}>Hủy đơn</button>
               </div>
             )}
@@ -2094,14 +2130,17 @@ function App() {
     }
   };
 
-  const handlePay = async (invoiceId, amount) => {
+  // reference: { invoiceId } cho luồng Hóa đơn, hoặc { orderId } cho luồng Đơn hàng — đúng 1 trong 2.
+  const handlePay = async (reference, amount) => {
+    const { invoiceId, orderId } = reference;
     const toastId = toast.loading('Đang xử lý thanh toán (Async)...');
     try {
       // 1. Submit Request with Idempotency Key
-      const idempotencyKey = `pay_${invoiceId}_${new Date().getTime()}`;
-      
+      const idempotencyKey = `pay_${invoiceId || orderId}_${new Date().getTime()}`;
+
       const res = await api.post('/api/v1/payment/pay', {
-        invoiceId,
+        invoiceId: invoiceId || null,
+        orderId: orderId || null,
         amount,
         paymentMethod: 'CreditCard'
       }, {
@@ -2177,9 +2216,16 @@ function App() {
 
       fetchData();
       toast.success('Thanh toán hoàn tất!', { id: toastId });
+      return true;
     } catch (error) {
       console.error('Error processing payment:', error);
-      toast.error(error.message || ('Thanh toán thất bại: ' + getErrorDetail(error)), { id: toastId });
+      // error.response chỉ có ở lỗi gọi API (axios) — ưu tiên lý do thật từ server qua
+      // getErrorDetail thay vì error.message (Axios luôn tự set "Request failed with status
+      // code 4xx", che mất lý do thật). Lỗi từ SignalR/polling (reject(new Error(...))) không
+      // có .response nên vẫn dùng error.message như cũ.
+      const detail = error.response ? getErrorDetail(error) : (error.message || getErrorDetail(error));
+      toast.error('Thanh toán thất bại: ' + detail, { id: toastId });
+      return false;
     }
   };
 
@@ -2426,7 +2472,7 @@ function App() {
                     </td>
                     <td>
                       {inv.status === 0 && (
-                        <button className="btn btn-primary" onClick={() => handlePay(inv.id, inv.amount)}>
+                        <button className="btn btn-primary" onClick={() => handlePay({ invoiceId: inv.id }, inv.amount)}>
                           Thanh toán ngay
                         </button>
                       )}
@@ -2439,7 +2485,7 @@ function App() {
         ) : activeTab === 'customers' ? (
           <CustomerManager api={api} getErrorDetail={getErrorDetail} />
         ) : activeTab === 'orders' ? (
-          <OrderManager api={api} getErrorDetail={getErrorDetail} />
+          <OrderManager api={api} getErrorDetail={getErrorDetail} onPay={handlePay} />
         ) : activeTab === 'products' ? (
           <ProductManager api={api} getErrorDetail={getErrorDetail} />
         ) : activeTab === 'inventory' ? (

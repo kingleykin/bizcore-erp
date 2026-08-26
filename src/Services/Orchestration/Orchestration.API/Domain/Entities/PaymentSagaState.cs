@@ -18,8 +18,11 @@ namespace Orchestration.API.Domain.Entities
         /// <summary>PaymentId được tạo bởi Payment service.</summary>
         public Guid PaymentId { get; set; }
 
-        /// <summary>InvoiceId cần validate.</summary>
-        public Guid InvoiceId { get; set; }
+        /// <summary>InvoiceId cần validate — đúng một trong InvoiceId/OrderId được set.</summary>
+        public Guid? InvoiceId { get; set; }
+
+        /// <summary>OrderId cần validate — đúng một trong InvoiceId/OrderId được set.</summary>
+        public Guid? OrderId { get; set; }
 
         /// <summary>Amount cần validate với invoice.</summary>
         public decimal Amount { get; set; }

@@ -41,8 +41,12 @@ public class PaymentsController : ControllerBase
         if (string.IsNullOrEmpty(idempotencyKey))
             return BadRequest(new { Error = "Missing X-Idempotency-Key header" });
 
+        if ((request.InvoiceId.HasValue ? 1 : 0) + (request.OrderId.HasValue ? 1 : 0) != 1)
+            return BadRequest(new { Error = "Exactly one of InvoiceId or OrderId must be provided." });
+
         var command = new InitiatePaymentCommand(
             request.InvoiceId,
+            request.OrderId,
             request.Amount,
             request.PaymentMethod,
             idempotencyKey
