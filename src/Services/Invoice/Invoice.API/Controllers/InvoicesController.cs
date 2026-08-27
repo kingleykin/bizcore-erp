@@ -55,19 +55,8 @@ public class InvoicesController : ControllerBase
         return Ok(invoice);
     }
 
-    [HttpPost]
-    [RequirePermission(Permissions.Invoice.Create)]
-    public async Task<ActionResult<InvoiceResponseDto>> CreateInvoice(CreateInvoiceRequest request)
-    {
-        _logger.LogInformation("Creating invoice for CustomerName={CustomerName}, Amount={Amount}",
-            request.CustomerName, request.Amount);
-
-        var command = new CreateInvoiceCommand(request.CustomerName, request.Amount);
-        var created = await _mediator.Send(command);
-
-        _logger.LogInformation("Invoice created successfully InvoiceId={InvoiceId}", created.Id);
-        return CreatedAtAction(nameof(GetInvoice), new { id = created.Id }, created);
-    }
+    // Không còn endpoint tạo hóa đơn thủ công: Invoice giờ là chứng từ phái sinh từ Order,
+    // được tự động sinh khi Order Confirm (xem Application/Consumers/OrderConfirmedConsumer.cs).
 
     [HttpPut("{id}/status")]
     [RequirePermission(Permissions.Invoice.Update)]

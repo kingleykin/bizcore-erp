@@ -6,6 +6,7 @@ namespace Invoice.API.Application.DTOs;
 public record InvoiceResponseDto
 (
     Guid Id,
+    Guid? OrderId,
     string CustomerName,
     decimal Amount,
     InvoiceStatus Status,

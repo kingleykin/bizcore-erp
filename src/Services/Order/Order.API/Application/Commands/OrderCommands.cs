@@ -163,6 +163,8 @@ public class ConfirmOrderHandler : IRequestHandler<ConfirmOrderCommand, OrderRes
         {
             await _publishEndpoint.Publish(new OrderConfirmedEvent(
                 order.Id,
+                order.CustomerName,
+                order.TotalAmount,
                 order.Items.Select(i => new OrderEventItem(i.ProductId, i.Quantity)).ToList(),
                 DateTime.UtcNow
             ), ct);

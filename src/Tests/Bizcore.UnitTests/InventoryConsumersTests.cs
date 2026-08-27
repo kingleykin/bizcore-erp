@@ -115,7 +115,7 @@ public class InventoryConsumersTests
 
         var orderId = Guid.NewGuid();
         var message = new OrderConfirmedEvent(
-            orderId, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
+            orderId, "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
         var consumer = new OrderConfirmedConsumer(context, NullLogger<OrderConfirmedConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
@@ -141,7 +141,7 @@ public class InventoryConsumersTests
 
         var productId = Guid.NewGuid();
         var message = new OrderConfirmedEvent(
-            Guid.NewGuid(), new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
+            Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
         var consumer = new OrderConfirmedConsumer(context, NullLogger<OrderConfirmedConsumer>.Instance);
 

@@ -14,7 +14,7 @@ namespace Bizcore.UnitTests.Architecture
         private static readonly ArchUnitNET.Domain.Architecture Architecture = new ArchLoader()
             .LoadAssemblies(
                 typeof(AuditGrpcService).Assembly,
-                typeof(CreateInvoiceCommandHandler).Assembly,
+                typeof(UpdateInvoiceStatusCommandHandler).Assembly,
                 typeof(Bizcore.BuildingBlocks.Infrastructure.ServiceDefaults).Assembly
             ).Build();
 

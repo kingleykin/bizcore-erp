@@ -2010,9 +2010,6 @@ function App() {
     paidInvoices: 0,
     pendingInvoices: 0
   });
-  const [showModal, setShowModal] = useState(false);
-  const [newInvoice, setNewInvoice] = useState({ customerName: '', amount: '' });
-
   // Axios configuration with token
   const api = axios.create({
     baseURL: GATEWAY_URL,
@@ -2101,33 +2098,6 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     toast.success('Đã đăng xuất an toàn');
-  };
-
-  const handleCreateInvoice = async (e) => {
-    e.preventDefault();
-    try {
-      const amount = Number(newInvoice.amount);
-      if (!newInvoice.customerName.trim()) {
-        toast.error('Tên khách hàng không được để trống');
-        return;
-      }
-      if (!Number.isFinite(amount) || amount <= 0) {
-        toast.error('Số tiền phải lớn hơn 0');
-        return;
-      }
-
-      await api.post('/api/v1/invoice', {
-        customerName: newInvoice.customerName.trim(),
-        amount
-      });
-      setShowModal(false);
-      setNewInvoice({ customerName: '', amount: '' });
-      fetchData();
-      toast.success('Hóa đơn đã được tạo thành công');
-    } catch (error) {
-      console.error('Error creating invoice:', error);
-      toast.error('Lỗi khi tạo hóa đơn: ' + getErrorDetail(error));
-    }
   };
 
   // reference: { invoiceId } cho luồng Hóa đơn, hoặc { orderId } cho luồng Đơn hàng — đúng 1 trong 2.
@@ -2377,12 +2347,6 @@ function App() {
             {activeTab === 'audit' && t('common:audit')}
           </h1>
           <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-            {activeTab === 'invoices' && (
-              <button className="btn btn-primary" onClick={() => setShowModal(true)}>
-                <Plus size={20} style={{ verticalAlign: 'middle', marginRight: '5px' }} />
-                Tạo hóa đơn mới
-              </button>
-            )}
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.05)', borderRadius: '2rem' }}>
               <div style={{ width: '32px', height: '32px', borderRadius: '50%', overflow: 'hidden', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {user?.avatarUrl ? (
@@ -2447,6 +2411,9 @@ function App() {
           </>
         ) : activeTab === 'invoices' ? (
           <div className="card">
+            <p style={{ color: '#94a3b8', fontSize: '0.875rem', marginBottom: '1rem' }}>
+              Hóa đơn là chứng từ tự động sinh ra khi Đơn hàng được xác nhận/thanh toán — chỉ để xem, không tạo hay thanh toán thủ công.
+            </p>
             <table className="table">
               <thead>
                 <tr>
@@ -2455,7 +2422,7 @@ function App() {
                   <th>Số tiền</th>
                   <th>Ngày tạo</th>
                   <th>Trạng thái</th>
-                  <th>Thao tác</th>
+                  <th>Đơn hàng gốc</th>
                 </tr>
               </thead>
               <tbody>
@@ -2470,12 +2437,8 @@ function App() {
                         {inv.status === 1 ? 'PAID' : 'PENDING'}
                       </span>
                     </td>
-                    <td>
-                      {inv.status === 0 && (
-                        <button className="btn btn-primary" onClick={() => handlePay({ invoiceId: inv.id }, inv.amount)}>
-                          Thanh toán ngay
-                        </button>
-                      )}
+                    <td style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+                      {inv.orderId || '— (dữ liệu cũ)'}
                     </td>
                   </tr>
                 ))}
@@ -2498,43 +2461,6 @@ function App() {
           <AuditLogViewer api={api} />
         ) : null}
       </main>
-
-      {/* Modal Tạo Hóa Đơn */}
-      {showModal && (
-        <div className="modal-overlay">
-          <div className="modal-content">
-            <h2 style={{ marginBottom: '1.5rem' }}>Tạo hóa đơn mới</h2>
-            <form onSubmit={handleCreateInvoice}>
-              <div className="form-group">
-                <label className="form-label">Tên khách hàng</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  value={newInvoice.customerName}
-                  onChange={e => setNewInvoice({...newInvoice, customerName: e.target.value})}
-                  required
-                />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Số tiền ($)</label>
-                <input
-                  type="number"
-                  className="form-input"
-                  value={newInvoice.amount}
-                  min="0.01"
-                  step="0.01"
-                  onChange={e => setNewInvoice({...newInvoice, amount: e.target.value})}
-                  required
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-                <button type="button" className="btn btn-outline" onClick={() => setShowModal(false)}>Hủy</button>
-                <button type="submit" className="btn btn-primary">Xác nhận tạo</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,8 +3,6 @@ using Bizcore.BuildingBlocks.Behaviors;
 using Bizcore.BuildingBlocks.Infrastructure;
 using Bizcore.BuildingBlocks.MassTransit;
 using Bizcore.BuildingBlocks.Messaging;
-using FluentValidation;
-using FluentValidation.AspNetCore;
 using Invoice.API.Application.Clients;
 using Invoice.API.Infrastructure.Data;
 using MassTransit;
@@ -41,13 +39,11 @@ namespace Invoice.API
                 client.Timeout = TimeSpan.FromSeconds(10);
             });
 
-            // 5. Validation & Controllers
+            // 5. Controllers
             services.AddControllers(options =>
             {
                 options.Filters.Add<Invoice.API.Filters.HttpExceptionFilter>();
             });
-            services.AddFluentValidationAutoValidation();
-            services.AddValidatorsFromAssemblyContaining<Invoice.API.Application.Validators.CreateInvoiceRequestValidator>();
 
             // 6. MassTransit
             services.AddBizcoreMassTransit<AppDbContext>(

@@ -9,6 +9,7 @@ public static class MappingExtensions
     {
         return new InvoiceResponseDto(
             Id: entity.Id,
+            OrderId: entity.OrderId,
             CustomerName: entity.CustomerName,
             Amount: entity.Amount,
             Status: entity.Status,

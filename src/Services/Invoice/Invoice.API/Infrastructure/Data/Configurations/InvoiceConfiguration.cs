@@ -11,6 +11,12 @@ namespace Invoice.API.Infrastructure.Data.Configurations
             builder.HasKey(i => i.Id);
             builder.Property(i => i.Amount).HasPrecision(18, 2);
             builder.Property(i => i.Version).IsConcurrencyToken();
+
+            // Mỗi Order chỉ sinh tối đa 1 Invoice — filtered unique index (bỏ qua các dòng lịch sử
+            // OrderId = NULL, tạo thủ công trước khi Invoice trở thành chứng từ phái sinh).
+            builder.HasIndex(i => i.OrderId)
+                .IsUnique()
+                .HasFilter("[OrderId] IS NOT NULL");
         }
     }
 }

@@ -99,7 +99,7 @@ public class OrderInventoryWireIntegrationTests
             }
 
             await harness.Bus.Publish(new OrderConfirmedEvent(
-                Guid.NewGuid(), new List<OrderEventItem> { new(productId, 6) }, DateTime.UtcNow));
+                Guid.NewGuid(), "Khách", 900m, new List<OrderEventItem> { new(productId, 6) }, DateTime.UtcNow));
 
             (await harness.Consumed.Any<OrderConfirmedEvent>()).Should().BeTrue();
 
