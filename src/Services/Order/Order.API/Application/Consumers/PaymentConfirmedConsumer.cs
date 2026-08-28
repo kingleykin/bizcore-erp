@@ -64,11 +64,24 @@ namespace Order.API.Application.Consumers
             }
             catch (DomainException ex)
             {
-                // Đơn có thể đã bị Hủy tay trong lúc chờ thanh toán (race hiếm) — không phải lỗi
-                // thoáng qua nên không cần retry, chỉ log để nhân viên xử lý thủ công (đối soát).
-                _logger.LogWarning(ex,
-                    "[Order] Could not auto-confirm OrderId={OrderId} after PaymentId={PaymentId}: {Reason}",
+                // Đơn có thể đã bị Hủy tay trong lúc chờ thanh toán (race hiếm). Payment đã
+                // Completed nên phải yêu cầu bồi hoàn (Payment.API sẽ chuyển Status=Reversed) —
+                // không phải lỗi thoáng qua nên không retry, chỉ publish compensation rồi dừng.
+                _logger.LogError(ex,
+                    "[Order] Could not auto-confirm OrderId={OrderId} after PaymentId={PaymentId}, requesting compensation: {Reason}",
                     orderId, msg.PaymentId, ex.Message);
+
+                await _publishEndpoint.Publish<IPaymentCompensationRequestedEvent>(new
+                {
+                    PaymentId = msg.PaymentId,
+                    OrderId = (Guid?)orderId,
+                    InvoiceId = (Guid?)null,
+                    Amount = order.TotalAmount,
+                    RequestedAt = DateTime.UtcNow,
+                    Reason = $"Không thể xác nhận đơn hàng sau khi thanh toán hoàn tất: {ex.Message}"
+                }, context.CancellationToken);
+
+                await _context.SaveChangesAsync(context.CancellationToken);
                 return;
             }
 
@@ -79,7 +92,8 @@ namespace Order.API.Application.Consumers
                     order.CustomerName,
                     order.TotalAmount,
                     order.Items.Select(i => new OrderEventItem(i.ProductId, i.Quantity)).ToList(),
-                    DateTime.UtcNow
+                    DateTime.UtcNow,
+                    PaymentId: msg.PaymentId
                 ), context.CancellationToken);
             }
 

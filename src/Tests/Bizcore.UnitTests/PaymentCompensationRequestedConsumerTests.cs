@@ -22,9 +22,10 @@ public class PaymentCompensationRequestedConsumerTests
 {
     private sealed class PaymentCompensationRequestedEventFake : IPaymentCompensationRequestedEvent
     {
-        public PaymentCompensationRequestedEventFake(Guid paymentId, Guid invoiceId, decimal amount, string reason)
+        public PaymentCompensationRequestedEventFake(Guid paymentId, Guid invoiceId, decimal amount, string reason, Guid? orderId = null)
         {
             PaymentId = paymentId;
+            OrderId = orderId;
             InvoiceId = invoiceId;
             Amount = amount;
             Reason = reason;
@@ -32,7 +33,8 @@ public class PaymentCompensationRequestedConsumerTests
         }
 
         public Guid PaymentId { get; }
-        public Guid InvoiceId { get; }
+        public Guid? OrderId { get; }
+        public Guid? InvoiceId { get; }
         public decimal Amount { get; }
         public DateTime RequestedAt { get; }
         public string Reason { get; }

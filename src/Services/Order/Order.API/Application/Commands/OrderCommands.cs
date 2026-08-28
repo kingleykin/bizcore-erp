@@ -13,9 +13,9 @@ using Order.API.Infrastructure.Data;
 namespace Order.API.Application.Commands;
 
 // 1. Create Order
-// Không đánh dấu ITransactionalCommand: bước này chỉ resolve dữ liệu qua HTTP (Customer/Product
-// service), chưa ghi DB. Nếu để TransactionBehavior bọc luôn bước này, transaction SQL sẽ bị giữ mở
-// suốt thời gian chờ 2 service ngoài phản hồi — không cần thiết và tốn connection pool.
+// Không đánh dấu ITransactionalCommand: bước này chỉ resolve dữ liệu qua HTTP (Customer/Product/
+// Inventory service), chưa ghi DB. Nếu để TransactionBehavior bọc luôn bước này, transaction SQL sẽ
+// bị giữ mở suốt thời gian chờ các service ngoài phản hồi — không cần thiết và tốn connection pool.
 // Việc ghi DB thực sự được giao cho PersistOrderCommand (có ITransactionalCommand) bên dưới.
 public record CreateOrderCommand(CreateOrderRequest Request) : IRequest<OrderResponseDto>;
 
@@ -23,15 +23,18 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderRespo
 {
     private readonly ICustomerServiceClient _customerClient;
     private readonly IProductServiceClient _productClient;
+    private readonly IInventoryServiceClient _inventoryClient;
     private readonly IMediator _mediator;
 
     public CreateOrderHandler(
         ICustomerServiceClient customerClient,
         IProductServiceClient productClient,
+        IInventoryServiceClient inventoryClient,
         IMediator mediator)
     {
         _customerClient = customerClient;
         _productClient = productClient;
+        _inventoryClient = inventoryClient;
         _mediator = mediator;
     }
 
@@ -53,6 +56,16 @@ public class CreateOrderHandler : IRequestHandler<CreateOrderCommand, OrderRespo
                     ErrorCodes.Order.ProductNotFound,
                     "Không tìm thấy sản phẩm.",
                     new { productId = item.ProductId });
+
+            // Tồn kho khả dụng = 0 nếu sản phẩm chưa từng nhập kho (chưa có bản ghi Stock),
+            // để chặn đặt hàng sản phẩm chưa có hàng thay vì cho qua như trước đây.
+            var stock = await _inventoryClient.GetStockAsync(item.ProductId, ct);
+            var available = stock?.AvailableQuantity ?? 0;
+            if (item.Quantity > available)
+                throw new DomainException(
+                    ErrorCodes.Inventory.InsufficientStock,
+                    "Không đủ tồn kho khả dụng cho sản phẩm.",
+                    new { productId = item.ProductId, available, requested = item.Quantity });
 
             resolvedItems.Add((product.Id, product.Name, item.Quantity, item.UnitPrice));
         }

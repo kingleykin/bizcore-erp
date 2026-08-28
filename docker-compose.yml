@@ -247,6 +247,7 @@ services:
       - RabbitMQ__Host=rabbitmq
       - CustomerService__BaseUrl=http://customer-api:8080
       - ProductService__BaseUrl=http://product-api:8080
+      - InventoryService__BaseUrl=http://inventory-api:8080
       - Loki__Url=http://loki:3100
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       - ServiceName=Order.API
@@ -258,6 +259,7 @@ services:
       - loki
       - customer-api
       - product-api
+      - inventory-api
 
   product-api:
     image: bizcore-product-api

@@ -7,8 +7,10 @@ namespace Inventory.API.Application.Consumers
 {
     /// <summary>
     /// Khi Order Service tạo đơn hàng mới (Pending), giữ chỗ (reserve) tồn kho cho từng sản phẩm
-    /// trong đơn. Nếu sản phẩm chưa có bản ghi tồn kho (chưa từng nhập kho), tự tạo với OnHand = 0
-    /// — khi đó AvailableQuantity sẽ âm, phản ánh đơn hàng đang bán vượt tồn kho thực tế.
+    /// trong đơn. Nếu sản phẩm chưa có bản ghi tồn kho (chưa từng nhập kho), tự tạo với OnHand = 0.
+    /// Order Service đã kiểm tra tồn kho khả dụng trước khi publish event này, nên Reserve() ở đây
+    /// chỉ còn có thể thất bại (throw InsufficientStock) do race condition giữa các đơn đồng thời —
+    /// khi đó message sẽ được MassTransit retry/đưa vào error queue thay vì âm thầm bán vượt tồn.
     /// </summary>
     public class OrderCreatedConsumer : IConsumer<OrderCreatedEvent>
     {
@@ -38,13 +40,6 @@ namespace Inventory.API.Application.Consumers
                 }
 
                 stock.Reserve(item.Quantity);
-
-                if (stock.AvailableQuantity < 0)
-                {
-                    _logger.LogWarning(
-                        "[Inventory] Oversold ProductId={ProductId} after reserving OrderId={OrderId}: Available={Available}",
-                        item.ProductId, msg.Id, stock.AvailableQuantity);
-                }
 
                 _context.StockTransactions.Add(Domain.Entities.StockTransaction.Create(
                     stock.ProductId,

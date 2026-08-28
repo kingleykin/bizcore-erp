@@ -6,12 +6,18 @@ namespace Bizcore.BuildingBlocks.Contracts
     /// Invoice Service lắng nghe để tự sinh Invoice (chứng từ/biên lai) phái sinh từ Order —
     /// cần CustomerName/TotalAmount ở đây để không phải gọi ngược sang Order.API qua HTTP.
     /// Dùng record (concrete type) — xem giải thích ở OrderCreatedEvent.
+    ///
+    /// PaymentId: chỉ có giá trị khi Order được Confirm tự động do thanh toán hoàn tất
+    /// (PaymentConfirmedConsumer) — null khi Confirm thủ công qua API. Inventory/Invoice dùng nó
+    /// để biết có payment cần bồi hoàn (publish IPaymentCompensationRequestedEvent) hay không nếu
+    /// bước Commit/tạo Invoice sau đó thất bại.
     /// </summary>
     public record OrderConfirmedEvent(
         Guid Id,
         string CustomerName,
         decimal TotalAmount,
         IReadOnlyCollection<OrderEventItem> Items,
-        DateTime ConfirmedAt
+        DateTime ConfirmedAt,
+        Guid? PaymentId = null
     );
 }

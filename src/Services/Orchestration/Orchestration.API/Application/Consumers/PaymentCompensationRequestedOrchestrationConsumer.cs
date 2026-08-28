@@ -17,7 +17,7 @@ public class PaymentCompensationRequestedOrchestrationConsumer : IConsumer<IPaym
     public async Task Consume(ConsumeContext<IPaymentCompensationRequestedEvent> context)
     {
         await _recorder.RecordAsync(
-            context.Message.InvoiceId,
+            context.Message.InvoiceId ?? Guid.Empty,
             InvoicePaymentFlow.Steps.PaymentCompensationRequestedObserved,
             InvoicePaymentFlow.States.CompensationRequired,
             context.Message,

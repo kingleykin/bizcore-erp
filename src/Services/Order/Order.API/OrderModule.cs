@@ -51,6 +51,13 @@ namespace Order.API
                 client.Timeout = TimeSpan.FromSeconds(10);
             }).AddHttpMessageHandler<AuthForwardingHandler>();
 
+            services.AddHttpClient<IInventoryServiceClient, InventoryServiceClient>(client =>
+            {
+                var inventoryUrl = builder.Configuration.GetValue<string>("InventoryService:BaseUrl") ?? "http://inventory-api:8080";
+                client.BaseAddress = new Uri(inventoryUrl);
+                client.Timeout = TimeSpan.FromSeconds(10);
+            }).AddHttpMessageHandler<AuthForwardingHandler>();
+
             // 5. Validation & Controllers
             services.AddControllers();
             services.AddFluentValidationAutoValidation();

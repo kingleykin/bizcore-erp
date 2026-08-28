@@ -33,16 +33,18 @@ public class ReportConsumersTests
 
     private sealed class PaymentCompletedEventFake : IPaymentCompletedEvent
     {
-        public PaymentCompletedEventFake(Guid paymentId, Guid invoiceId, decimal amount, DateTime paymentDate)
+        public PaymentCompletedEventFake(Guid paymentId, Guid? invoiceId, decimal amount, DateTime paymentDate, Guid? orderId = null)
         {
             PaymentId = paymentId;
+            OrderId = orderId;
             InvoiceId = invoiceId;
             Amount = amount;
             PaymentDate = paymentDate;
         }
 
         public Guid PaymentId { get; }
-        public Guid InvoiceId { get; }
+        public Guid? OrderId { get; }
+        public Guid? InvoiceId { get; }
         public decimal Amount { get; }
         public DateTime PaymentDate { get; }
     }

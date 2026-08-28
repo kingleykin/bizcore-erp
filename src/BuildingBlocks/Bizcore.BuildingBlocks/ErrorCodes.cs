@@ -68,6 +68,7 @@ namespace Bizcore.BuildingBlocks
         {
             public const string NotFound = "INVENTORY.NOT_FOUND";
             public const string InvalidQuantity = "INVENTORY.INVALID_QUANTITY";
+            public const string InsufficientStock = "INVENTORY.INSUFFICIENT_STOCK";
         }
     }
 }

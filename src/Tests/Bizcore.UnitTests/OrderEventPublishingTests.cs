@@ -35,6 +35,11 @@ public class OrderEventPublishingTests
             .Setup(p => p.GetProductAsync(productId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new ProductInfo(productId, "SP001", "Sản phẩm A", 50m, true));
 
+        var inventoryClient = new Mock<IInventoryServiceClient>();
+        inventoryClient
+            .Setup(i => i.GetStockAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StockInfo(productId, 10, 0, 10));
+
         PersistOrderCommand? captured = null;
         var mediator = new Mock<IMediator>();
         mediator
@@ -43,7 +48,7 @@ public class OrderEventPublishingTests
             .ReturnsAsync(new OrderResponseDto(Guid.NewGuid(), "ORD001", customerId, "Khách A", DateTime.UtcNow, null, 100m,
                 Bizcore.BuildingBlocks.OrderStatus.Pending, null, [], DateTime.UtcNow, DateTime.UtcNow));
 
-        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, mediator.Object);
+        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, inventoryClient.Object, mediator.Object);
 
         var request = new CreateOrderRequest(customerId, "ghi chú", [new CreateOrderItemRequest(productId, 2, 50m)]);
         await handler.Handle(new CreateOrderCommand(request), CancellationToken.None);
@@ -66,9 +71,10 @@ public class OrderEventPublishingTests
             .ReturnsAsync((CustomerInfo?)null);
 
         var productClient = new Mock<IProductServiceClient>(MockBehavior.Strict);
+        var inventoryClient = new Mock<IInventoryServiceClient>(MockBehavior.Strict);
         var mediator = new Mock<IMediator>(MockBehavior.Strict);
 
-        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, mediator.Object);
+        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, inventoryClient.Object, mediator.Object);
         var request = new CreateOrderRequest(Guid.NewGuid(), null, [new CreateOrderItemRequest(Guid.NewGuid(), 1, 10m)]);
 
         var act = async () => await handler.Handle(new CreateOrderCommand(request), CancellationToken.None);
@@ -90,9 +96,10 @@ public class OrderEventPublishingTests
             .Setup(p => p.GetProductAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ProductInfo?)null);
 
+        var inventoryClient = new Mock<IInventoryServiceClient>(MockBehavior.Strict);
         var mediator = new Mock<IMediator>(MockBehavior.Strict);
 
-        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, mediator.Object);
+        var handler = new CreateOrderHandler(customerClient.Object, productClient.Object, inventoryClient.Object, mediator.Object);
         var request = new CreateOrderRequest(customerId, null, [new CreateOrderItemRequest(Guid.NewGuid(), 1, 10m)]);
 
         var act = async () => await handler.Handle(new CreateOrderCommand(request), CancellationToken.None);

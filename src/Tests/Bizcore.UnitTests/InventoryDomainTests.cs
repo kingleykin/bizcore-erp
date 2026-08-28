@@ -54,14 +54,15 @@ public class InventoryDomainTests
     }
 
     [Fact]
-    public void Stock_Reserve_BeyondOnHand_AllowsOversell_AvailableGoesNegative()
+    public void Stock_Reserve_BeyondOnHand_ThrowsInsufficientStock_NoOversell()
     {
         var stock = Stock.Create(ProductId, "Sản phẩm", 5);
 
-        stock.Reserve(8);
+        var act = () => stock.Reserve(8);
 
-        stock.QuantityReserved.Should().Be(8);
-        stock.AvailableQuantity.Should().Be(-3);
+        act.Should().Throw<DomainException>();
+        stock.QuantityReserved.Should().Be(0, "Reserve thất bại thì không được thay đổi trạng thái");
+        stock.AvailableQuantity.Should().Be(5);
     }
 
     [Theory]

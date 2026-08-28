@@ -1,4 +1,5 @@
 using Bizcore.BuildingBlocks.Contracts;
+using Bizcore.BuildingBlocks.Exceptions;
 using FluentAssertions;
 using Inventory.API.Application.Consumers;
 using Inventory.API.Domain.Entities;
@@ -56,8 +57,11 @@ public class InventoryConsumersTests
     }
 
     [Fact]
-    public async Task OrderCreatedConsumer_WhenStockMissing_SelfHealsByCreatingZeroOnHand_ThenReserves()
+    public async Task OrderCreatedConsumer_WhenStockMissing_SelfHealsByCreatingZeroOnHand_ThenThrowsInsufficientStock()
     {
+        // Order.API đã kiểm tra tồn kho khả dụng trước khi publish OrderCreatedEvent, nên tới đây
+        // chỉ còn xảy ra do race condition. Stock tự tạo với OnHand=0 nhưng Reserve(3) phải throw
+        // (0 available < 3 yêu cầu) thay vì âm thầm bán vượt tồn — không có gì được lưu xuống DB.
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateInventoryDbContext(connection);
 
@@ -67,12 +71,11 @@ public class InventoryConsumersTests
             new List<OrderEventItem> { Item(productId, 3) }, DateTime.UtcNow);
 
         var consumer = new OrderCreatedConsumer(context, NullLogger<OrderCreatedConsumer>.Instance);
-        await consumer.Consume(BuildConsumeContext(message).Object);
+        var act = async () => await consumer.Consume(BuildConsumeContext(message).Object);
 
-        var stock = context.Stocks.Single(s => s.ProductId == productId);
-        stock.QuantityOnHand.Should().Be(0);
-        stock.QuantityReserved.Should().Be(3);
-        stock.AvailableQuantity.Should().Be(-3);
+        await act.Should().ThrowAsync<DomainException>();
+        context.Stocks.Should().BeEmpty("SaveChanges chưa từng được gọi vì Reserve throw trước đó");
+        context.StockTransactions.Should().BeEmpty();
     }
 
     [Fact]
@@ -117,7 +120,7 @@ public class InventoryConsumersTests
         var message = new OrderConfirmedEvent(
             orderId, "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
-        var consumer = new OrderConfirmedConsumer(context, NullLogger<OrderConfirmedConsumer>.Instance);
+        var consumer = new OrderConfirmedConsumer(context, Mock.Of<IPublishEndpoint>(), NullLogger<OrderConfirmedConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         var updated = context.Stocks.Single(s => s.ProductId == productId);
@@ -143,12 +146,49 @@ public class InventoryConsumersTests
         var message = new OrderConfirmedEvent(
             Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
-        var consumer = new OrderConfirmedConsumer(context, NullLogger<OrderConfirmedConsumer>.Instance);
+        var consumer = new OrderConfirmedConsumer(context, Mock.Of<IPublishEndpoint>(), NullLogger<OrderConfirmedConsumer>.Instance);
 
         var act = async () => await consumer.Consume(BuildConsumeContext(message).Object);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
         context.StockTransactions.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task OrderConfirmedConsumer_WhenCommitExceedsReserved_RequestsCompensation_AndDoesNotMutateStock()
+    {
+        // Trường hợp hiếm: quantityReserved < quantity cần commit (race condition). Commit() throw
+        // DomainException — consumer phải publish IPaymentCompensationRequestedEvent (vì đơn này
+        // được Confirm tự động do thanh toán, PaymentId có giá trị) thay vì để Payment/Order/Invoice
+        // kẹt ở trạng thái đã hoàn tất trong khi tồn kho chưa từng được trừ, và KHÔNG được để lọt
+        // một phần thay đổi tồn kho nào xuống DB.
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreateInventoryDbContext(connection);
+
+        var productId = Guid.NewGuid();
+        var stock = Stock.Create(productId, "Bàn phím", 50); // QuantityReserved = 0
+        context.Stocks.Add(stock);
+        await context.SaveChangesAsync();
+
+        var paymentId = Guid.NewGuid();
+        var orderId = Guid.NewGuid();
+        var message = new OrderConfirmedEvent(
+            orderId, "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow,
+            PaymentId: paymentId);
+
+        var publishMock = new Mock<IPublishEndpoint>();
+        var consumer = new OrderConfirmedConsumer(context, publishMock.Object, NullLogger<OrderConfirmedConsumer>.Instance);
+
+        await consumer.Consume(BuildConsumeContext(message).Object);
+
+        var unchanged = context.Stocks.Single(s => s.ProductId == productId);
+        unchanged.QuantityOnHand.Should().Be(50, "Commit thất bại thì không được trừ kho");
+        unchanged.QuantityReserved.Should().Be(0);
+        context.StockTransactions.Should().BeEmpty();
+
+        publishMock.Verify(p => p.Publish<IPaymentCompensationRequestedEvent>(
+            It.IsAny<object>(),
+            It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // ---------- OrderCancelledConsumer ----------

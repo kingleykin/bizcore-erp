@@ -217,10 +217,10 @@ public class OrderPaymentConsumersTests
     }
 
     [Fact]
-    public async Task PaymentConfirmedConsumer_WhenOrderAlreadyCancelled_SwallowsDomainException_DoesNotThrow_OrPublish()
+    public async Task PaymentConfirmedConsumer_WhenOrderAlreadyCancelled_RequestsCompensation_DoesNotThrow()
     {
-        // Race hiếm: đơn bị Hủy tay ngay trong lúc chờ thanh toán — không phải lỗi thoáng qua nên
-        // không được throw để retry vô ích, chỉ log lại.
+        // Race hiếm: đơn bị Hủy tay ngay trong lúc chờ thanh toán — Payment đã Completed nên phải
+        // yêu cầu bồi hoàn (không phải lỗi thoáng qua nên không throw để retry vô ích).
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateOrderDbContext(connection);
 
@@ -229,14 +229,22 @@ public class OrderPaymentConsumersTests
         context.Orders.Add(order);
         await context.SaveChangesAsync();
 
-        var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
-        var message = Mock.Of<IPaymentConfirmedEvent>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == order.Id);
+        var publishMock = new Mock<IPublishEndpoint>();
+        publishMock
+            .Setup(p => p.Publish<IPaymentCompensationRequestedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        var paymentId = Guid.NewGuid();
+        var message = Mock.Of<IPaymentConfirmedEvent>(m => m.PaymentId == paymentId && m.OrderId == order.Id);
 
         var consumer = new PaymentConfirmedConsumer(context, publishMock.Object, Mock.Of<IAuditPublisher>(), NullLogger<PaymentConfirmedConsumer>.Instance);
         var act = async () => await consumer.Consume(BuildConsumeContext(message).Object);
 
         await act.Should().NotThrowAsync();
         (await context.Orders.SingleAsync(o => o.Id == order.Id)).Status.Should().Be(Bizcore.BuildingBlocks.OrderStatus.Cancelled);
+
+        publishMock.Verify(p => p.Publish<IPaymentCompensationRequestedEvent>(
+            It.IsAny<object>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

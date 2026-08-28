@@ -1,3 +1,4 @@
+using Bizcore.BuildingBlocks.Exceptions;
 using FluentAssertions;
 using Inventory.API.Application.Queries;
 using Inventory.API.Domain.Entities;
@@ -23,13 +24,14 @@ public class InventoryStockBoundaryTests
     }
 
     [Fact]
-    public void Reserve_OneMoreThanAvailable_TipsIntoOversell()
+    public void Reserve_OneMoreThanAvailable_ThrowsInsufficientStock_NoOversell()
     {
         var stock = Stock.Create(ProductId, "Sản phẩm", 10);
 
-        stock.Reserve(11);
+        var act = () => stock.Reserve(11);
 
-        stock.AvailableQuantity.Should().Be(-1);
+        act.Should().Throw<DomainException>();
+        stock.AvailableQuantity.Should().Be(10, "Reserve thất bại thì không được thay đổi trạng thái");
     }
 
     [Fact]
@@ -45,18 +47,19 @@ public class InventoryStockBoundaryTests
     }
 
     [Fact]
-    public void Commit_MoreThanReserved_AllowsReservedToGoNegative_ReflectsDataInconsistency()
+    public void Commit_MoreThanReserved_ThrowsInsufficientStock_NoStateChange()
     {
-        // Commit() không có guard chặn vượt quá Reserved (khác với Release() có Math.Max floor) —
-        // đây là hành vi hiện tại: nếu OrderConfirmed đến với số lượng khác OrderCreated (không nên
-        // xảy ra trong luồng nghiệp vụ hợp lệ), QuantityReserved có thể âm — ghi nhận rõ ràng bằng
-        // test này để nếu ai đó thêm guard sau này thì phải cập nhật test, không phải regression ẩn.
+        // Commit() giờ có guard chặn vượt quá QuantityReserved: nếu OrderConfirmed đến với số lượng
+        // khác OrderCreated (không nên xảy ra trong luồng nghiệp vụ hợp lệ), phải throw thay vì để
+        // QuantityReserved âm một cách âm thầm.
         var stock = Stock.Create(ProductId, "Sản phẩm", 10);
         stock.Reserve(5);
 
-        stock.Commit(8);
+        var act = () => stock.Commit(8);
 
-        stock.QuantityReserved.Should().Be(-3);
+        act.Should().Throw<DomainException>();
+        stock.QuantityReserved.Should().Be(5, "Commit thất bại thì không được thay đổi trạng thái");
+        stock.QuantityOnHand.Should().Be(10);
     }
 
     [Fact]
