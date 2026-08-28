@@ -99,6 +99,30 @@ public class InventoryDomainTests
     }
 
     [Fact]
+    public void Stock_Uncommit_IncreasesBothOnHandAndReserved_ExactlyReversesCommit()
+    {
+        var stock = Stock.Create(ProductId, "Sản phẩm", 50);
+        stock.Reserve(20);
+        stock.Commit(20);
+
+        stock.Uncommit(20);
+
+        stock.QuantityOnHand.Should().Be(50, "Uncommit phải trả OnHand về đúng trước lúc Commit");
+        stock.QuantityReserved.Should().Be(20, "Uncommit phải trả Reserved về đúng trước lúc Commit (đơn coi như Pending trở lại)");
+        stock.AvailableQuantity.Should().Be(30);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void Stock_Uncommit_WithNonPositiveQuantity_Throws(int quantity)
+    {
+        var stock = Stock.Create(ProductId, "Sản phẩm", 10);
+        var act = () => stock.Uncommit(quantity);
+        act.Should().Throw<DomainException>();
+    }
+
+    [Fact]
     public void Stock_Release_DecreasesReserved_LeavesOnHandUnchanged()
     {
         var stock = Stock.Create(ProductId, "Sản phẩm", 50);

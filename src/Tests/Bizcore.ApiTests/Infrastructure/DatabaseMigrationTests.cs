@@ -75,6 +75,9 @@ public class DatabaseMigrationTests : IAsyncLifetime
         // 6. Orchestration Service (Saga)
         await TestMigrationAsync<Orchestration.API.Infrastructure.Data.AppDbContext>(connectionString, "Bizcore_Orchestration");
 
+        // 7. Customer Service (Points/CustomerPointsTransactions)
+        await TestMigrationAsync<Customer.API.Infrastructure.Data.AppDbContext>(connectionString, "Bizcore_Customer");
+
         _output.WriteLine("All migrations applied successfully! ✅");
     }
 

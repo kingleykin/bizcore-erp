@@ -31,4 +31,7 @@ catch (Exception ex) { Log.Error(ex, "Error occurred during Customer database in
 
 app.Run();
 
-public partial class Program { }
+namespace Customer.API
+{
+    public partial class Program { }
+}

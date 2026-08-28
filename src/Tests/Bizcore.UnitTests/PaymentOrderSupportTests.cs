@@ -19,10 +19,16 @@ public class PaymentOrderSupportTests
         Payment.API.Infrastructure.Data.AppDbContext context,
         Mock<IPublishEndpoint>? publishMock = null)
     {
-        publishMock ??= new Mock<IPublishEndpoint>();
-        publishMock
-            .Setup(p => p.Publish<IPaymentInitiatedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
-            .Returns(Task.CompletedTask);
+        // Chỉ auto-stub Publish<IPaymentInitiatedEvent> khi KHÔNG có mock truyền vào — nếu caller đã
+        // tự Setup() sẵn (vd. để capture callback), Setup() lại ở đây tại đây sẽ ghi đè mất setup của
+        // caller (Moq: Setup() sau cùng thắng), khiến callback không bao giờ chạy.
+        if (publishMock == null)
+        {
+            publishMock = new Mock<IPublishEndpoint>();
+            publishMock
+                .Setup(p => p.Publish<IPaymentInitiatedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+                .Returns(Task.CompletedTask);
+        }
 
         var idempotencyService = new IdempotencyService(context, NullLogger<IdempotencyService>.Instance);
 

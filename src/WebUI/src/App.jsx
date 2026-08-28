@@ -998,6 +998,7 @@ const CustomerManager = ({ api, getErrorDetail }) => {
                 <th>Nhóm</th>
                 <th>Email</th>
                 <th>Điện thoại</th>
+                <th>Điểm</th>
                 <th>Trạng thái</th>
                 <th></th>
               </tr>
@@ -1010,6 +1011,7 @@ const CustomerManager = ({ api, getErrorDetail }) => {
                   <td>{c.customerGroupName}</td>
                   <td>{c.email || '—'}</td>
                   <td>{c.phone || '—'}</td>
+                  <td>{c.points}</td>
                   <td>
                     <span className={`status-badge ${c.isActive ? 'status-paid' : 'status-pending'}`}>
                       {c.isActive ? 'Hoạt động' : 'Ngừng hoạt động'}
@@ -1727,6 +1729,9 @@ const OrderManager = ({ api, getErrorDetail, onPay }) => {
   const handlePayOrder = async (order) => {
     setPayingOrderId(order.id);
     try {
+      // onPay() giờ tự chờ đủ (kể cả khả năng bồi hoàn ngược do lỗi cộng điểm phía sau) trước khi
+      // trả kết quả — không còn báo "hoàn tất" rồi đính chính sau nữa, nên ở đây chỉ cần xử lý kết
+      // quả CUỐI CÙNG như bình thường.
       await onPay({ orderId: order.id }, order.totalAmount);
       // Dù thanh toán thành công (Confirm) hay bị reject (Cancel — vd. thiếu tồn kho), Order.API
       // chỉ cập nhật trạng thái đơn SAU khi nhận IPaymentConfirmedEvent/IPaymentRejectedEvent qua
@@ -1746,6 +1751,11 @@ const OrderManager = ({ api, getErrorDetail, onPay }) => {
         }
       }
       fetchOrders();
+      // Thanh toán thành công còn kéo theo 1 chặng async nữa (Order.API publish OrderConfirmedEvent
+      // -> Customer.API cộng điểm) — làm mới danh sách khách hàng để điểm mới (nếu đã kịp cộng)
+      // hiện lên ngay, tương tự cách fetchOrders() ở trên chấp nhận có thể chưa kịp cập nhật ngay
+      // lần đầu.
+      fetchCustomers();
     } finally {
       setPayingOrderId(null);
     }
@@ -1829,7 +1839,13 @@ const OrderManager = ({ api, getErrorDetail, onPay }) => {
             </div>
             <div style={{ marginBottom: '1rem' }}>{getStatusBadge(selectedOrder.status)}</div>
             <div style={{ fontSize: '0.875rem', color: '#94a3b8', marginBottom: '1rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-              <div>Khách hàng: <strong style={{ color: '#e2e8f0' }}>{selectedOrder.customerName}</strong></div>
+              <div>
+                Khách hàng: <strong style={{ color: '#e2e8f0' }}>{selectedOrder.customerName}</strong>
+                {(() => {
+                  const c = customers.find(c => c.id === selectedOrder.customerId);
+                  return c ? <span style={{ color: '#eab308', marginLeft: '0.5rem' }}>({c.points} điểm)</span> : null;
+                })()}
+              </div>
               {selectedOrder.note && <div>Ghi chú: {selectedOrder.note}</div>}
               {selectedOrder.cancelReason && <div style={{ color: '#ef4444' }}>Lý do hủy: {selectedOrder.cancelReason}</div>}
             </div>
@@ -2101,9 +2117,19 @@ function App() {
   };
 
   // reference: { invoiceId } cho luồng Hóa đơn, hoặc { orderId } cho luồng Đơn hàng — đúng 1 trong 2.
+  // Trước đây: báo "Thanh toán hoàn tất" ngay khi Payment.Status=Completed, rồi nếu 1 bước phía sau
+  // (cộng điểm khách hàng) thất bại vĩnh viễn và bị bồi hoàn, mới báo lỗi ĐÍNH CHÍNH sau đó vài
+  // giây — khách vẫn thấy 1 lời "thành công" sai trong khoảng thời gian đó dù có sửa lại ngay sau.
+  // Xử lý triệt để: KHÔNG báo "hoàn tất" cho tới khi chắc chắn không còn khả năng bị bồi hoàn nữa —
+  // chỉ báo kết quả khi nhận được TRẠNG THÁI CUỐI CÙNG thật sự từ server (Fulfilled / Reversed /
+  // Failed), không dùng bất kỳ khoảng chờ phỏng đoán nào — vì độ trễ của nhánh bồi hoàn là KHÔNG
+  // có giới hạn trên (5 lần retry ~8.7s CHỈ tính riêng thời gian chờ giữa các lần, chưa kể mỗi lần
+  // thử thất bại có thể mất thêm hàng chục giây nếu là timeout kết nối DB), nên mọi mốc thời gian
+  // cố định ở client đều có thể đoán sai.
   const handlePay = async (reference, amount) => {
     const { invoiceId, orderId } = reference;
-    const toastId = toast.loading('Đang xử lý thanh toán (Async)...');
+    const toastId = toast.loading('Đang xử lý thanh toán...');
+    let connection;
     try {
       // 1. Submit Request with Idempotency Key
       const idempotencyKey = `pay_${invoiceId || orderId}_${new Date().getTime()}`;
@@ -2118,25 +2144,39 @@ function App() {
           'X-Idempotency-Key': idempotencyKey
         }
       });
-      
+
       const { paymentId } = res.data;
 
       // 2. Thiết lập SignalR
-      const connection = new signalR.HubConnectionBuilder()
+      connection = new signalR.HubConnectionBuilder()
         .withUrl(`${GATEWAY_URL}/hubs/payment?access_token=${token}`)
         .withAutomaticReconnect()
         .build();
 
-      let isResolved = false;
+      // Trạng thái CUỐI CÙNG (không thể đổi nữa) tuỳ theo luồng thanh toán:
+      //  - Đơn hàng: 'Fulfilled' (cả chuỗi Order/Kho/Điểm đã xong) hoặc 'Reversed'/'Failed'.
+      //    'Completed' KHÔNG phải trạng thái cuối ở đây — tiền mới được ghi nhận, các bước phía sau
+      //    vẫn có thể kéo về Reversed (xem PaymentStatus.Fulfilled ở backend).
+      //  - Hóa đơn: không có chuỗi phía sau nên 'Completed' đã là cuối.
+      const isOrderPayment = !!orderId;
+      const isFinalSuccess = (status) => status === 'Fulfilled' || (!isOrderPayment && status === 'Completed');
+      const isFinalFailure = (status) => status === 'Failed' || status === 'Reversed';
 
-      await new Promise(async (resolve, reject) => {
-        // Lắng nghe Push Event (Real-time UX)
+      let settled = false;
+
+      const finalStatus = await new Promise(async (resolve, reject) => {
+        const settle = (fn, arg) => { if (!settled) { settled = true; fn(arg); } };
+
         connection.on("PaymentStatusUpdated", (event) => {
-          if (isResolved) return;
-          isResolved = true;
-          connection.stop();
-          if (event.status === 'Completed') resolve(event);
-          else reject(new Error(event.failureReason || 'Thanh toán thất bại'));
+          if (isFinalSuccess(event.status)) settle(resolve, event);
+          else if (isFinalFailure(event.status)) {
+            settle(reject, new Error(event.failureReason || 'Thanh toán thất bại'));
+          }
+          // 'Completed' của luồng Đơn hàng: cố tình KHÔNG kết thúc chờ ở đây — chỉ đổi nhãn để khách
+          // biết tiến độ, tránh báo "thành công" khi kết quả còn có thể bị đảo ngược.
+          else if (event.status === 'Completed') {
+            toast.loading('Đã ghi nhận thanh toán — đang xác nhận đơn hàng...', { id: toastId });
+          }
         });
 
         try {
@@ -2146,27 +2186,22 @@ function App() {
           console.warn("SignalR connection failed, falling back to polling exclusively", err);
         }
 
-        // 3. Fallback: Polling Loop (Correctness Guarantee)
+        // 3. Fallback: Polling Loop (Correctness Guarantee) — cũng dùng đúng khái niệm trạng thái
+        // cuối như trên, nên vẫn đúng cả khi SignalR không kết nối được.
         const startTime = Date.now();
-        const maxTimeout = 60000; // 60 seconds
+        const maxTimeout = 90000; // 90s: đủ cho cả chuỗi retry (5 lần ~8.7s) + bồi hoàn phía sau
 
         const pollStatus = async () => {
-          while (!isResolved && Date.now() - startTime < maxTimeout) {
+          while (!settled && Date.now() - startTime < maxTimeout) {
             try {
               const statusRes = await api.get(`/api/v1/payment/${paymentId}`);
               const statusData = statusRes.data;
-              
-              if (statusData.status === 'Completed') {
-                isResolved = true;
-                connection.stop();
-                return resolve(statusData);
+
+              if (isFinalSuccess(statusData.status)) return settle(resolve, statusData);
+              if (isFinalFailure(statusData.status)) {
+                return settle(reject, new Error(statusData.failureReason || 'Thanh toán thất bại'));
               }
-              if (statusData.status === 'Failed') {
-                isResolved = true;
-                connection.stop();
-                return reject(new Error(statusData.failureReason));
-              }
-              
+
               // Exponential backoff wait
               await new Promise(r => setTimeout(r, (statusData.retryAfter || 2) * 1000));
             } catch (pollErr) {
@@ -2174,20 +2209,20 @@ function App() {
               await new Promise(r => setTimeout(r, 2000));
             }
           }
-          
-          if (!isResolved) {
-            connection.stop();
-            reject(new Error("Timeout: Giao dịch đang xử lý quá lâu, vui lòng kiểm tra lại sau."));
-          }
+
+          settle(reject, new Error("Timeout: Giao dịch đang xử lý quá lâu, vui lòng kiểm tra lại sau."));
         };
 
         pollStatus();
       });
 
+      connection.stop();
+
       fetchData();
-      toast.success('Thanh toán hoàn tất!', { id: toastId });
+      toast.success('Thanh toán & đơn hàng đã hoàn tất!', { id: toastId });
       return true;
     } catch (error) {
+      connection?.stop();
       console.error('Error processing payment:', error);
       // error.response chỉ có ở lỗi gọi API (axios) — ưu tiên lý do thật từ server qua
       // getErrorDetail thay vì error.message (Axios luôn tự set "Request failed with status

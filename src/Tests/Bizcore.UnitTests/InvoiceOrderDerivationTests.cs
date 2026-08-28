@@ -57,7 +57,7 @@ public class InvoiceOrderDerivationTests
         using var context = TestDbContextFactory.CreateInvoiceDbContext(connection);
 
         var orderId = Guid.NewGuid();
-        var message = new OrderConfirmedEvent(orderId, "Khách B", 1200m, [], DateTime.UtcNow);
+        var message = new OrderConfirmedEvent(orderId, Guid.NewGuid(), "Khách B", 1200m, [], DateTime.UtcNow);
 
         var publishMock = new Mock<IPublishEndpoint>();
         IInvoiceCreatedEvent? published = null;
@@ -92,7 +92,7 @@ public class InvoiceOrderDerivationTests
         context.Invoices.Add(InvoiceEntity.CreateFromOrder(orderId, "Khách C", 300m));
         await context.SaveChangesAsync();
 
-        var message = new OrderConfirmedEvent(orderId, "Khách C", 300m, [], DateTime.UtcNow);
+        var message = new OrderConfirmedEvent(orderId, Guid.NewGuid(), "Khách C", 300m, [], DateTime.UtcNow);
         var publishMock = new Mock<IPublishEndpoint>(MockBehavior.Strict);
 
         var consumer = new OrderConfirmedConsumer(context, publishMock.Object, Mock.Of<IAuditPublisher>(), NullLogger<OrderConfirmedConsumer>.Instance);

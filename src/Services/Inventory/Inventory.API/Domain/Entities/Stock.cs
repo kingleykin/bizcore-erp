@@ -83,6 +83,23 @@ namespace Inventory.API.Domain.Entities
             MarkStateChanged();
         }
 
+        /// <summary>
+        /// Đảo ngược Commit() khi đơn hàng đã Confirm bị bồi hoàn về Pending (vd. một bước sau
+        /// thanh toán như cộng điểm khách hàng thất bại vĩnh viễn) — trả cả OnHand lẫn Reserved về
+        /// đúng số liệu TRƯỚC lúc Commit, tức trạng thái ngay sau Reserve() (đơn Pending, có giữ
+        /// chỗ). Không dùng Release(): Release() chỉ trả Reserved (dùng khi hủy đơn còn Pending,
+        /// chưa từng Commit); ở đây kho đã bị trừ thật (OnHand) nên phải nhập lại cả hai.
+        /// </summary>
+        public void Uncommit(int quantity)
+        {
+            if (quantity <= 0)
+                throw new DomainException(ErrorCodes.Inventory.InvalidQuantity, "Số lượng nhập lại phải lớn hơn 0.");
+
+            QuantityOnHand += quantity;
+            QuantityReserved += quantity;
+            MarkStateChanged();
+        }
+
         /// <summary>Trả lại số đã giữ chỗ khi đơn hàng bị hủy.</summary>
         public void Release(int quantity)
         {

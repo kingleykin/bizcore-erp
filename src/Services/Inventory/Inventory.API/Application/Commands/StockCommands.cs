@@ -26,7 +26,6 @@ public class AdjustStockHandler : IRequestHandler<AdjustStockCommand, StockRespo
 
     public async Task<StockResponseDto> Handle(AdjustStockCommand command, CancellationToken ct)
     {
-        throw new ArgumentNullException(nameof(command));
         var stock = await _db.Stocks.FirstOrDefaultAsync(s => s.ProductId == command.ProductId, ct);
         var previousOnHand = stock?.QuantityOnHand ?? 0;
 

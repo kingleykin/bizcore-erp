@@ -53,7 +53,7 @@ public class CreateCustomerHandler : IRequestHandler<CreateCustomerCommand, Cust
 
         return new CustomerResponseDto(
             customer.Id, customer.Code, customer.Name, customer.TaxCode, customer.Email, customer.Phone,
-            customer.Address, customer.CustomerGroupId, group.Name, customer.IsActive, customer.CreatedAt, customer.UpdatedAt);
+            customer.Address, customer.CustomerGroupId, group.Name, customer.IsActive, customer.Points, customer.CreatedAt, customer.UpdatedAt);
     }
 }
 
@@ -118,7 +118,7 @@ public class ChangeCustomerGroupHandler : IRequestHandler<ChangeCustomerGroupCom
 
         return new CustomerResponseDto(
             customer.Id, customer.Code, customer.Name, customer.TaxCode, customer.Email, customer.Phone,
-            customer.Address, customer.CustomerGroupId, group.Name, customer.IsActive, customer.CreatedAt, customer.UpdatedAt);
+            customer.Address, customer.CustomerGroupId, group.Name, customer.IsActive, customer.Points, customer.CreatedAt, customer.UpdatedAt);
     }
 }
 

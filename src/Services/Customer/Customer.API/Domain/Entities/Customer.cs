@@ -17,6 +17,7 @@ namespace Customer.API.Domain.Entities
         public string? Address         { get; private set; }
         public Guid    CustomerGroupId { get; private set; }
         public bool    IsActive        { get; private set; }
+        public int     Points          { get; private set; }
 
         // Navigation
         public CustomerGroup CustomerGroup { get; private set; } = null!;
@@ -76,5 +77,18 @@ namespace Customer.API.Domain.Entities
 
         public void Activate()   { IsActive = true;  UpdateState(); }
         public void Deactivate() { IsActive = false; UpdateState(); }
+
+        /// <summary>
+        /// Cộng điểm thưởng (vd. sau khi một đơn hàng thanh toán thành công). Chỉ cộng, không có
+        /// nghiệp vụ trừ/hoàn điểm ở phiên bản này.
+        /// </summary>
+        public void AddPoints(int points)
+        {
+            //if (points <= 0)
+                throw new DomainException(ErrorCodes.Common.InvalidRequest, "Số điểm cộng phải lớn hơn 0.", new { field = nameof(Points) });
+
+            Points += points;
+            UpdateState();
+        }
     }
 }

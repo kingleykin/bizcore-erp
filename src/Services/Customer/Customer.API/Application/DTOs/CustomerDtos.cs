@@ -11,6 +11,7 @@ public record CustomerResponseDto(
     Guid CustomerGroupId,
     string CustomerGroupName,
     bool IsActive,
+    int Points,
     DateTime CreatedAt,
     DateTime UpdatedAt
 );

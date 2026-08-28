@@ -10,10 +10,12 @@ namespace Bizcore.BuildingBlocks.Contracts
     /// PaymentId: chỉ có giá trị khi Order được Confirm tự động do thanh toán hoàn tất
     /// (PaymentConfirmedConsumer) — null khi Confirm thủ công qua API. Inventory/Invoice dùng nó
     /// để biết có payment cần bồi hoàn (publish IPaymentCompensationRequestedEvent) hay không nếu
-    /// bước Commit/tạo Invoice sau đó thất bại.
+    /// bước Commit/tạo Invoice sau đó thất bại. Customer.API cũng dùng nó để chỉ cộng điểm thưởng
+    /// cho đơn THỰC SỰ đã thanh toán, không cộng khi Confirm thủ công (PaymentId null).
     /// </summary>
     public record OrderConfirmedEvent(
         Guid Id,
+        Guid CustomerId,
         string CustomerName,
         decimal TotalAmount,
         IReadOnlyCollection<OrderEventItem> Items,

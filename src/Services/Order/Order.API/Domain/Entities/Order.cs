@@ -85,5 +85,25 @@ namespace Order.API.Domain.Entities
             CancelReason = reason.Trim();
             MarkStateChanged();
         }
+
+        /// <summary>
+        /// Đảo ngược 1 đơn đã Confirmed do thanh toán, khi một bước SAU ĐÓ (vd. cộng điểm khách
+        /// hàng) thất bại VĨNH VIỄN (đã hết số lần retry) và cần bồi hoàn — gọi từ consumer nhận
+        /// IPaymentCompensationRequestedEvent. Đúng chuẩn compensating transaction: trả đơn về
+        /// CHÍNH XÁC trạng thái trước khi xử lý thanh toán (Pending), không phải Cancelled — đơn
+        /// không hề bị hủy, giao dịch chỉ đơn giản là chưa hoàn tất, khách/hệ thống vẫn có thể thanh
+        /// toán lại. Khác Cancel(): Cancel() là hành động hủy chủ động (khách/nhân viên), chỉ cho
+        /// phép từ Pending và không thể xử lý lại; Revert() chỉ cho phép từ Confirmed và luôn trả về
+        /// Pending — tách riêng 2 method để không nới lỏng điều kiện của Cancel() cho luồng người
+        /// dùng, và để 2 trạng thái đích (Cancelled vs Pending) không lẫn vào nhau.
+        /// </summary>
+        public void Revert()
+        {
+            if (Status != OrderStatus.Confirmed)
+                throw new DomainException(ErrorCodes.Order.InvalidStatus, "Chỉ có thể đảo ngược đơn hàng đang ở trạng thái đã xác nhận.");
+
+            Status = OrderStatus.Pending;
+            MarkStateChanged();
+        }
     }
 }

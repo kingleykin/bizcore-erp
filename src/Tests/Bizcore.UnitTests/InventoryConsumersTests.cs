@@ -118,7 +118,7 @@ public class InventoryConsumersTests
 
         var orderId = Guid.NewGuid();
         var message = new OrderConfirmedEvent(
-            orderId, "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
+            orderId, Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
         var consumer = new OrderConfirmedConsumer(context, Mock.Of<IPublishEndpoint>(), NullLogger<OrderConfirmedConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
@@ -144,7 +144,7 @@ public class InventoryConsumersTests
 
         var productId = Guid.NewGuid();
         var message = new OrderConfirmedEvent(
-            Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
+            Guid.NewGuid(), Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow);
 
         var consumer = new OrderConfirmedConsumer(context, Mock.Of<IPublishEndpoint>(), NullLogger<OrderConfirmedConsumer>.Instance);
 
@@ -173,7 +173,7 @@ public class InventoryConsumersTests
         var paymentId = Guid.NewGuid();
         var orderId = Guid.NewGuid();
         var message = new OrderConfirmedEvent(
-            orderId, "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow,
+            orderId, Guid.NewGuid(), "Khách", 500m, new List<OrderEventItem> { Item(productId, 5) }, DateTime.UtcNow,
             PaymentId: paymentId);
 
         var publishMock = new Mock<IPublishEndpoint>();

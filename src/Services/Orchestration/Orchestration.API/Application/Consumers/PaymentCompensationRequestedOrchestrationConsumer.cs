@@ -16,8 +16,16 @@ public class PaymentCompensationRequestedOrchestrationConsumer : IConsumer<IPaym
 
     public async Task Consume(ConsumeContext<IPaymentCompensationRequestedEvent> context)
     {
+        // ProcessFlow/FlowStep chỉ theo dõi luồng Hóa đơn — bồi hoàn cho Đơn hàng (OrderId, không có
+        // InvoiceId, vd. do Customer.API cộng điểm thất bại vĩnh viễn) không có ProcessFlow tương
+        // ứng nên bỏ qua (không phải lỗi) — khớp quy ước đã áp dụng ở
+        // PaymentCompletedOrchestrationConsumer. Trước đây thiếu check này khiến compensation của
+        // Order bị ghi nhầm vào Guid.Empty (không tra cứu được, không đại diện đơn nào).
+        if (context.Message.InvoiceId is not { } invoiceId)
+            return;
+
         await _recorder.RecordAsync(
-            context.Message.InvoiceId ?? Guid.Empty,
+            invoiceId,
             InvoicePaymentFlow.Steps.PaymentCompensationRequestedObserved,
             InvoicePaymentFlow.States.CompensationRequired,
             context.Message,

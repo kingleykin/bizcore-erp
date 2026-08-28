@@ -19,6 +19,7 @@ public static class MappingExtensions
             CustomerGroupId: entity.CustomerGroupId,
             CustomerGroupName: entity.CustomerGroup?.Name ?? string.Empty,
             IsActive: entity.IsActive,
+            Points: entity.Points,
             CreatedAt: entity.CreatedAt,
             UpdatedAt: entity.UpdatedAt
         );

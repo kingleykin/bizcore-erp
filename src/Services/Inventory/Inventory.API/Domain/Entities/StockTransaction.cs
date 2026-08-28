@@ -7,7 +7,8 @@ namespace Inventory.API.Domain.Entities
         Reserve,
         Commit,
         Release,
-        Adjust
+        Adjust,
+        Uncommit
     }
 
     /// <summary>

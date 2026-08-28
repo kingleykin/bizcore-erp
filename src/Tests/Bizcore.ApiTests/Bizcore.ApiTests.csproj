@@ -34,6 +34,7 @@
     <ProjectReference Include="..\..\Services\Audit\Audit.API\Audit.API.csproj" />
     <ProjectReference Include="..\..\Services\Report\Report.API\Report.API.csproj" />
     <ProjectReference Include="..\..\Services\Orchestration\Orchestration.API\Orchestration.API.csproj" />
+    <ProjectReference Include="..\..\Services\Customer\Customer.API\Customer.API.csproj" />
   </ItemGroup>
 
 </Project>

@@ -78,6 +78,7 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string Created = "order.created";
             public const string Confirmed = "order.confirmed";
             public const string Cancelled = "order.cancelled";
+            public const string Reverted = "order.reverted";
         }
 
         public static class Product
@@ -92,6 +93,11 @@ namespace Bizcore.BuildingBlocks.Audit
             public const string Committed = "inventory.committed";
             public const string Released = "inventory.released";
             public const string Adjusted = "inventory.adjusted";
+        }
+
+        public static class Customer
+        {
+            public const string PointsAwarded = "customer.points.awarded";
         }
     }
 }
