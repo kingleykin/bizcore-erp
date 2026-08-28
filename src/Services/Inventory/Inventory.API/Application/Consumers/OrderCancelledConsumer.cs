@@ -38,14 +38,8 @@ namespace Inventory.API.Application.Consumers
 
                 stock.Release(item.Quantity);
 
-                _context.StockTransactions.Add(Domain.Entities.StockTransaction.Create(
-                    stock.ProductId,
-                    stock.ProductName,
-                    Domain.Entities.StockTransactionType.Release,
-                    quantity: item.Quantity,
-                    quantityOnHandAfter: stock.QuantityOnHand,
-                    quantityReservedAfter: stock.QuantityReserved,
-                    relatedOrderId: msg.Id));
+                _context.StockTransactions.Add(Domain.Entities.StockTransaction.CreateFor(
+                    stock, Domain.Entities.StockTransactionType.Release, quantity: item.Quantity, relatedOrderId: msg.Id));
             }
 
             await _context.SaveChangesAsync(context.CancellationToken);

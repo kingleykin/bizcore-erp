@@ -5,6 +5,7 @@ using MassTransit;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using Order.API.Application.Clients;
 using Order.API.Application.Consumers;
 using OrderEntity = Order.API.Domain.Entities.Order;
 
@@ -29,7 +30,8 @@ public class OrderPaymentConsumersTests
         using var connection = TestDbContextFactory.CreateOpenConnection();
         using var context = TestDbContextFactory.CreateOrderDbContext(connection);
 
-        var order = OrderEntity.Create(Guid.NewGuid(), "Khách A", null, [(Guid.NewGuid(), "SP", 2, 50m)]);
+        var productId = Guid.NewGuid();
+        var order = OrderEntity.Create(Guid.NewGuid(), "Khách A", null, [(productId, "SP", 2, 50m)]);
         context.Orders.Add(order);
         await context.SaveChangesAsync();
 
@@ -42,15 +44,55 @@ public class OrderPaymentConsumersTests
                 m.OrderId == (Guid)values.GetType().GetProperty("OrderId")!.GetValue(values)!))
             .Returns(Task.CompletedTask);
 
+        var inventoryMock = new Mock<IInventoryServiceClient>();
+        inventoryMock
+            .Setup(i => i.GetStockAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StockInfo(productId, QuantityOnHand: 10, QuantityReserved: 2, AvailableQuantity: 8));
+
         var paymentId = Guid.NewGuid();
         var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == paymentId && m.OrderId == order.Id && m.Amount == 100m);
 
-        var consumer = new ValidateOrderCommandConsumer(context, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        var consumer = new ValidateOrderCommandConsumer(context, inventoryMock.Object, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         published.Should().NotBeNull();
         published!.PaymentId.Should().Be(paymentId);
         published.OrderId.Should().Be(order.Id);
+    }
+
+    [Fact]
+    public async Task ValidateOrderCommandConsumer_WhenStockOnHandBelowOrderQuantity_PublishesValidationFailed()
+    {
+        // Bảo vệ chống tồn kho âm: nếu QuantityOnHand nhỏ hơn số lượng đặt trên đơn, phải reject
+        // thanh toán ngay ở bước validate thay vì để Stock.Commit() phát hiện sau khi tiền đã bị trừ.
+        using var connection = TestDbContextFactory.CreateOpenConnection();
+        using var context = TestDbContextFactory.CreateOrderDbContext(connection);
+
+        var productId = Guid.NewGuid();
+        var order = OrderEntity.Create(Guid.NewGuid(), "Khách E", null, [(productId, "SP", 5, 50m)]);
+        context.Orders.Add(order);
+        await context.SaveChangesAsync();
+
+        var publishMock = new Mock<IPublishEndpoint>();
+        IOrderValidationFailedEvent? published = null;
+        publishMock
+            .Setup(p => p.Publish<IOrderValidationFailedEvent>(It.IsAny<object>(), It.IsAny<CancellationToken>()))
+            .Callback<object, CancellationToken>((values, _) => published = Mock.Of<IOrderValidationFailedEvent>(m =>
+                m.Reason == (string)values.GetType().GetProperty("Reason")!.GetValue(values)!))
+            .Returns(Task.CompletedTask);
+
+        var inventoryMock = new Mock<IInventoryServiceClient>();
+        inventoryMock
+            .Setup(i => i.GetStockAsync(productId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new StockInfo(productId, QuantityOnHand: 3, QuantityReserved: 5, AvailableQuantity: -2));
+
+        var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == order.Id && m.Amount == 250m);
+
+        var consumer = new ValidateOrderCommandConsumer(context, inventoryMock.Object, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        await consumer.Consume(BuildConsumeContext(message).Object);
+
+        published.Should().NotBeNull();
+        published!.Reason.Should().Contain("Tồn kho không đủ");
     }
 
     [Fact]
@@ -69,7 +111,7 @@ public class OrderPaymentConsumersTests
 
         var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == Guid.NewGuid() && m.Amount == 100m);
 
-        var consumer = new ValidateOrderCommandConsumer(context, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        var consumer = new ValidateOrderCommandConsumer(context, Mock.Of<IInventoryServiceClient>(), publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         published.Should().NotBeNull();
@@ -97,7 +139,7 @@ public class OrderPaymentConsumersTests
 
         var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == order.Id && m.Amount == 50m);
 
-        var consumer = new ValidateOrderCommandConsumer(context, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        var consumer = new ValidateOrderCommandConsumer(context, Mock.Of<IInventoryServiceClient>(), publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         published.Should().NotBeNull();
@@ -125,7 +167,7 @@ public class OrderPaymentConsumersTests
 
         var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == order.Id && m.Amount == 50m);
 
-        var consumer = new ValidateOrderCommandConsumer(context, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        var consumer = new ValidateOrderCommandConsumer(context, Mock.Of<IInventoryServiceClient>(), publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         published.Should().NotBeNull();
@@ -153,7 +195,7 @@ public class OrderPaymentConsumersTests
         // order.TotalAmount == 50m, nhưng payment yêu cầu validate 999m
         var message = Mock.Of<IValidateOrderCommand>(m => m.PaymentId == Guid.NewGuid() && m.OrderId == order.Id && m.Amount == 999m);
 
-        var consumer = new ValidateOrderCommandConsumer(context, publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
+        var consumer = new ValidateOrderCommandConsumer(context, Mock.Of<IInventoryServiceClient>(), publishMock.Object, NullLogger<ValidateOrderCommandConsumer>.Instance);
         await consumer.Consume(BuildConsumeContext(message).Object);
 
         published.Should().NotBeNull();

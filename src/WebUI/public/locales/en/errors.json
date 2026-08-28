@@ -30,6 +30,7 @@
   },
   "INVENTORY": {
     "NOT_FOUND": "Stock record not found.",
-    "INVALID_QUANTITY": "Invalid quantity."
+    "INVALID_QUANTITY": "Invalid quantity.",
+    "INSUFFICIENT_STOCK": "Insufficient stock available for this product."
   }
 }

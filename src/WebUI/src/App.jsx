@@ -1727,22 +1727,22 @@ const OrderManager = ({ api, getErrorDetail, onPay }) => {
   const handlePayOrder = async (order) => {
     setPayingOrderId(order.id);
     try {
-      const success = await onPay({ orderId: order.id }, order.totalAmount);
-      if (success) {
-        // Payment.Completed không đồng nghĩa Order đã Confirmed ngay: IPaymentConfirmedEvent đi
-        // qua Outbox (poll mỗi 1s) rồi mới tới Order.API xử lý — poll vài lần thay vì fetch 1 lần
-        // ngay lập tức (dễ bắt trúng lúc đơn chưa kịp cập nhật, trông như bug).
-        for (let attempt = 0; attempt < 6; attempt++) {
-          await new Promise(r => setTimeout(r, 1000));
-          try {
-            const res = await api.get(`/api/v1/orders/${order.id}`);
-            if (res.data.status !== 0) {
-              setSelectedOrder(res.data);
-              break;
-            }
-          } catch (pollErr) {
-            console.warn('Polling order status failed', pollErr);
+      await onPay({ orderId: order.id }, order.totalAmount);
+      // Dù thanh toán thành công (Confirm) hay bị reject (Cancel — vd. thiếu tồn kho), Order.API
+      // chỉ cập nhật trạng thái đơn SAU khi nhận IPaymentConfirmedEvent/IPaymentRejectedEvent qua
+      // Outbox (poll mỗi 1s) — nghĩa là còn trễ so với thời điểm onPay() trả lời (SignalR bắn ngay
+      // khi Payment.API xử lý xong, trước khi event kịp tới Order.API). Poll vài lần trong mọi
+      // trường hợp thay vì chỉ khi thành công, để không fetch quá sớm và kẹt hiển thị Pending.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        await new Promise(r => setTimeout(r, 1000));
+        try {
+          const res = await api.get(`/api/v1/orders/${order.id}`);
+          if (res.data.status !== 0) {
+            setSelectedOrder(res.data);
+            break;
           }
+        } catch (pollErr) {
+          console.warn('Polling order status failed', pollErr);
         }
       }
       fetchOrders();

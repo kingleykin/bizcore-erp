@@ -30,6 +30,7 @@
   },
   "INVENTORY": {
     "NOT_FOUND": "Không tìm thấy dữ liệu tồn kho.",
-    "INVALID_QUANTITY": "Số lượng không hợp lệ."
+    "INVALID_QUANTITY": "Số lượng không hợp lệ.",
+    "INSUFFICIENT_STOCK": "Không đủ tồn kho khả dụng cho sản phẩm này."
   }
 }

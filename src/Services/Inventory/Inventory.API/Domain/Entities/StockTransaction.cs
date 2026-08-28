@@ -49,5 +49,28 @@ namespace Inventory.API.Domain.Entities
                 Note = note
             };
         }
+
+        /// <summary>
+        /// Ghi lại trạng thái Stock hiện tại (SAU khi đã Reserve/Commit/Release/AdjustOnHand) thành
+        /// 1 bản ghi lịch sử — snapshot ProductId/ProductName/OnHand/Reserved luôn lấy trực tiếp từ
+        /// entity thay vì truyền tay ở từng call site, tránh lệch dữ liệu nếu quên cập nhật.
+        /// </summary>
+        public static StockTransaction CreateFor(
+            Stock stock,
+            StockTransactionType type,
+            int quantity,
+            Guid? relatedOrderId = null,
+            string? note = null)
+        {
+            return Create(
+                stock.ProductId,
+                stock.ProductName,
+                type,
+                quantity,
+                stock.QuantityOnHand,
+                stock.QuantityReserved,
+                relatedOrderId,
+                note);
+        }
     }
 }

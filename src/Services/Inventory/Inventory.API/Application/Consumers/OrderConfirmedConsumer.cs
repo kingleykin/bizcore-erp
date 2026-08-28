@@ -51,14 +51,8 @@ namespace Inventory.API.Application.Consumers
 
                     stock.Commit(item.Quantity);
 
-                    _context.StockTransactions.Add(Domain.Entities.StockTransaction.Create(
-                        stock.ProductId,
-                        stock.ProductName,
-                        Domain.Entities.StockTransactionType.Commit,
-                        quantity: -item.Quantity,
-                        quantityOnHandAfter: stock.QuantityOnHand,
-                        quantityReservedAfter: stock.QuantityReserved,
-                        relatedOrderId: msg.Id));
+                    _context.StockTransactions.Add(Domain.Entities.StockTransaction.CreateFor(
+                        stock, Domain.Entities.StockTransactionType.Commit, quantity: -item.Quantity, relatedOrderId: msg.Id));
                 }
             }
             catch (DomainException ex)

@@ -26,6 +26,7 @@ public class AdjustStockHandler : IRequestHandler<AdjustStockCommand, StockRespo
 
     public async Task<StockResponseDto> Handle(AdjustStockCommand command, CancellationToken ct)
     {
+        throw new ArgumentNullException(nameof(command));
         var stock = await _db.Stocks.FirstOrDefaultAsync(s => s.ProductId == command.ProductId, ct);
         var previousOnHand = stock?.QuantityOnHand ?? 0;
 
@@ -39,13 +40,8 @@ public class AdjustStockHandler : IRequestHandler<AdjustStockCommand, StockRespo
             stock.AdjustOnHand(command.Request.QuantityOnHand);
         }
 
-        _db.StockTransactions.Add(Domain.Entities.StockTransaction.Create(
-            stock.ProductId,
-            stock.ProductName,
-            Domain.Entities.StockTransactionType.Adjust,
-            quantity: stock.QuantityOnHand - previousOnHand,
-            quantityOnHandAfter: stock.QuantityOnHand,
-            quantityReservedAfter: stock.QuantityReserved));
+        _db.StockTransactions.Add(Domain.Entities.StockTransaction.CreateFor(
+            stock, Domain.Entities.StockTransactionType.Adjust, quantity: stock.QuantityOnHand - previousOnHand));
 
         await _audit.PublishAsync(
             AuditActions.Inventory.Adjusted,
